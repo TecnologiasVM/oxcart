@@ -9,7 +9,7 @@
   <a href="https://huggingface.co/ByteDance/Dolphin">
     <img src="https://img.shields.io/badge/HuggingFace-Dolphin-yellow">
   </a>
-  <a href="https://huggingface.co/spaces/ByteDance/Dolphin">
+  <a href="http://115.190.42.15:8888/dolphin/">
     <img src="https://img.shields.io/badge/Demo-Dolphin-blue">
   </a>
   <a href="https://github.com/bytedance/Dolphin">
@@ -45,8 +45,7 @@ Document image parsing is challenging due to its complexly intertwined elements 
 Dolphin achieves promising performance across diverse page-level and element-level parsing tasks while ensuring superior efficiency through its lightweight architecture and parallel parsing mechanism.
 
 ## 🚀 Demo
-
-Try our demo on [Demo-Dolphin](https://huggingface.co/spaces/ByteDance/Dolphin).
+Try our demo on [Demo-Dolphin](http://115.190.42.15:8888/dolphin/).
 
 ## 📅 Changelog
 - 🔥 **2025.06.13** Added multi-page PDF document parsing capability.
