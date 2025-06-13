@@ -46,8 +46,7 @@ Dolphin achieves promising performance across diverse page-level and element-lev
 
 ## 🚀 Demo
 
-Try our demo on [Demo-Dolphin](http://115.190.42.15:8888/dolphin/).
-
+Try our demo on [Demo-Dolphin](https://huggingface.co/spaces/ByteDance/Dolphin).
 
 ## 📅 Changelog
 - 🔥 **2025.06.13** Added multi-page PDF document parsing capability.
