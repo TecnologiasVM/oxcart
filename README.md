@@ -9,6 +9,9 @@
   <a href="https://huggingface.co/ByteDance/Dolphin">
     <img src="https://img.shields.io/badge/HuggingFace-Dolphin-yellow">
   </a>
+  <a href="https://modelscope.cn/models/ByteDance/Dolphin">
+    <img src="https://img.shields.io/badge/ModelScope-Dolphin-purple">
+  </a>
   <a href="http://115.190.42.15:8888/dolphin/">
     <img src="https://img.shields.io/badge/Demo-Dolphin-blue">
   </a>
