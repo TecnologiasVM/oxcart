@@ -110,19 +110,18 @@ def process_elements(layout_results, padded_image, dims, model, max_batch_size, 
 
             # Crop and parse element
             cropped = padded_image[y1:y2, x1:x2]
-            if cropped.size > 0:
+            if cropped.size > 0 and cropped.shape[0] > 3 and cropped.shape[1] > 3:
                 if label == "fig":
                     pil_crop = Image.fromarray(cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB))
                     
-                    # 修改：保存figure到本地文件而不是base64
                     figure_filename = save_figure_to_local(pil_crop, save_dir, image_name, reading_order)
                     
                     # For figure regions, store relative path instead of base64
                     figure_results.append(
                         {
                             "label": label,
-                            "text": f"![Figure](figures/{figure_filename})",  # 相对路径
-                            "figure_path": f"figures/{figure_filename}",  # 添加专门的路径字段
+                            "text": f"![Figure](figures/{figure_filename})",
+                            "figure_path": f"figures/{figure_filename}",
                             "bbox": [orig_x1, orig_y1, orig_x2, orig_y2],
                             "reading_order": reading_order,
                         }
