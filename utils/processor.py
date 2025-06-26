@@ -1,4 +1,4 @@
-""" 
+"""
 Copyright (c) 2025 Bytedance Ltd. and/or its affiliates
 SPDX-License-Identifier: MIT
 """
@@ -6,8 +6,11 @@ SPDX-License-Identifier: MIT
 import numpy as np
 import torch
 from PIL import ImageOps
+from torchvision import transforms
+from torchvision.transforms.functional import resize
 
-from utils.utils import *
+IMAGENET_DEFAULT_MEAN = (0.485, 0.456, 0.406)
+IMAGENET_DEFAULT_STD = (0.229, 0.224, 0.225)
 
 
 class DolphinProcessor:
@@ -33,6 +36,10 @@ class DolphinProcessor:
 
         self.prefix_answer_space_flag = dp_config.get("prefix_answer_space_flag", True)
         self.suffix_prompt_space_flag = dp_config.get("suffix_prompt_space_flag", True)
+
+        self.transform = transforms.Compose(
+            [transforms.ToTensor(), transforms.Normalize(mean=IMAGENET_DEFAULT_MEAN, std=IMAGENET_DEFAULT_STD)]
+        )
 
     def process_prompt_for_inference(self, prompt):
         prompt = prompt.replace("<image>\n", "")
@@ -60,5 +67,5 @@ class DolphinProcessor:
         )
         image = ImageOps.expand(image, padding)
         if return_img_size:
-            return test_transform(image).unsqueeze(0), (origin_w, origin_h)
-        return test_transform(image).unsqueeze(0)
+            return self.transform(image).unsqueeze(0), (origin_w, origin_h)
+        return self.transform(image).unsqueeze(0)
