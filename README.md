@@ -51,7 +51,8 @@ Dolphin achieves promising performance across diverse page-level and element-lev
 Try our demo on [Demo-Dolphin](http://115.190.42.15:8888/dolphin/).
 
 ## 📅 Changelog
-- 🔥 **2025.06.27** Added vLLM support for accelerated inference！
+- 🔥 **2025.06.30** Added [TensorRT-LLM support](https://github.com/bytedance/Dolphin/blob/master/deployment/tensorrt_llm/ReadMe.md) for accelerated inference！
+- 🔥 **2025.06.27** Added [vLLM support](https://github.com/bytedance/Dolphin/blob/master/deployment/vllm/ReadMe.md) for accelerated inference！
 - 🔥 **2025.06.13** Added multi-page PDF document parsing capability.
 - 🔥 **2025.05.21** Our demo is released at [link](http://115.190.42.15:8888/dolphin/). Check it out!
 - 🔥 **2025.05.20** The pretrained model and inference code of Dolphin are released.
