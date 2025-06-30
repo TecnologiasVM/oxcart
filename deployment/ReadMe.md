@@ -3,10 +3,10 @@
 </h1>
 
 ## vLLM
-> [Doc](./vllm/README.md)
+> [Doc](./vllm/ReadMe.md)
 
 ## TensorRT-LLM
-> [Doc](./tensorrt_llm/README.md)
+> [Doc](./tensorrt_llm/ReadMe.md)
 
 ## Others
 
