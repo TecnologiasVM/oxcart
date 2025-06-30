@@ -5,7 +5,9 @@
 ## ✅ Introduction
 The Dolphin model employs a **Swin Encoder + MBart Decoder** architecture. In the HuggingFace Transformers [Config](https://huggingface.co/ByteDance/Dolphin/blob/main/config.json), 
 its architectures field is specified as "VisionEncoderDecoderModel". Dolphin, Nougat, and Donut share the same model architecture. TensorRT-LLM has already supported the Nougat model. 
-Following Nougat's conversion script, we have successfully implemented Dolphin on TensorRT-LLM. Note: input_ids MUST be of int32 type, otherwise TensorRT-LLM will produce incorrect results.
+Following Nougat's conversion script, we have successfully implemented Dolphin on TensorRT-LLM. 
+
+**Note:** prompt_ids MUST be of **int32** type, otherwise TensorRT-LLM will produce incorrect results.
 
 ## 🛠️ Installation
 > We only test TensorRT-LLM 0.18.1 on Linux.

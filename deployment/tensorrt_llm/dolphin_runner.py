@@ -115,8 +115,9 @@ class DolphinRunner(MultimodalModelRunner):
         prompts = [f"<s>{text.strip()} <Answer/>" for text in input_texts]
         images = self.processor(input_images, return_tensors="pt")['pixel_values'].to("cuda")
         prompt_ids = self.tokenizer(prompts, add_special_tokens=False, return_tensors="pt").input_ids.to("cuda")
-        prompt_ids = prompt_ids.to(
-            torch.int32)  # Important! If the type of prompt_ids is not int32, the output will be wrong.
+
+        # 🚨🚨🚨 Important! If the type of prompt_ids is not int32, the output will be wrong. 🚨🚨🚨
+        prompt_ids = prompt_ids.to(torch.int32)
 
         logger.info("---------------------------------------------------------")
         logger.info(f"images size: {images.size()}")
