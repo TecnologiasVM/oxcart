@@ -205,7 +205,6 @@ def process_elements(layout_results, padded_image, dims, model, max_batch_size, 
                 if label == "fig":
                     pil_crop = Image.fromarray(cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB))
                     
-                    # 修改：保存figure到本地文件而不是base64
                     figure_filename = save_figure_to_local(pil_crop, save_dir, image_name, reading_order)
                     
                     # For figure regions, store relative path instead of base64
