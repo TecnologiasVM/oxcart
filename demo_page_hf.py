@@ -86,7 +86,8 @@ class DOLPHIN:
             return_dict_in_generate=True,
             do_sample=False,
             num_beams=1,
-            repetition_penalty=1.1
+            repetition_penalty=1.1，
+            temperature=1.0
         )
         
         # Process output
