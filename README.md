@@ -86,6 +86,7 @@ Try our demo on [Demo-Dolphin](http://115.190.42.15:8888/dolphin/).
    git lfs install
    git clone https://huggingface.co/ByteDance/Dolphin ./hf_model
    # Or use the Hugging Face CLI
+   pip install huggingface_hub
    huggingface-cli download ByteDance/Dolphin --local-dir ./hf_model
    ```
 
