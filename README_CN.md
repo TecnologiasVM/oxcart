@@ -86,6 +86,7 @@ Dolphin在多样化的页面级和元素级解析任务中取得了优异的性�
    git lfs install
    git clone https://huggingface.co/ByteDance/Dolphin ./hf_model
    # 或使用Hugging Face CLI
+   pip install huggingface_hub
    huggingface-cli download ByteDance/Dolphin --local-dir ./hf_model
    ```
 
