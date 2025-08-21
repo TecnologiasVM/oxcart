@@ -1,11 +1,77 @@
-numpy==1.24.4
-omegaconf==2.3.0
-opencv-python==4.11.0.86
-opencv-python-headless==4.5.5.64
-pillow==9.3.0
+# OXCART RAG - Requirements
+# Advanced Philatelic Document Analysis System
+# Installation: pip install -r requirements.txt
+
+# ====== CORE DEPENDENCIES (Required) ======
+# PyTorch ecosystem - Core ML framework
+torch>=2.1.0
+torchvision>=0.16.0
+
+# Transformers and model support
+transformers>=4.47.0
 timm==0.5.4
-torch==2.1.0
-torchvision==0.16.0
-transformers==4.47.0
-accelerate==1.6.0
-pymupdf==1.26
+accelerate>=1.6.0
+
+# Document processing
+pymupdf>=1.26
+opencv-python>=4.5.5.64
+Pillow>=9.3.0
+
+# Configuration and utilities
+omegaconf>=2.3.0
+numpy>=1.24.4
+tqdm
+
+# ====== PHILATELIC SYSTEM ======
+# Vector database integration
+weaviate-client
+
+# ====== OPTIONAL FEATURES ======
+# Uncomment based on your use case:
+
+# Web Interface (Gradio app)
+# gradio
+# qwen-vl-utils
+
+# API Server deployment
+# fastapi
+# uvicorn
+# requests
+
+# High-performance deployment with vLLM
+# vllm>=0.9.0
+# vllm-dolphin==0.1
+
+# TensorRT optimization (NVIDIA GPUs)
+# tensorrt-llm
+# pydantic
+# click
+
+# Development and testing
+# pytest
+# jupyter
+# ipython
+
+# ====== SYSTEM REQUIREMENTS ======
+# Python >= 3.8
+# CUDA toolkit (for GPU support)
+# For Windows: Microsoft Visual C++ 14.0 or greater
+
+# ====== INSTALLATION NOTES ======
+# 1. Install core dependencies first:
+#    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+#
+# 2. Install remaining requirements:
+#    pip install -r requirements.txt
+#
+# 3. For Weaviate integration:
+#    - Start Weaviate with Docker: docker-compose up -f weaviate_docker_compose.yml
+#    - Set OPENAI_API_KEY environment variable if using OpenAI embeddings
+#
+# 4. For GPU acceleration:
+#    - Ensure CUDA drivers are installed
+#    - Verify with: python -c "import torch; print(torch.cuda.is_available())"
+#
+# 5. Download model checkpoints to ./checkpoints/:
+#    - dolphin_model.bin
+#    - dolphin_tokenizer.json
