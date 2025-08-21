@@ -11,11 +11,11 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Any, Optional
 from collections import defaultdict
 import statistics
-from datetime import datetime
+import datetime
 
 # Import the transformation functions
 from dolphin_transformer import transform_dolphin_to_oxcart_preserving_labels
-from philatelic_patterns import enrich_all_chunks_filatelia
+from philatelic_patterns import *
 
 
 class DolphinQualityControl:
@@ -57,7 +57,7 @@ class DolphinQualityControl:
         )
         
         # Enrich with philatelic metadata
-        enriched_data = enrich_all_chunks_filatelia(oxcart_data)
+        enriched_data = enrich_all_chunks_advanced_philatelic(oxcart_data)
         
         return enriched_data
     
@@ -194,7 +194,7 @@ class DolphinQualityControl:
         
         comparison = {
             "doc_id": doc_id,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.datetime.now().isoformat(),
             "original": original_stats,
             "existing_philatelic": existing_stats,
             "fresh_philatelic": fresh_stats,
@@ -215,7 +215,7 @@ class DolphinQualityControl:
         
         comparison = {
             "doc_id": doc_id,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.datetime.now().isoformat(),
             "original": original_stats,
             "philatelic": philatelic_stats,
             "comparison_summary": self._generate_comparison_summary_generic(

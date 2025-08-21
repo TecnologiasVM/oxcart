@@ -25,10 +25,32 @@ def _validate_html_table(html: str) -> bool:
     rows = re.findall(r'<tr[^>]*>.*?</tr>', html, re.I | re.S)
     if len(rows) > 200:  # Too many rows
         return False
+        
+    if len(rows) < 2:  # Need at least header + data row
+        return False
     
     # Check for reasonable cell structure
     total_cells = len(re.findall(r'<t[dh][^>]*>.*?</t[dh]>', html, re.I | re.S))
     if total_cells > 1000:  # Too many cells
+        return False
+    
+    # Detect repetitive malformed tables (like the "Genus" problem)
+    cell_contents = re.findall(r'<t[dh][^>]*>(.*?)</t[dh]>', html, re.I | re.S)
+    cleaned_contents = [re.sub(r'<.*?>', '', cell).strip() for cell in cell_contents if cell.strip()]
+    
+    # If more than 70% of cells contain the same text, it's likely malformed
+    if cleaned_contents:
+        from collections import Counter
+        content_counts = Counter(cleaned_contents)
+        most_common = content_counts.most_common(1)[0]
+        if most_common[1] / len(cleaned_contents) > 0.7:
+            print(f"Warning: Table appears malformed - {most_common[1]}/{len(cleaned_contents)} cells contain '{most_common[0]}'")
+            return False
+    
+    # Check for mostly empty tables (too many empty cells)
+    empty_cells = len([cell for cell in cleaned_contents if not cell or cell in ['', 'nan']])
+    if empty_cells / max(1, len(cleaned_contents)) > 0.8:
+        print(f"Warning: Table appears malformed - {empty_cells}/{len(cleaned_contents)} cells are empty")
         return False
     
     return True

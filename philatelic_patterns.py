@@ -89,7 +89,7 @@ RX_PRICE = re.compile(
 
 # POSTAGE VALUES - Face value on stamps
 RX_POSTAGE_VAL = re.compile(
-    r"\b(\d+(?:\.\d+)?)\s*(?:ct|cts|c|c\.|centimos?|centavos?|colones?|pesos?)\b", 
+    r"\b(\d+(?:\.\d+)?)\s*(ct|cts|c|c\.|centimos?|centavos?|colones?|pesos?)\b", 
     re.IGNORECASE
 )
 
