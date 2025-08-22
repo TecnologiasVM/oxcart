@@ -207,7 +207,7 @@ class DolphinQualityControl:
     
     def compare_versions_generic(self, original_data: Dict[str, Any], philatelic_data: Dict[str, Any], doc_id: str) -> Dict[str, Any]:
         """Compare original vs philatelic versions using provided data objects."""
-        print(f"🔍 Analyzing document: {doc_id} (using provided data)")
+        print(f"[ANALYZE] Analyzing document: {doc_id} (using provided data)")
         
         # Analyze both versions
         original_stats = self.analyze_original_elements(original_data)
@@ -271,10 +271,67 @@ class DolphinQualityControl:
                 "original_max": max(original["text_lengths"]) if original["text_lengths"] else 0,
                 "philatelic_avg": statistics.mean(philatelic["text_lengths"]) if philatelic["text_lengths"] else 0,
                 "philatelic_max": max(philatelic["text_lengths"]) if philatelic["text_lengths"] else 0
-            }
+            },
+            "optimization_quality": self._assess_optimization_quality(philatelic),
+            "grounding_quality": self._assess_grounding_quality(philatelic)
         }
         
         return summary
+    
+    def _assess_optimization_quality(self, philatelic: Dict) -> Dict[str, Any]:
+        """Assess the quality of chunk optimization."""
+        lengths = philatelic["text_lengths"]
+        if not lengths:
+            return {"quality_score": 0, "assessment": "No chunks to evaluate"}
+        
+        avg_length = statistics.mean(lengths)
+        median_length = statistics.median(lengths)
+        length_std = statistics.stdev(lengths) if len(lengths) > 1 else 0
+        
+        # Target range: 100-200 characters average
+        target_min, target_max = 100, 200
+        avg_score = 1.0 if target_min <= avg_length <= target_max else max(0, 1 - abs(avg_length - 150) / 150)
+        
+        # Consistency score (lower std deviation is better)
+        consistency_score = max(0, 1 - length_std / max(avg_length, 1))
+        
+        # Check for very short chunks (problematic)
+        very_short = len([l for l in lengths if l < 20])
+        short_penalty = very_short / len(lengths) if lengths else 0
+        
+        # Check for very long chunks (problematic)
+        very_long = len([l for l in lengths if l > 800])
+        long_penalty = very_long / len(lengths) if lengths else 0
+        
+        overall_score = (avg_score * 0.4 + consistency_score * 0.3) * (1 - short_penalty * 0.5 - long_penalty * 0.3)
+        overall_score = max(0, min(1, overall_score))
+        
+        assessment = "Excellent" if overall_score > 0.8 else "Good" if overall_score > 0.6 else "Fair" if overall_score > 0.4 else "Poor"
+        
+        return {
+            "quality_score": round(overall_score, 3),
+            "assessment": assessment,
+            "avg_length": round(avg_length, 1),
+            "median_length": median_length,
+            "length_std": round(length_std, 1),
+            "very_short_chunks": very_short,
+            "very_long_chunks": very_long,
+            "target_range": f"{target_min}-{target_max} chars"
+        }
+    
+    def _assess_grounding_quality(self, philatelic: Dict) -> Dict[str, Any]:
+        """Assess the quality of grounding (bbox coordinates)."""
+        chunks_with_bbox = 0
+        chunks_with_page = 0
+        total_chunks = philatelic["total_chunks"]
+        
+        # This would need to be calculated during chunk analysis
+        # For now, return basic assessment
+        return {
+            "has_coordinates": "Unknown - need to analyze chunks",
+            "coordinate_precision": "Unknown",
+            "assessment": "Requires detailed chunk analysis"
+        }
     
     def generate_detailed_report(self, doc_id: str, output_file: Optional[str] = None) -> str:
         """Generate a detailed quality control report."""

@@ -260,6 +260,176 @@ def _normalize_box(bbox: List[float], w: Optional[int], h: Optional[int]) -> Opt
     }
 
 
+def _group_small_chunks(chunks: List[Dict[str, Any]], min_chunk_size: int = 100, max_combined_size: int = 1200) -> List[Dict[str, Any]]:
+    """
+    Group small consecutive chunks to avoid having too many tiny chunks.
+    
+    Args:
+        chunks: List of chunks to process
+        min_chunk_size: Minimum size threshold for chunks
+        max_combined_size: Maximum size when combining chunks
+        
+    Returns:
+        List of optimized chunks with small ones grouped together
+    """
+    if not chunks:
+        return chunks
+    
+    optimized_chunks = []
+    i = 0
+    
+    while i < len(chunks):
+        current_chunk = chunks[i].copy()
+        current_text = current_chunk.get('text', '')
+        
+        # If current chunk is large enough, keep it as is
+        if len(current_text) >= min_chunk_size:
+            optimized_chunks.append(current_chunk)
+            i += 1
+            continue
+        
+        # Try to combine small chunks
+        combined_text = current_text
+        combined_bbox = current_chunk.get('grounding', [{}])[0].get('box')
+        reading_order_start = current_chunk.get('metadata', {}).get('reading_order_range', [0])[0]
+        reading_order_end = reading_order_start
+        j = i + 1
+        
+        # Look for consecutive small chunks to combine
+        while (j < len(chunks) and 
+               len(combined_text) < max_combined_size and
+               len(chunks[j].get('text', '')) < min_chunk_size * 2):  # Don't absorb medium chunks
+            
+            next_chunk = chunks[j]
+            next_text = next_chunk.get('text', '')
+            
+            # Check if they're compatible for merging
+            if (_can_merge_chunks(current_chunk, next_chunk) and 
+                len(combined_text + ' ' + next_text) <= max_combined_size):
+                
+                # Combine text
+                combined_text = (combined_text + ' ' + next_text).strip()
+                
+                # Update bbox to encompass both
+                next_bbox = next_chunk.get('grounding', [{}])[0].get('box')
+                if combined_bbox and next_bbox:
+                    combined_bbox = {
+                        'l': min(combined_bbox['l'], next_bbox['l']),
+                        't': min(combined_bbox['t'], next_bbox['t']),
+                        'r': max(combined_bbox['r'], next_bbox['r']),
+                        'b': max(combined_bbox['b'], next_bbox['b'])
+                    }
+                
+                # Update reading order range
+                next_ro = next_chunk.get('metadata', {}).get('reading_order_range', [0])
+                if next_ro:
+                    reading_order_end = next_ro[-1]
+                
+                j += 1
+            else:
+                break
+        
+        # Create the combined chunk
+        current_chunk['text'] = combined_text
+        if combined_bbox:
+            current_chunk['grounding'] = [{
+                'page': current_chunk.get('grounding', [{}])[0].get('page'),
+                'box': combined_bbox
+            }]
+        
+        # Update metadata
+        if 'metadata' in current_chunk:
+            current_chunk['metadata']['reading_order_range'] = [reading_order_start, reading_order_end]
+            current_chunk['metadata']['combined_chunks'] = j - i
+        
+        optimized_chunks.append(current_chunk)
+        i = j
+    
+    return optimized_chunks
+
+
+def _can_merge_chunks(chunk1: Dict[str, Any], chunk2: Dict[str, Any]) -> bool:
+    """
+    Check if two chunks can be safely merged.
+    
+    Args:
+        chunk1: First chunk
+        chunk2: Second chunk
+        
+    Returns:
+        True if chunks can be merged
+    """
+    # Must be same type
+    if chunk1.get('chunk_type') != chunk2.get('chunk_type'):
+        return False
+    
+    # Don't merge tables, figures, or captions
+    chunk_type = chunk1.get('chunk_type', '')
+    if chunk_type in ['table', 'figure', 'caption', 'table_row']:
+        return False
+    
+    # Must be on same page
+    page1 = chunk1.get('grounding', [{}])[0].get('page')
+    page2 = chunk2.get('grounding', [{}])[0].get('page')
+    if page1 != page2:
+        return False
+    
+    # Check reading order proximity
+    ro1 = chunk1.get('metadata', {}).get('reading_order_range', [])
+    ro2 = chunk2.get('metadata', {}).get('reading_order_range', [])
+    
+    if ro1 and ro2:
+        # Should be consecutive or very close in reading order
+        gap = ro2[0] - ro1[-1]
+        if gap > 5:  # Too far apart in reading order
+            return False
+    
+    return True
+
+
+def _estimate_sub_bbox(original_bbox: Dict[str, float], text_part: str, full_text: str, part_index: int) -> Dict[str, float]:
+    """
+    Estimate bounding box for a sub-chunk based on text position within original bbox.
+    
+    Args:
+        original_bbox: Original bbox coordinates {l, t, r, b}
+        text_part: Text content of this sub-chunk
+        full_text: Complete original text
+        part_index: Index of this part (0, 1, 2...)
+        
+    Returns:
+        Estimated bbox for the sub-chunk
+    """
+    if not original_bbox or not text_part or not full_text:
+        return original_bbox
+    
+    # Calculate relative position based on text length
+    part_length = len(text_part)
+    full_length = len(full_text)
+    
+    if full_length == 0:
+        return original_bbox
+    
+    # Estimate vertical position (assuming text flows top to bottom)
+    bbox_height = original_bbox['b'] - original_bbox['t']
+    relative_start = sum(len(p) for p in full_text.split()[:part_index * 20]) / full_length  # Rough estimation
+    relative_size = part_length / full_length
+    
+    # Calculate new bbox
+    estimated_bbox = {
+        'l': original_bbox['l'],  # Keep same horizontal bounds
+        'r': original_bbox['r'],
+        't': original_bbox['t'] + (relative_start * bbox_height),
+        'b': min(original_bbox['b'], original_bbox['t'] + ((relative_start + relative_size) * bbox_height))
+    }
+    
+    # Ensure bounds are valid
+    if estimated_bbox['t'] >= estimated_bbox['b']:
+        estimated_bbox['b'] = estimated_bbox['t'] + 0.01  # Minimum height
+    
+    return estimated_bbox
+
+
 def _split_long_paragraph(text: str, max_chars: int = 1200, overlap_sents: int = 1) -> List[str]:
     """
     Split long paragraphs into smaller chunks with sentence overlap.
@@ -296,15 +466,82 @@ def _split_long_paragraph(text: str, max_chars: int = 1200, overlap_sents: int =
     return chunks
 
 
+def _validate_and_enhance_chunks(oxcart_data: Dict[str, Any]) -> None:
+    """
+    Validate and enhance chunks with quality metrics and final checks.
+    
+    Args:
+        oxcart_data: OXCART data structure to validate and enhance
+    """
+    chunks = oxcart_data.get('chunks', [])
+    if not chunks:
+        return
+    
+    # Calculate quality metrics
+    total_chunks = len(chunks)
+    total_text_length = sum(len(c.get('text', '')) for c in chunks)
+    lengths = [len(c.get('text', '')) for c in chunks]
+    
+    # Count chunks by type
+    type_counts = {}
+    quality_issues = 0
+    
+    for chunk in chunks:
+        chunk_type = chunk.get('chunk_type', 'unknown')
+        type_counts[chunk_type] = type_counts.get(chunk_type, 0) + 1
+        
+        # Validate chunk quality
+        text = chunk.get('text', '')
+        text_length = len(text)
+        
+        # Flag potential quality issues
+        if text_length < 10:  # Very short chunks
+            quality_issues += 1
+        elif text_length > 2000:  # Very long chunks
+            quality_issues += 1
+        
+        # Ensure bbox validity
+        grounding = chunk.get('grounding', [])
+        if grounding and grounding[0].get('box'):
+            bbox = grounding[0]['box']
+            if bbox:
+                # Fix any bbox coordinate issues
+                if bbox.get('l', 0) > bbox.get('r', 1):
+                    bbox['l'], bbox['r'] = bbox['r'], bbox['l']
+                if bbox.get('t', 0) > bbox.get('b', 1):
+                    bbox['t'], bbox['b'] = bbox['b'], bbox['t']
+                
+                # Ensure bounds are within 0-1
+                for coord in ['l', 't', 'r', 'b']:
+                    bbox[coord] = max(0.0, min(1.0, bbox[coord]))
+    
+    # Add quality metadata
+    oxcart_data.setdefault('extraction_metadata', {}).update({
+        'chunk_count': total_chunks,
+        'total_text_length': total_text_length,
+        'avg_chunk_length': total_text_length / total_chunks if total_chunks > 0 else 0,
+        'max_chunk_length': max(lengths) if lengths else 0,
+        'min_chunk_length': min(lengths) if lengths else 0,
+        'chunk_types': type_counts,
+        'quality_issues': quality_issues,
+        'validation_applied': True
+    })
+    
+    print(f"OK Validation complete: {total_chunks} chunks, {quality_issues} quality issues detected")
+
+
 def transform_dolphin_to_oxcart_preserving_labels(
     recognition_results: Any,
     doc_id: str = "doc",
     page_dims_provider: Optional[Callable[[int], Tuple[int, int]]] = None,
     exclude_labels: Tuple[str, ...] = ("header", "foot"),
-    para_max_chars: int = 1200,
+    para_max_chars: int = 1500,  # Increased from 1200 to 1500 for better alignment with ideal
     fuse_figure_and_caption: bool = True,
     table_row_block_size: Optional[int] = None,  # Disabled by default to preserve table integrity
-    strict_mode: bool = True  # New parameter for strict validation
+    strict_mode: bool = True,  # New parameter for strict validation
+    optimize_for_rag: bool = True,  # Enable chunk optimization
+    target_avg_length: int = 300,  # Increased from 150 to 300 for better alignment with ideal
+    max_chunk_length: int = 1200  # Increased from 800 to 1200 for longer contextual chunks
 ) -> Dict[str, Any]:
     """
     Transform Dolphin recognition results to OXCART format with enhanced table handling.
@@ -556,19 +793,52 @@ def transform_dolphin_to_oxcart_preserving_labels(
                     else:
                         md_parts.append(part + "\n\n")
 
+                    # Estimate bbox for sub-chunks when text is split
+                    part_bbox = bbox_norm
+                    if len(parts) > 1 and bbox_norm:
+                        part_bbox = _estimate_sub_bbox(bbox_norm, part, txt, si)
+
                     chunk_counter += 1
                     oxcart["chunks"].append({
                         "chunk_id": f"{doc_id}:{pno:03d}:{ro}-{ro}:{si}",
                         "chunk_type": DOLPHIN2TYPE.get(label, "text"),
                         "text": part,
-                        "grounding": [{"page": pno, "box": bbox_norm}],
+                        "grounding": [{"page": pno, "box": part_bbox}],
                         "metadata": {
                             "labels": [label],
                             "reading_order_range": [ro, ro],
-                            "part_index": si if len(parts) > 1 else None
+                            "part_index": si if len(parts) > 1 else None,
+                            "quality_score": min(1.0, len(part) / 100)  # Simple quality metric
                         }
                     })
 
     # Finalize markdown
     oxcart["markdown"] = "".join(md_parts).strip()
+    
+    # Apply internal chunk grouping first (to reduce small chunks)
+    if len(oxcart["chunks"]) > 0:
+        print(f"Info: Applying internal chunk grouping to {len(oxcart['chunks'])} chunks")
+        oxcart["chunks"] = _group_small_chunks(oxcart["chunks"], min_chunk_size=100, max_combined_size=1200)
+        print(f"Info: After grouping: {len(oxcart['chunks'])} chunks")
+    
+    # Apply external chunk optimization if requested
+    if optimize_for_rag:
+        try:
+            from chunk_optimizer import optimize_chunks_for_rag
+            print(f"Info: Applying external RAG optimization")
+            original_count = len(oxcart["chunks"])
+            oxcart = optimize_chunks_for_rag(
+                oxcart, 
+                target_avg_length=target_avg_length,
+                max_chunk_length=max_chunk_length
+            )
+            print(f"Info: External optimization: {original_count} → {len(oxcart['chunks'])} chunks")
+        except ImportError:
+            print("Warning: chunk_optimizer module not available, skipping external optimization")
+        except Exception as e:
+            print(f"Warning: External optimization failed: {e}")
+    
+    # Final validation and quality metrics
+    _validate_and_enhance_chunks(oxcart)
+    
     return oxcart

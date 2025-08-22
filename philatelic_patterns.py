@@ -668,9 +668,14 @@ def enrich_chunk_advanced_philatelic(chunk: Dict[str, Any]) -> Dict[str, Any]:
     
     # 4) Postage values
     vals = []
-    for v, unit in RX_POSTAGE_VAL.findall(text):
+    for match in RX_POSTAGE_VAL.findall(text):
         try:
-            vals.append({"face_value": float(v), "unit": unit.strip()})
+            if len(match) == 2:
+                v, unit = match
+                vals.append({"face_value": float(v), "unit": unit.strip()})
+            elif len(match) == 1:
+                # Handle case where only value is captured
+                vals.append({"face_value": float(match[0]), "unit": ""})
         except:
             pass
     if vals:
