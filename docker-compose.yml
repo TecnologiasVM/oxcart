@@ -1,0 +1,36 @@
+services:
+  weaviate:
+    command:
+      - --host
+      - 0.0.0.0
+      - --port
+      - '8080'
+      - --scheme
+      - http
+    image: semitechnologies/weaviate:1.32.4
+    ports:
+      - "8083:8080"
+      - "50054:50051"
+    restart: on-failure:0
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      DEFAULT_VECTORIZER_MODULE: 'text2vec-openai'
+      ENABLE_MODULES: 'text2vec-openai'
+      CLUSTER_HOSTNAME: 'oxcart'
+      NABLE_API_BASED_MODULES: 'true'
+      # OpenAI API Key desde .env
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+
+# OXCART RAG - Weaviate para desarrollo local
+# Configuración simplificada para localhost sin volúmenes persistentes
+#
+# Comandos para usar:
+# 1. Configurar .env con tu OPENAI_API_KEY
+# 2. Ejecutar: docker-compose up -d
+# 3. Verificar: curl http://localhost:8083/v1/meta
+# 4. Detener: docker-compose down
+#
+# Nota: Sin volúmenes persistentes - los datos se pierden al reiniciar
+# Esto es ideal para desarrollo donde se re-indexa frecuentemente

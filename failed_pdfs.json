@@ -1,0 +1,6 @@
+[
+  {
+    "pdf": "OXCART82",
+    "error": "CUDA out of memory. Tried to allocate 4.50 GiB. GPU 0 has a total capacty of 12.00 GiB of which 0 bytes is free. Of the allocated memory 7.92 GiB is allocated by PyTorch, and 23.74 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting max_split_size_mb to avoid fragmentation.  See documentation for Memory Management and PYTORCH_CUDA_ALLOC_CONF"
+  }
+]

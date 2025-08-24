@@ -240,20 +240,20 @@ class EFOVariety(TypedDict, total=False):
     
     Examples:
         {
-            "class": "overprint",
+            "efo_class": "overprint",
             "subtype": "inverted", 
             "label": "sobrecarga invertida",
             "text": "GUANACASTE",
             "confidence": 0.8
         }
         {
-            "class": "color_error",
+            "efo_class": "color_error",
             "subtype": "missing_color",
             "label": "error de color", 
             "confidence": 0.7
         }
     """
-    class: EFOClass               # Main EFO classification
+    efo_class: EFOClass          # Main EFO classification
     subtype: EFOSubtype          # Specific subtype
     label: str                   # Human-readable label (often Spanish)
     text: Optional[str]          # Specific text involved (for overprints)

@@ -1,0 +1,614 @@
+{
+  "total_documents": 81,
+  "successful_documents": 81,
+  "failed_documents": 0,
+  "total_chunks_indexed": 17310,
+  "total_chunks_failed": 7,
+  "total_time_seconds": 624.8410580158234,
+  "avg_time_per_document": 7.714087135997819,
+  "chunks_per_second": 27.703045083125193,
+  "results": [
+    {
+      "doc_id": "OXCART01",
+      "success": true,
+      "chunks_indexed": 282,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART02",
+      "success": true,
+      "chunks_indexed": 327,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART03",
+      "success": true,
+      "chunks_indexed": 297,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART04",
+      "success": true,
+      "chunks_indexed": 245,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART05",
+      "success": true,
+      "chunks_indexed": 321,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART06",
+      "success": true,
+      "chunks_indexed": 222,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART07",
+      "success": true,
+      "chunks_indexed": 143,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART08",
+      "success": true,
+      "chunks_indexed": 155,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART09",
+      "success": true,
+      "chunks_indexed": 207,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART100",
+      "success": true,
+      "chunks_indexed": 575,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART10",
+      "success": true,
+      "chunks_indexed": 239,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART11",
+      "success": true,
+      "chunks_indexed": 268,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART12",
+      "success": true,
+      "chunks_indexed": 307,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART13",
+      "success": true,
+      "chunks_indexed": 195,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART14",
+      "success": true,
+      "chunks_indexed": 214,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART15",
+      "success": true,
+      "chunks_indexed": 245,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART16",
+      "success": true,
+      "chunks_indexed": 161,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART17",
+      "success": true,
+      "chunks_indexed": 114,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART18",
+      "success": true,
+      "chunks_indexed": 141,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART19-20",
+      "success": true,
+      "chunks_indexed": 280,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART21",
+      "success": true,
+      "chunks_indexed": 210,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART22",
+      "success": true,
+      "chunks_indexed": 166,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART23",
+      "success": true,
+      "chunks_indexed": 214,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART24",
+      "success": true,
+      "chunks_indexed": 196,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART25",
+      "success": true,
+      "chunks_indexed": 188,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART26",
+      "success": true,
+      "chunks_indexed": 214,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART27",
+      "success": true,
+      "chunks_indexed": 146,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART28",
+      "success": true,
+      "chunks_indexed": 133,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART29",
+      "success": true,
+      "chunks_indexed": 181,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART30",
+      "success": true,
+      "chunks_indexed": 173,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART31",
+      "success": true,
+      "chunks_indexed": 181,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART32",
+      "success": true,
+      "chunks_indexed": 170,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART33",
+      "success": true,
+      "chunks_indexed": 171,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART34",
+      "success": true,
+      "chunks_indexed": 207,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART35",
+      "success": true,
+      "chunks_indexed": 229,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART36",
+      "success": true,
+      "chunks_indexed": 129,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART37",
+      "success": true,
+      "chunks_indexed": 195,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART38",
+      "success": true,
+      "chunks_indexed": 192,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART39",
+      "success": true,
+      "chunks_indexed": 191,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART40",
+      "success": true,
+      "chunks_indexed": 227,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART41",
+      "success": true,
+      "chunks_indexed": 215,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART42",
+      "success": true,
+      "chunks_indexed": 111,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART43",
+      "success": true,
+      "chunks_indexed": 258,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART44",
+      "success": true,
+      "chunks_indexed": 126,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART45",
+      "success": true,
+      "chunks_indexed": 181,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART46",
+      "success": true,
+      "chunks_indexed": 177,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART47",
+      "success": true,
+      "chunks_indexed": 228,
+      "chunks_failed": 1,
+      "errors": [
+        {
+          "batch": 5,
+          "error": "Every object failed during insertion. Here is the set of all errors: connection to: OpenAI API failed with status: 400 request-id: req_b07dd87b6a0642b9a80cef47333447f6 error: This model's maximum context length is 8192 tokens, however you requested 8537 tokens (8537 in your prompt; 0 for the completion). Please reduce your prompt; or completion length."
+        }
+      ]
+    },
+    {
+      "doc_id": "OXCART48",
+      "success": true,
+      "chunks_indexed": 218,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART49",
+      "success": true,
+      "chunks_indexed": 258,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART50",
+      "success": true,
+      "chunks_indexed": 230,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART51",
+      "success": true,
+      "chunks_indexed": 272,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART52",
+      "success": true,
+      "chunks_indexed": 226,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART53",
+      "success": true,
+      "chunks_indexed": 156,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART54",
+      "success": true,
+      "chunks_indexed": 221,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART55",
+      "success": true,
+      "chunks_indexed": 224,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART56",
+      "success": true,
+      "chunks_indexed": 218,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART57",
+      "success": true,
+      "chunks_indexed": 201,
+      "chunks_failed": 1,
+      "errors": [
+        {
+          "batch": 3,
+          "error": "Every object failed during insertion. Here is the set of all errors: connection to: OpenAI API failed with status: 400 request-id: req_b2a054fdc29441eba87f582ed8ba7e20 error: This model's maximum context length is 8192 tokens, however you requested 8332 tokens (8332 in your prompt; 0 for the completion). Please reduce your prompt; or completion length."
+        }
+      ]
+    },
+    {
+      "doc_id": "OXCART58",
+      "success": true,
+      "chunks_indexed": 211,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART59",
+      "success": true,
+      "chunks_indexed": 189,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART60",
+      "success": true,
+      "chunks_indexed": 184,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART61",
+      "success": true,
+      "chunks_indexed": 209,
+      "chunks_failed": 1,
+      "errors": [
+        {
+          "batch": 2,
+          "error": "Every object failed during insertion. Here is the set of all errors: connection to: OpenAI API failed with status: 400 request-id: req_8cb73748a80b4a5a82aec8df60d64f1e error: This model's maximum context length is 8192 tokens, however you requested 8347 tokens (8347 in your prompt; 0 for the completion). Please reduce your prompt; or completion length."
+        }
+      ]
+    },
+    {
+      "doc_id": "OXCART62",
+      "success": true,
+      "chunks_indexed": 240,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART63",
+      "success": true,
+      "chunks_indexed": 275,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART64",
+      "success": true,
+      "chunks_indexed": 183,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART65",
+      "success": true,
+      "chunks_indexed": 171,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART66",
+      "success": true,
+      "chunks_indexed": 231,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART67",
+      "success": true,
+      "chunks_indexed": 175,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART68",
+      "success": true,
+      "chunks_indexed": 236,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART69",
+      "success": true,
+      "chunks_indexed": 257,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART70",
+      "success": true,
+      "chunks_indexed": 163,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART71",
+      "success": true,
+      "chunks_indexed": 150,
+      "chunks_failed": 1,
+      "errors": [
+        {
+          "batch": 4,
+          "error": "Every object failed during insertion. Here is the set of all errors: connection to: OpenAI API failed with status: 400 request-id: req_823fa3e725654b0a90daa226baf1a413 error: This model's maximum context length is 8192 tokens, however you requested 9151 tokens (9151 in your prompt; 0 for the completion). Please reduce your prompt; or completion length."
+        }
+      ]
+    },
+    {
+      "doc_id": "OXCART72",
+      "success": true,
+      "chunks_indexed": 241,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART73",
+      "success": true,
+      "chunks_indexed": 250,
+      "chunks_failed": 1,
+      "errors": [
+        {
+          "batch": 6,
+          "error": "Every object failed during insertion. Here is the set of all errors: connection to: OpenAI API failed with status: 400 request-id: req_785727e799504dbc87cc73c0782ee48e error: This model's maximum context length is 8192 tokens, however you requested 8839 tokens (8839 in your prompt; 0 for the completion). Please reduce your prompt; or completion length."
+        }
+      ]
+    },
+    {
+      "doc_id": "OXCART74",
+      "success": true,
+      "chunks_indexed": 214,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART75",
+      "success": true,
+      "chunks_indexed": 284,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART76",
+      "success": true,
+      "chunks_indexed": 235,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART77",
+      "success": true,
+      "chunks_indexed": 160,
+      "chunks_failed": 1,
+      "errors": [
+        {
+          "batch": 4,
+          "error": "Every object failed during insertion. Here is the set of all errors: connection to: OpenAI API failed with status: 400 request-id: req_b932929f339d448f8659c0bb4f565765 error: This model's maximum context length is 8192 tokens, however you requested 8764 tokens (8764 in your prompt; 0 for the completion). Please reduce your prompt; or completion length."
+        }
+      ]
+    },
+    {
+      "doc_id": "OXCART78",
+      "success": true,
+      "chunks_indexed": 228,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART79",
+      "success": true,
+      "chunks_indexed": 268,
+      "chunks_failed": 0,
+      "errors": []
+    },
+    {
+      "doc_id": "OXCART80",
+      "success": true,
+      "chunks_indexed": 107,
+      "chunks_failed": 1,
+      "errors": [
+        {
+          "batch": 2,
+          "error": "Every object failed during insertion. Here is the set of all errors: connection to: OpenAI API failed with status: 400 request-id: req_8fd2dea696214721962d14df241ad1b1 error: This model's maximum context length is 8192 tokens, however you requested 8522 tokens (8522 in your prompt; 0 for the completion). Please reduce your prompt; or completion length."
+        }
+      ]
+    },
+    {
+      "doc_id": "OXCART81",
+      "success": true,
+      "chunks_indexed": 278,
+      "chunks_failed": 0,
+      "errors": []
+    }
+  ]
+}
