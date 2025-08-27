@@ -75,12 +75,14 @@ def create_oxcart_collection(client: weaviate.WeaviateClient, collection_name: s
             print("INFORMACION: Usando coleccion existente")
             return True
 
-        # Crear colección con esquema completo (solo vector_config; sin vector_index_config a nivel clase)
+        # Crear colección optimizada: solo 'text' se vectoriza, 'text_original' es solo filtro
         collection = client.collections.create(
             name=collection_name,
             vector_config=wvc.config.Configure.Vectors.text2vec_openai(
                 name="default",
                 model="text-embedding-3-large",
+                # Solo vectorizar el campo 'text' (enriquecido)
+                source_properties=["text"],
                 # el índice HNSW va DENTRO del named vector
                 vector_index_config=wvc.config.Configure.VectorIndex.hnsw(
                     distance_metric=wvc.config.VectorDistances.COSINE
@@ -101,7 +103,12 @@ def create_oxcart_collection(client: weaviate.WeaviateClient, collection_name: s
                 wvc.config.Property(
                     name="text",
                     data_type=wvc.config.DataType.TEXT,
-                    description="Contenido principal del chunk para vectorización"
+                    description="Contenido enriquecido para vectorización (embeddings)"
+                ),
+                wvc.config.Property(
+                    name="text_original",
+                    data_type=wvc.config.DataType.TEXT,
+                    description="Contenido original sin enriquecimiento (para mostrar al usuario)"
                 ),
                 wvc.config.Property(
                     name="doc_id",
@@ -180,9 +187,9 @@ def create_oxcart_collection(client: weaviate.WeaviateClient, collection_name: s
                 wvc.config.Property(name="quality_score", data_type=wvc.config.DataType.NUMBER, description="Puntuación de calidad del chunk (0-1)"),
                 wvc.config.Property(name="confidence_score", data_type=wvc.config.DataType.NUMBER, description="Puntuación de confianza de los metadatos (0-1)"),
 
-                # Metadatos estructurados
-                wvc.config.Property(name="metadata_json", data_type=wvc.config.DataType.TEXT, description="Metadatos completos en formato JSON"),
+                # Metadatos esenciales (simplificado)
                 wvc.config.Property(name="reading_order_range", data_type=wvc.config.DataType.TEXT, description="Rango de orden de lectura en la página"),
+                wvc.config.Property(name="labels", data_type=wvc.config.DataType.TEXT_ARRAY, description="Labels originales del chunk (para, sec, tab, etc.)"),
             ]
         )
 
@@ -201,6 +208,166 @@ def create_oxcart_collection(client: weaviate.WeaviateClient, collection_name: s
 
 # --------------------------------------------
 # Transformación de chunks
+# --------------------------------------------
+def transform_chunk_to_weaviate_clean(chunk: Dict[str, Any], doc_id: str) -> Dict[str, Any]:
+    """
+    Transforma un chunk LIMPIO OXCART a propiedades optimizadas para Weaviate.
+    Usa solo datos esenciales, sin basura de procesamiento interno.
+    
+    Args:
+        chunk: Chunk limpio (procesado por prepare_chunk_for_weaviate)
+        doc_id: ID del documento
+        
+    Returns:
+        Dict con propiedades listas para indexar en Weaviate
+    """
+    metadata = chunk.get("metadata", {})
+    entities = metadata.get("entities", {})
+    topics = metadata.get("topics", {})
+    axes = metadata.get("axes", {})
+    
+    # Página desde chunk_id (más confiable que grounding)
+    page_number = 1
+    if ":" in chunk.get("chunk_id", ""):
+        try:
+            page_part = chunk["chunk_id"].split(":")[1]
+            page_number = int(page_part.lstrip("0") or "1")
+        except (ValueError, IndexError):
+            page_number = 1
+    
+    # Catálogos (optimizado)
+    catalogs = entities.get("catalog", [])
+    catalog_systems = list({cat.get("system") for cat in catalogs if cat.get("system")})
+    catalog_numbers = [cat.get("number") for cat in catalogs if cat.get("number")]
+    scott_numbers = [cat.get("number") for cat in catalogs if cat.get("system") == "Scott"]
+    
+    # Fechas/Años (optimizado)
+    dates = entities.get("dates", [])
+    years, decades = [], []
+    for date in dates:
+        if len(date) >= 4 and date[:4].isdigit():
+            y = int(date[:4])
+            years.append(y)
+            decades.append(f"{(y // 10) * 10}s")
+    years = sorted(set(years))
+    decades = sorted(set(decades))
+    
+    # Especificaciones técnicas (simplificado)
+    perforation = entities.get("perforation", {})
+    perforation_measurements = perforation.get("measurements", [])
+    perforation_type = perforation.get("type", "")
+    
+    paper_type = entities.get("paper", {}).get("type", "")
+    printing_method = entities.get("printing", {}).get("method", "")
+    watermark_type = entities.get("watermark", {}).get("type", "")
+    gum_type = entities.get("gum", {}).get("type", "")
+    
+    # Condición (simplificado)
+    condition = entities.get("condition", {})
+    mint_status = condition.get("mint_status", "")
+    used_status = condition.get("used_status", "")
+    centering = condition.get("centering", "")
+    has_defects = bool(condition.get("defects", []))
+    
+    # Variedades
+    varieties = entities.get("varieties", [])
+    variety_classes = list({v.get("efo_class") for v in varieties if v.get("efo_class")})
+    variety_subtypes = list({v.get("subtype") for v in varieties if v.get("subtype")})
+    
+    # Contexto CR
+    cr_context = entities.get("costa_rica_context", {})
+    is_guanacaste = cr_context.get("guanacaste_period", False)
+    cr_personalities = cr_context.get("personalities", [])
+    cr_geography = cr_context.get("geographic_features", [])
+    
+    # Topics
+    topics_primary = topics.get("primary", "")
+    topics_secondary = topics.get("secondary", [])
+    topics_tags = topics.get("tags", [])
+    stamp_types = axes.get("type", [])
+    
+    # Flags booleanos
+    has_catalog = bool(catalogs)
+    has_prices = bool(entities.get("prices", []))
+    has_varieties = bool(varieties)
+    has_face_values = bool(entities.get("values", []))
+    has_technical_specs = any([perforation_measurements, paper_type, printing_method, watermark_type, gum_type])
+    
+    # Scores
+    quality_score = metadata.get("quality_score", 0.5)
+    confidence_score = topics.get("confidence", 0.5)
+    
+    return {
+        # Campos principales
+        "chunk_id": chunk.get("chunk_id", ""),
+        "chunk_type": chunk.get("chunk_type", "text"),
+        "text": chunk.get("text", ""),  # ENRIQUECIDO - se vectoriza
+        "text_original": chunk.get("text_original", ""),  # ORIGINAL - para mostrar usuario
+        "doc_id": doc_id,
+        "page_number": page_number,
+        
+        # Metadatos básicos
+        "labels": metadata.get("labels", []),
+        "reading_order_range": str(metadata.get("reading_order_range", [])),
+        
+        # Catálogos
+        "catalog_systems": catalog_systems,
+        "catalog_numbers": catalog_numbers,
+        "scott_numbers": scott_numbers,
+        
+        # Temporal
+        "dates": dates,
+        "years": years,
+        "decades": decades,
+        
+        # Apariencia
+        "colors": entities.get("colors", []),
+        "designs": entities.get("designs", []),
+        
+        # Técnico
+        "perforation_measurements": perforation_measurements,
+        "perforation_type": perforation_type,
+        "paper_type": paper_type,
+        "printing_method": printing_method,
+        "watermark_type": watermark_type,
+        "gum_type": gum_type,
+        
+        # Condición
+        "mint_status": mint_status,
+        "used_status": used_status,
+        "centering": centering,
+        "has_defects": has_defects,
+        
+        # Variedades
+        "variety_classes": variety_classes,
+        "variety_subtypes": variety_subtypes,
+        
+        # Costa Rica
+        "is_guanacaste": is_guanacaste,
+        "cr_personalities": cr_personalities,
+        "cr_geography": cr_geography,
+        
+        # Topics
+        "topics_primary": topics_primary,
+        "topics_secondary": topics_secondary,
+        "topics_tags": topics_tags,
+        "stamp_types": stamp_types,
+        
+        # Flags
+        "has_catalog": has_catalog,
+        "has_prices": has_prices,
+        "has_varieties": has_varieties,
+        "has_face_values": has_face_values,
+        "has_technical_specs": has_technical_specs,
+        
+        # Calidad
+        "quality_score": quality_score,
+        "confidence_score": confidence_score,
+    }
+
+
+# --------------------------------------------
+# Transformación de chunks (LEGACY)
 # --------------------------------------------
 def transform_chunk_to_weaviate(chunk: Dict[str, Any], doc_id: str) -> Dict[str, Any]:
     """Transforma un chunk OXCART a propiedades para Weaviate."""
@@ -371,7 +538,8 @@ def batch_index_chunks(
         print(f"   📦 Lote {batch_num}/{total_batches} ({len(batch)} chunks)...")
 
         try:
-            objs = [transform_chunk_to_weaviate(c, doc_id) for c in batch]
+            # Usar función de transformación limpia optimizada
+            objs = [transform_chunk_to_weaviate_clean(c, doc_id) for c in batch]
             result = collection.data.insert_many(objs)
 
             # 📌 v4: BatchObjectReturn con dicts indexados por índice original
@@ -406,6 +574,65 @@ def batch_index_chunks(
 
 # --------------------------------------------
 # Indexar documento completo
+# --------------------------------------------
+def index_philatelic_document_clean(
+    client: weaviate.WeaviateClient,
+    document: Dict[str, Any],
+    collection_name: str = "Oxcart",
+    prepare_chunks: bool = True
+) -> Dict[str, Any]:
+    """
+    Indexa documento filatélico usando chunks limpios optimizados para Weaviate.
+    
+    Args:
+        client: Cliente Weaviate
+        document: Documento OXCART procesado
+        collection_name: Nombre de la colección
+        prepare_chunks: Si True, limpia chunks antes de indexar
+        
+    Returns:
+        Diccionario con resultados de indexación
+    """
+    doc_id = document.get("doc_id", "unknown")
+    chunks = document.get("chunks", [])
+
+    if not chunks:
+        print(f"ERROR: Documento {doc_id} no tiene chunks para indexar")
+        return {"success": False, "error": "No chunks found"}
+
+    print(f"📄 Indexando documento LIMPIO: {doc_id}")
+    print(f"   📊 Chunks originales: {len(chunks)}")
+    print(f"   📄 Páginas: {document.get('page_count', 'unknown')}")
+    
+    # Preparar chunks limpios si es necesario
+    if prepare_chunks:
+        # Importar función desde philatelic_chunk_logic
+        try:
+            from philatelic_chunk_logic import prepare_chunks_batch_for_weaviate
+            clean_chunks = prepare_chunks_batch_for_weaviate(chunks)
+            print(f"   🧹 Chunks limpios: {len(clean_chunks)} (eliminados {len(chunks) - len(clean_chunks)})")
+        except ImportError:
+            print("   ⚠️ No se pudo importar prepare_chunks_batch_for_weaviate, usando chunks originales")
+            clean_chunks = chunks
+    else:
+        clean_chunks = chunks
+
+    # Indexar chunks limpios
+    results = batch_index_chunks(client, clean_chunks, doc_id, collection_name)
+
+    if results["successful"] > 0:
+        print(f"✅ Documento {doc_id} indexado exitosamente (modo limpio)")
+        print(f"   📊 {results['successful']}/{len(clean_chunks)} chunks indexados")
+        if prepare_chunks:
+            print(f"   🎯 Solo 'text' enriquecido vectorizado, 'text_original' disponible para UI")
+    else:
+        print(f"❌ Error indexando documento {doc_id}")
+
+    return results
+
+
+# --------------------------------------------
+# Indexar documento completo (LEGACY)
 # --------------------------------------------
 def index_philatelic_document(
     client: weaviate.WeaviateClient,
