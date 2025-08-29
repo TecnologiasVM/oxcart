@@ -513,6 +513,107 @@ def transform_chunk_to_weaviate(chunk: Dict[str, Any], doc_id: str) -> Dict[str,
     }
 
 # --------------------------------------------
+# Validación y preparación de chunks
+# --------------------------------------------
+def validate_and_prepare_chunks(chunks: List[Dict[str, Any]], doc_id: str) -> Dict[str, Any]:
+    """
+    Valida y prepara chunks para indexación, manejando chunks demasiado largos.
+    
+    Args:
+        chunks: Lista de chunks a validar
+        doc_id: ID del documento
+        
+    Returns:
+        Dict con chunks válidos, estadísticas y logs de problemas
+    """
+    # Configuración de límites para OpenAI text-embedding-3-large
+    MAX_TOKENS = 3000  # Límite EXTREMADAMENTE seguro (OpenAI permite 8192, dejamos margen muy amplio)
+    CHARS_PER_TOKEN = 4  # Aproximación para español  
+    MAX_CHARS = MAX_TOKENS * CHARS_PER_TOKEN  # ~12,000 caracteres
+    
+    valid_chunks = []
+    truncated_chunks = []
+    skipped_chunks = []
+    statistics = {
+        "total_chunks": len(chunks),
+        "valid_chunks": 0,
+        "truncated_chunks": 0,
+        "skipped_chunks": 0,
+        "total_chars_saved": 0
+    }
+    
+    print(f"🔍 Validando {len(chunks)} chunks para documento {doc_id}")
+    print(f"   📏 Límite: {MAX_CHARS:,} caracteres ({MAX_TOKENS} tokens)")
+    
+    for i, chunk in enumerate(chunks):
+        chunk_text = chunk.get("text", "")
+        chunk_length = len(chunk_text)
+        
+        if chunk_length <= MAX_CHARS:
+            # Chunk válido, no requiere modificación pero marcar como no truncado
+            chunk_copy = chunk.copy()
+            chunk_copy["truncated"] = False  # Marcar explícitamente como no truncado
+            
+            valid_chunks.append(chunk_copy)
+            statistics["valid_chunks"] += 1
+            
+        elif chunk_length > MAX_CHARS:
+            # Chunk demasiado largo, truncar
+            truncated_text = chunk_text[:MAX_CHARS]
+            
+            # Crear copia del chunk con texto truncado
+            truncated_chunk = chunk.copy()
+            truncated_chunk["text"] = truncated_text
+            
+            # Marcar chunk como truncado (flag principal)
+            truncated_chunk["truncated"] = True
+            
+            # Agregar metadatos de truncado
+            if "metadata" not in truncated_chunk:
+                truncated_chunk["metadata"] = {}
+            truncated_chunk["metadata"]["truncated"] = True
+            truncated_chunk["metadata"]["original_length"] = chunk_length
+            truncated_chunk["metadata"]["truncated_length"] = len(truncated_text)
+            truncated_chunk["metadata"]["chars_removed"] = chunk_length - len(truncated_text)
+            
+            # Preservar texto original para UI
+            if "text_original" not in truncated_chunk:
+                truncated_chunk["text_original"] = chunk_text
+            
+            valid_chunks.append(truncated_chunk)
+            truncated_chunks.append({
+                "index": i,
+                "chunk_id": chunk.get("chunk_id", f"chunk_{i}"),
+                "original_length": chunk_length,
+                "truncated_length": len(truncated_text),
+                "chars_removed": chunk_length - len(truncated_text)
+            })
+            
+            statistics["truncated_chunks"] += 1
+            statistics["total_chars_saved"] += chunk_length - len(truncated_text)
+    
+    # Mostrar estadísticas
+    if statistics["truncated_chunks"] > 0:
+        print(f"   ✂️ Chunks truncados: {statistics['truncated_chunks']}")
+        print(f"   💾 Caracteres removidos: {statistics['total_chars_saved']:,}")
+        
+        # Mostrar algunos ejemplos de chunks truncados
+        for i, trunc_info in enumerate(truncated_chunks[:3]):
+            print(f"      • {trunc_info['chunk_id']}: {trunc_info['original_length']:,} → {trunc_info['truncated_length']:,} chars")
+        if len(truncated_chunks) > 3:
+            print(f"      • ... y {len(truncated_chunks) - 3} más")
+    
+    print(f"   ✅ Chunks válidos: {statistics['valid_chunks']}")
+    print(f"   📊 Tasa de éxito: {(statistics['valid_chunks']/statistics['total_chunks'])*100:.1f}%")
+    
+    return {
+        "valid_chunks": valid_chunks,
+        "truncated_info": truncated_chunks,
+        "skipped_info": skipped_chunks,
+        "statistics": statistics
+    }
+
+# --------------------------------------------
 # Batch index
 # --------------------------------------------
 def batch_index_chunks(
@@ -520,56 +621,169 @@ def batch_index_chunks(
     chunks: List[Dict[str, Any]],
     doc_id: str,
     collection_name: str = "Oxcart",
-    batch_size: int = 50
+    batch_size: int = 50,
+    progress_callback=None
 ) -> Dict[str, Any]:
-    """Indexa chunks en lotes usando insert_many (manejo correcto de uuids/errors)."""
+    """
+    Indexa chunks en lotes usando insert_many con reintentos, rate limiting y manejo de chunks largos.
+    
+    Args:
+        client: Cliente Weaviate
+        chunks: Lista de chunks filtrados (sin chunks ya indexados)
+        doc_id: ID del documento
+        collection_name: Nombre de la colección
+        batch_size: Tamaño del lote
+        progress_callback: Función callback para actualizar progress bar
+    """
+    import time
+    import random
+    from typing import Optional
+    
+    if not chunks:
+        return {
+            "total_chunks": 0,
+            "successful": 0,
+            "errors": [],
+            "success_rate": 100.0,
+            "successful_chunk_indices": [],
+            "validation_stats": {}
+        }
+    
+    # PASO 1: Validar y preparar chunks para evitar errores de OpenAI
+    print(f"🔍 VALIDACIÓN PREVIA DE CHUNKS")
+    validation_result = validate_and_prepare_chunks(chunks, doc_id)
+    
+    # Usar chunks validados (truncados si es necesario)
+    validated_chunks = validation_result["valid_chunks"]
+    validation_stats = validation_result["statistics"]
+    
+    if not validated_chunks:
+        print("❌ No hay chunks válidos para indexar después de validación")
+        return {
+            "total_chunks": len(chunks),
+            "successful": 0,
+            "errors": ["No chunks válidos después de validación"],
+            "success_rate": 0.0,
+            "successful_chunk_indices": [],
+            "validation_stats": validation_stats
+        }
+    
+    # PASO 2: Indexación con chunks validados
     collection = client.collections.get(collection_name)
-    total_chunks = len(chunks)
+    total_original_chunks = len(chunks)
+    total_valid_chunks = len(validated_chunks)
     successful = 0
     errors = []
+    successful_chunk_indices = []  # Para marcar chunks como indexados
 
-    print(f"🚀 Iniciando indexación de {total_chunks} chunks para documento {doc_id}")
-    print(f"📦 Lotes de {batch_size} chunks")
+    print(f"\n🚀 INICIANDO INDEXACIÓN ROBUSTA")
+    print(f"   📄 Documento: {doc_id}")
+    print(f"   📦 Chunks originales: {total_original_chunks}")
+    print(f"   ✅ Chunks válidos: {total_valid_chunks}")
+    if validation_stats["truncated_chunks"] > 0:
+        print(f"   ✂️ Chunks truncados: {validation_stats['truncated_chunks']}")
+    print(f"   📦 Lotes de {batch_size} chunks con máximo 3 reintentos")
 
-    for i in range(0, total_chunks, batch_size):
-        batch = chunks[i:i + batch_size]
+    for i in range(0, total_valid_chunks, batch_size):
+        batch = validated_chunks[i:i + batch_size]
+        batch_indices = list(range(i, min(i + batch_size, total_valid_chunks)))
         batch_num = (i // batch_size) + 1
-        total_batches = (total_chunks + batch_size - 1) // batch_size
-        print(f"   📦 Lote {batch_num}/{total_batches} ({len(batch)} chunks)...")
+        total_batches = (total_valid_chunks + batch_size - 1) // batch_size
+        
+        # Reintentos para este lote
+        max_retries = 3
+        retry_count = 0
+        batch_success = False
+        
+        while retry_count <= max_retries and not batch_success:
+            try:
+                if retry_count > 0:
+                    print(f"   🔄 Reintento {retry_count}/{max_retries} para lote {batch_num}")
+                
+                # Usar función de transformación limpia optimizada
+                objs = [transform_chunk_to_weaviate_clean(c, doc_id) for c in batch]
+                result = collection.data.insert_many(objs)
 
-        try:
-            # Usar función de transformación limpia optimizada
-            objs = [transform_chunk_to_weaviate_clean(c, doc_id) for c in batch]
-            result = collection.data.insert_many(objs)
+                # 📌 v4: BatchObjectReturn con dicts indexados por índice original
+                batch_successful = len(result.uuids)
+                successful += batch_successful
+                
+                # Marcar chunks exitosos para el guardado final
+                if batch_successful > 0:
+                    # Todos los chunks que no tienen error se consideran exitosos
+                    failed_indices = set()
+                    if result.has_errors and result.errors:
+                        failed_indices = {int(idx) for idx in result.errors.keys()}
+                    
+                    for local_idx in range(len(batch)):
+                        if local_idx not in failed_indices:
+                            global_idx = batch_indices[local_idx]
+                            successful_chunk_indices.append(global_idx)
 
-            # 📌 v4: BatchObjectReturn con dicts indexados por índice original
-            batch_successful = len(result.uuids)
-            successful += batch_successful
+                if result.has_errors and result.errors:
+                    # Guardar errores para logging
+                    for idx, err in list(result.errors.items()):
+                        errors.append({
+                            "batch": batch_num, 
+                            "index": int(idx), 
+                            "error": err.message,
+                            "retry_count": retry_count
+                        })
 
-            if result.has_errors and result.errors:
-                # Guardamos hasta los primeros N mensajes por lote para logging
-                for idx, err in list(result.errors.items()):
-                    errors.append({"batch": batch_num, "index": int(idx), "error": err.message})
+                print(f"   📦 Lote {batch_num}/{total_batches}: {batch_successful}/{len(batch)} exitosos")
+                if result.has_errors:
+                    print(f"      ⚠️ Errores: {len(result.errors)} en este lote")
+                
+                # Actualizar progress bar si se proporcionó callback
+                if progress_callback:
+                    progress_callback(batch_successful)
+                
+                batch_success = True  # Salir del bucle de reintentos
+                
+            except Exception as e:
+                error_msg = str(e)
+                print(f"      ❌ Error en lote {batch_num} (intento {retry_count + 1}): {error_msg}")
+                
+                # Detectar rate limit (HTTP 429)
+                is_rate_limit = "429" in error_msg or "rate limit" in error_msg.lower() or "too many requests" in error_msg.lower()
+                
+                if is_rate_limit:
+                    # Backoff exponencial para rate limits
+                    wait_time = min(60, (2 ** retry_count) * 5 + random.uniform(1, 3))
+                    print(f"      ⏳ Rate limit detectado, esperando {wait_time:.1f} segundos...")
+                    time.sleep(wait_time)
+                elif retry_count < max_retries:
+                    # Backoff más corto para otros errores
+                    wait_time = (retry_count + 1) * 2
+                    print(f"      ⏳ Esperando {wait_time}s antes del siguiente intento...")
+                    time.sleep(wait_time)
+                
+                retry_count += 1
+                
+                if retry_count > max_retries:
+                    # Error final después de todos los reintentos
+                    errors.append({
+                        "batch": batch_num, 
+                        "error": f"Falló después de {max_retries} reintentos: {error_msg}",
+                        "final_failure": True
+                    })
 
-            print(f"      Exitosos: {batch_successful}/{len(batch)}")
-            if result.has_errors:
-                print(f"      Errores: {len(result.errors)} en este lote")
-                for k, err in list(result.errors.items())[:2]:
-                    msg = (err.message[:100] + "...") if len(err.message) > 100 else err.message
-                    print(f"         - Error idx {k}: {msg}")
-
-        except Exception as e:
-            print(f"      ERROR en lote {batch_num}: {e}")
-            errors.append({"batch": batch_num, "error": str(e)})
-
-    success_rate = (successful / total_chunks) * 100 if total_chunks else 0
-    print(f"   📊 Resumen: {successful}/{total_chunks} indexados ({success_rate:.1f}%)")
+    success_rate = (successful / total_valid_chunks) * 100 if total_valid_chunks else 0
+    print(f"   📊 Resumen final: {successful}/{total_valid_chunks} chunks válidos indexados ({success_rate:.1f}%)")
+    
+    if validation_stats["truncated_chunks"] > 0:
+        print(f"   ✂️ Total chunks truncados exitosamente: {validation_stats['truncated_chunks']}")
+        print(f"   💾 Total caracteres removidos: {validation_stats['total_chars_saved']:,}")
 
     return {
-        "total_chunks": total_chunks,
+        "total_chunks": total_original_chunks,  # Total original
+        "total_valid_chunks": total_valid_chunks,  # Chunks procesables
         "successful": successful,
         "errors": errors,
         "success_rate": success_rate,
+        "successful_chunk_indices": successful_chunk_indices,
+        "validation_stats": validation_stats,  # Estadísticas de truncado
+        "truncated_info": validation_result.get("truncated_info", [])  # Detalles de chunks truncados
     }
 
 # --------------------------------------------
@@ -637,8 +851,21 @@ def index_philatelic_document_clean(
 def index_philatelic_document(
     client: weaviate.WeaviateClient,
     document: Dict[str, Any],
-    collection_name: str = "Oxcart"
+    collection_name: str = "Oxcart",
+    progress_callback=None
 ) -> Dict[str, Any]:
+    """
+    Indexa documento filatélico con filtrado de chunks ya indexados y persistencia de estado.
+    
+    Args:
+        client: Cliente Weaviate
+        document: Documento OXCART con chunks
+        collection_name: Nombre de la colección
+        progress_callback: Callback para progress bar
+    
+    Returns:
+        Diccionario con resultados de indexación y chunks marcados como indexados
+    """
     doc_id = document.get("doc_id", "unknown")
     chunks = document.get("chunks", [])
 
@@ -646,14 +873,96 @@ def index_philatelic_document(
         print(f"ERROR: Documento {doc_id} no tiene chunks para indexar")
         return {"success": False, "error": "No chunks found"}
 
+    # Filtrar chunks ya indexados
+    chunks_to_index = []
+    chunks_already_indexed = 0
+    
+    for i, chunk in enumerate(chunks):
+        if chunk.get("indexed", False):
+            chunks_already_indexed += 1
+        else:
+            chunks_to_index.append((i, chunk))  # Guardamos índice original
+
     print(f"📄 Indexando documento: {doc_id}")
-    print(f"   📊 Chunks: {len(chunks)}")
+    print(f"   📊 Total chunks: {len(chunks)}")
+    print(f"   ✅ Ya indexados: {chunks_already_indexed}")
+    print(f"   ⏳ Pendientes: {len(chunks_to_index)}")
     print(f"   📄 Páginas: {document.get('page_count', 'unknown')}")
 
-    results = batch_index_chunks(client, chunks, doc_id, collection_name)
+    if not chunks_to_index:
+        print(f"🎉 Documento {doc_id} ya está completamente indexado")
+        return {
+            "total_chunks": len(chunks),
+            "successful": chunks_already_indexed,
+            "errors": [],
+            "success_rate": 100.0,
+            "already_indexed": True
+        }
+
+    # Validar y preparar chunks (truncar si es necesario)
+    chunks_only = [chunk for _, chunk in chunks_to_index]
+    
+    print(f"🔍 VALIDACIÓN PREVIA DE CHUNKS")
+    validation_result = validate_and_prepare_chunks(chunks_only, doc_id)
+    
+    # Usar chunks validados (puede incluir chunks truncados)
+    validated_chunks = validation_result["valid_chunks"]
+    validation_stats = validation_result["statistics"]
+    truncated_info = validation_result["truncated_info"]
+    
+    # Marcar chunks truncados Y no truncados en el documento original ANTES de indexar
+    chunks_truncated_marked = 0
+    chunks_not_truncated_marked = 0
+    
+    # Marcar todos los chunks con su estado de truncado
+    for local_idx, validated_chunk in enumerate(validated_chunks):
+        if local_idx < len(chunks_to_index):
+            original_idx, _ = chunks_to_index[local_idx]
+            
+            if validated_chunk.get("truncated", False):
+                # Chunk fue truncado
+                document["chunks"][original_idx]["truncated"] = True
+                document["chunks"][original_idx]["text_original"] = document["chunks"][original_idx]["text"]
+                document["chunks"][original_idx]["text"] = validated_chunk["text"]
+                chunks_truncated_marked += 1
+            else:
+                # Chunk NO fue truncado (marcar explícitamente para trazabilidad)
+                document["chunks"][original_idx]["truncated"] = False
+                chunks_not_truncated_marked += 1
+    
+    # Indexar chunks validados
+    results = batch_index_chunks(
+        client, 
+        validated_chunks,  # Usar chunks validados/truncados
+        doc_id, 
+        collection_name, 
+        progress_callback=progress_callback
+    )
+    
+    # Añadir información de validación a los resultados
+    results["validation_stats"] = validation_stats
+    results["chunks_truncated_marked"] = chunks_truncated_marked
+    results["chunks_not_truncated_marked"] = chunks_not_truncated_marked
+
+    # Marcar chunks exitosos como indexados en el documento original
+    successful_indices = results.get("successful_chunk_indices", [])
+    chunks_marked = 0
+    
+    if successful_indices:
+        for local_idx in successful_indices:
+            if local_idx < len(chunks_to_index):
+                original_idx, _ = chunks_to_index[local_idx]
+                document["chunks"][original_idx]["indexed"] = True
+                chunks_marked += 1
+
+    # Actualizar estadísticas
+    results["chunks_marked_as_indexed"] = chunks_marked
+    results["total_chunks"] = len(chunks)
+    results["chunks_already_indexed"] = chunks_already_indexed
 
     if results["successful"] > 0:
         print(f"✅ Documento {doc_id} indexado exitosamente")
+        print(f"   📝 Chunks marcados como indexados: {chunks_marked}")
     else:
         print(f"❌ Error indexando documento {doc_id}")
 
@@ -820,36 +1129,62 @@ def search_chunks_semantic(
 # --------------------------------------------
 # Estadísticas
 # --------------------------------------------
-def get_collection_stats(client: weaviate.WeaviateClient, collection_name: str = "Oxcart") -> Dict[str, Any]:
-    """Estadísticas de la colección usando aggregate.over_all y GroupByAggregate."""
+def get_collection_stats(client: weaviate.WeaviateClient, collection_name: str = "Oxcart", limit: int = 1000) -> Dict[str, Any]:
+    """
+    Estadísticas de la colección usando aggregate.over_all y GroupByAggregate.
+    
+    Args:
+        client: Cliente de Weaviate
+        collection_name: Nombre de la colección
+        limit: Límite máximo de grupos para documentos y tipos de chunks (default: 1000)
+    
+    Returns:
+        Diccionario con estadísticas incluyendo información de límites alcanzados
+    """
     try:
         collection = client.collections.get(collection_name)
 
         # Total
         total_count = collection.aggregate.over_all(total_count=True).total_count
 
-        # Por documento
+        # Por documento (con límite)
         docs_response = collection.aggregate.over_all(
-            group_by=wvc.aggregate.GroupByAggregate(prop="doc_id")
+            group_by=wvc.aggregate.GroupByAggregate(prop="doc_id", limit=limit)
         )
         doc_stats = {}
         for g in docs_response.groups:
             doc_stats[g.grouped_by.value] = g.total_count
 
-        # Por tipo de chunk
+        # Por tipo de chunk (con límite)
         types_response = collection.aggregate.over_all(
-            group_by=wvc.aggregate.GroupByAggregate(prop="chunk_type")
+            group_by=wvc.aggregate.GroupByAggregate(prop="chunk_type", limit=limit)
         )
         type_stats = {}
         for g in types_response.groups:
             type_stats[g.grouped_by.value] = g.total_count
 
-        return {
+        # Detectar si se alcanzó el límite
+        docs_limited = len(doc_stats) >= limit
+        types_limited = len(type_stats) >= limit
+
+        result = {
             "total_chunks": total_count,
             "documents": doc_stats,
             "chunk_types": type_stats,
             "total_documents": len(doc_stats),
+            "limit_used": limit,
+            "docs_limited": docs_limited,
+            "types_limited": types_limited,
         }
+
+        # Agregar advertencias si se alcanzó el límite
+        if docs_limited:
+            result["warning_docs"] = f"⚠️ Se alcanzó el límite de {limit} documentos. Puede haber más documentos únicos."
+        
+        if types_limited:
+            result["warning_types"] = f"⚠️ Se alcanzó el límite de {limit} tipos de chunks. Puede haber más tipos."
+
+        return result
 
     except Exception as e:
         print(f"❌ Error obteniendo estadísticas: {e}")
