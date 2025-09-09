@@ -1035,7 +1035,7 @@ def search_chunks_semantic(
     limit: int = 5,
     filters: Optional[Dict[str, Any]] = None,
     mode: str = "vector",        # "vector" (near_text) | "hybrid" | "bm25"
-    alpha: float = 0.5,          # solo para hybrid
+    alpha: float = 0.35,          # solo para hybrid
     distance_metric: str = "cosine"  # para convertir distance->similarity
 ) -> List[Dict[str, Any]]:
     """
@@ -1055,7 +1055,7 @@ def search_chunks_semantic(
             limit=limit,
             filters=f,
             return_properties=[
-                "chunk_id","chunk_type","text","doc_id","page_number",
+                "chunk_id","chunk_type","text","text_original","doc_id","page_number",
                 "catalog_systems","catalog_numbers","scott_numbers","years","colors",
                 "topics_primary","variety_classes","has_catalog","has_prices","has_varieties",
                 "is_guanacaste","quality_score"
@@ -1107,7 +1107,7 @@ def search_chunks_semantic(
             "distance": distance,                # en vector search, bajo = mejor
             "chunk_id": props.get("chunk_id", ""),
             "chunk_type": props.get("chunk_type", ""),
-            "text": props.get("text", ""),
+            "text": props.get("text_original", ""),
             "doc_id": props.get("doc_id", ""),
             "page_number": props.get("page_number", 0),
             "catalog_systems": props.get("catalog_systems", []),
