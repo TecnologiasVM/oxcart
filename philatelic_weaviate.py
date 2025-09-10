@@ -11,6 +11,7 @@ import json
 import weaviate
 import weaviate.classes as wvc
 from typing import Dict, Any, Optional, List
+import re
 
 # --------------------------------------------
 # Configuración
@@ -989,8 +990,14 @@ def _build_filters(filters: Optional[Dict[str, Any]]):
         conditions.append(wvc.query.Filter.by_property("chunk_type").equal(filters["chunk_type"]))
     if filters.get("catalog_system"):
         conditions.append(wvc.query.Filter.by_property("catalog_systems").contains_any([filters["catalog_system"]]))
-    if filters.get("scott_number"):
-        conditions.append(wvc.query.Filter.by_property("scott_numbers").contains_any([filters["scott_number"]]))
+    if filters.get("scott_numbers"):
+        scott_value = filters["scott_numbers"]
+        if isinstance(scott_value, list):
+            # Multiple Scott numbers - use list directly
+            conditions.append(wvc.query.Filter.by_property("scott_numbers").contains_any(scott_value))
+        else:
+            # Single Scott number - wrap in list
+            conditions.append(wvc.query.Filter.by_property("scott_numbers").contains_any([scott_value]))
     if filters.get("year_range"):
         y0, y1 = filters["year_range"]
         y0, y1 = int(min(y0, y1)), int(max(y0, y1))
@@ -1099,6 +1106,47 @@ def search_chunks_semantic(
         # Si es vector: calculamos similarity y la damos también como 'score' (compat)
         similarity = _distance_to_similarity(distance, metric=distance_metric)
         score_out = hybrid_score if hybrid_score is not None else (similarity if similarity is not None else 0.0)
+        
+        ############# Delete duplicates pics in text_original ##################
+        figure_pattern = r'(!\[([^\]]*)\]\([^)]+\))'
+        # Buscar figuras en el contenido original si está disponible
+        original_content = props.get("text_original", "")
+        
+        # Extraer todas las figuras del contenido original
+        figures = re.findall(figure_pattern, original_content)
+        
+        # Eliminar duplicados manteniendo el orden
+        seen_figures = set()
+        unique_figures = []
+        for fig in figures:
+            # Usar el path de la imagen como identificador único (ignorando el alt text)
+            img_path = re.search(r'\]\(([^)]+)\)', fig[0])
+            if img_path:
+                img_identifier = img_path.group(1)
+                if img_identifier not in seen_figures:
+                    seen_figures.add(img_identifier)
+                    unique_figures.append(fig)
+        
+        # Verificar qué figuras ya están en el contenido comprimido
+        existing_figures = set()
+        for fig in unique_figures:
+            if fig[0] in original_content:
+                img_path = re.search(r'\]\(([^)]+)\)', fig[0])
+                if img_path:
+                    existing_figures.add(img_path.group(1))
+        
+        # Agregar solo las figuras que faltan
+        missing_figures = []
+        for fig in unique_figures:
+            img_path = re.search(r'\]\(([^)]+)\)', fig[0])
+            if img_path and img_path.group(1) not in existing_figures:
+                missing_figures.append(fig[0])
+        
+        # Si hay figuras faltantes, agregarlas al final
+        if missing_figures:
+            figures_text = "\n\n" + "\n".join(missing_figures)
+            original_content = original_content + figures_text
+        ############# Delete duplicates pics in text_original ##################
 
         results.append({
             "uuid": str(obj.uuid),
@@ -1107,7 +1155,7 @@ def search_chunks_semantic(
             "distance": distance,                # en vector search, bajo = mejor
             "chunk_id": props.get("chunk_id", ""),
             "chunk_type": props.get("chunk_type", ""),
-            "text": props.get("text_original", ""),
+            "text": original_content,
             "doc_id": props.get("doc_id", ""),
             "page_number": props.get("page_number", 0),
             "catalog_systems": props.get("catalog_systems", []),
