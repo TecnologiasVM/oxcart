@@ -1,231 +1,33 @@
 {
-  "total_documents": 481,
-  "documents_processed": 12,
-  "successful_documents": 12,
+  "total_documents": 1424,
+  "documents_processed": 1,
+  "successful_documents": 1,
   "failed_documents": 0,
-  "documents_updated": 12,
-  "total_chunks_indexed": 5069,
+  "documents_updated": 1,
+  "total_chunks_indexed": 36,
   "total_chunks_failed": 0,
-  "total_chunks_truncated": 217,
-  "total_chars_saved": 2852489,
-  "total_time_seconds": 212.58210468292236,
-  "avg_time_per_document": 17.71517539024353,
-  "chunks_per_second": 23.84490457256826,
+  "total_chunks_truncated": 0,
+  "total_chars_saved": 0,
+  "total_time_seconds": 2.7444047927856445,
+  "avg_time_per_document": 2.7444047927856445,
+  "chunks_per_second": 13.117598429588455,
   "results": [
     {
-      "doc_id": "1901 National Theater of Costa Rica Yankowski",
+      "doc_id": "AFCR Boletín 51 julio 2013",
       "success": true,
-      "chunks_indexed": 64,
+      "chunks_indexed": 36,
       "chunks_failed": 0,
-      "chunks_marked": 64,
+      "chunks_marked": 36,
       "chunks_truncated": 0,
       "chars_saved": 0,
       "already_indexed": false,
       "errors": [],
       "validation_stats": {
-        "total_chunks": 64,
-        "valid_chunks": 64,
+        "total_chunks": 36,
+        "valid_chunks": 36,
         "truncated_chunks": 0,
         "skipped_chunks": 0,
         "total_chars_saved": 0
-      }
-    },
-    {
-      "doc_id": "1947_Overprint",
-      "success": true,
-      "chunks_indexed": 66,
-      "chunks_failed": 0,
-      "chunks_marked": 66,
-      "chunks_truncated": 7,
-      "chars_saved": 122732,
-      "already_indexed": false,
-      "errors": [],
-      "validation_stats": {
-        "total_chunks": 66,
-        "valid_chunks": 59,
-        "truncated_chunks": 7,
-        "skipped_chunks": 0,
-        "total_chars_saved": 122732
-      }
-    },
-    {
-      "doc_id": "CR Postal Stationary 1883-1953",
-      "success": true,
-      "chunks_indexed": 404,
-      "chunks_failed": 0,
-      "chunks_marked": 404,
-      "chunks_truncated": 3,
-      "chars_saved": 42555,
-      "already_indexed": false,
-      "errors": [],
-      "validation_stats": {
-        "total_chunks": 404,
-        "valid_chunks": 401,
-        "truncated_chunks": 3,
-        "skipped_chunks": 0,
-        "total_chars_saved": 42555
-      }
-    },
-    {
-      "doc_id": "Escalante Collection",
-      "success": true,
-      "chunks_indexed": 474,
-      "chunks_failed": 0,
-      "chunks_marked": 474,
-      "chunks_truncated": 17,
-      "chars_saved": 267947,
-      "already_indexed": false,
-      "errors": [],
-      "validation_stats": {
-        "total_chunks": 474,
-        "valid_chunks": 457,
-        "truncated_chunks": 17,
-        "skipped_chunks": 0,
-        "total_chars_saved": 267947
-      }
-    },
-    {
-      "doc_id": "Las Grandes Epidemias Del Siglo XX en Costa Rica Papel del Dr Carlos Duran",
-      "success": true,
-      "chunks_indexed": 129,
-      "chunks_failed": 0,
-      "chunks_marked": 129,
-      "chunks_truncated": 1,
-      "chars_saved": 10149,
-      "already_indexed": false,
-      "errors": [],
-      "validation_stats": {
-        "total_chunks": 129,
-        "valid_chunks": 128,
-        "truncated_chunks": 1,
-        "skipped_chunks": 0,
-        "total_chars_saved": 10149
-      }
-    },
-    {
-      "doc_id": "Mayer Costa Rica",
-      "success": true,
-      "chunks_indexed": 656,
-      "chunks_failed": 0,
-      "chunks_marked": 656,
-      "chunks_truncated": 23,
-      "chars_saved": 363727,
-      "already_indexed": false,
-      "errors": [],
-      "validation_stats": {
-        "total_chunks": 656,
-        "valid_chunks": 633,
-        "truncated_chunks": 23,
-        "skipped_chunks": 0,
-        "total_chars_saved": 363727
-      }
-    },
-    {
-      "doc_id": "Nordberg Collection Gold",
-      "success": true,
-      "chunks_indexed": 853,
-      "chunks_failed": 0,
-      "chunks_marked": 853,
-      "chunks_truncated": 24,
-      "chars_saved": 352823,
-      "already_indexed": false,
-      "errors": [],
-      "validation_stats": {
-        "total_chunks": 853,
-        "valid_chunks": 829,
-        "truncated_chunks": 24,
-        "skipped_chunks": 0,
-        "total_chars_saved": 352823
-      }
-    },
-    {
-      "doc_id": "Overprint 1944 on 1934 1 colon official arimail stamp",
-      "success": true,
-      "chunks_indexed": 73,
-      "chunks_failed": 0,
-      "chunks_marked": 73,
-      "chunks_truncated": 0,
-      "chars_saved": 0,
-      "already_indexed": false,
-      "errors": [],
-      "validation_stats": {
-        "total_chunks": 73,
-        "valid_chunks": 73,
-        "truncated_chunks": 0,
-        "skipped_chunks": 0,
-        "total_chars_saved": 0
-      }
-    },
-    {
-      "doc_id": "Pinto Collection",
-      "success": true,
-      "chunks_indexed": 751,
-      "chunks_failed": 0,
-      "chunks_marked": 751,
-      "chunks_truncated": 33,
-      "chars_saved": 448362,
-      "already_indexed": false,
-      "errors": [],
-      "validation_stats": {
-        "total_chunks": 751,
-        "valid_chunks": 718,
-        "truncated_chunks": 33,
-        "skipped_chunks": 0,
-        "total_chars_saved": 448362
-      }
-    },
-    {
-      "doc_id": "Postal Stationery Section D",
-      "success": true,
-      "chunks_indexed": 279,
-      "chunks_failed": 0,
-      "chunks_marked": 279,
-      "chunks_truncated": 3,
-      "chars_saved": 22746,
-      "already_indexed": false,
-      "errors": [],
-      "validation_stats": {
-        "total_chunks": 279,
-        "valid_chunks": 276,
-        "truncated_chunks": 3,
-        "skipped_chunks": 0,
-        "total_chars_saved": 22746
-      }
-    },
-    {
-      "doc_id": "Saenz Covers First Issue",
-      "success": true,
-      "chunks_indexed": 162,
-      "chunks_failed": 0,
-      "chunks_marked": 162,
-      "chunks_truncated": 15,
-      "chars_saved": 226992,
-      "already_indexed": false,
-      "errors": [],
-      "validation_stats": {
-        "total_chunks": 162,
-        "valid_chunks": 147,
-        "truncated_chunks": 15,
-        "skipped_chunks": 0,
-        "total_chars_saved": 226992
-      }
-    },
-    {
-      "doc_id": "The Postal History Frajola Mayer",
-      "success": true,
-      "chunks_indexed": 1158,
-      "chunks_failed": 0,
-      "chunks_marked": 1158,
-      "chunks_truncated": 91,
-      "chars_saved": 994456,
-      "already_indexed": false,
-      "errors": [],
-      "validation_stats": {
-        "total_chunks": 1158,
-        "valid_chunks": 1067,
-        "truncated_chunks": 91,
-        "skipped_chunks": 0,
-        "total_chars_saved": 994456
       }
     }
   ]

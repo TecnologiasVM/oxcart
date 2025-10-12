@@ -1,0 +1,15 @@
+{
+  "results": [],
+  "errors": [],
+  "statistics": {
+    "total_chunks": 3,
+    "chunks_with_stamps": 0,
+    "total_stamps": 0,
+    "total_varieties": 0,
+    "text_chunks": 1,
+    "table_chunks": 0,
+    "figure_chunks": 0,
+    "other_chunks": 2
+  },
+  "summary": "Processed 3 chunks:\n- Found 0 stamp entries total\n  - Main stamps: 0\n  - Varieties: 0\n- Chunks with stamps: 0\n- Chunk types: 1 text, 0 table, 0 figure, 2 other"
+}

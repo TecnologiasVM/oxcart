@@ -1,0 +1,32 @@
+{
+  "stamps": [
+    {
+      "scott_number": "21",
+      "illustration": "A7",
+      "denomination": "5c",
+      "color": "blue violet",
+      "mint_value": 7.0,
+      "used_value": 0.5
+    },
+    {
+      "scott_number": "22",
+      "illustration": "A7",
+      "denomination": "10c",
+      "color": "orange",
+      "mint_value": 4.0,
+      "used_value": 3.0
+    }
+  ],
+  "illustrations": [
+    {
+      "illustration_number": "A7",
+      "design_name": "President Bernardo Soto Alfaro",
+      "design_description": "A dark-colored postage stamp with a portrait of a man with a mustache in the center. The stamp has \"CORREOS\" and \"COSTA RICA\" written in a circular pattern around the portrait. The number \"5\" is visible in the top left and bottom right corners, and \"CENTAVOS\" is at the bottom. The stamp has perforated edges."
+    }
+  ],
+  "header": "President Bernardo Soto Alfaro",
+  "notes": [
+    "Unused examples of 5c usually lack gum.",
+    "For overprints see Nos. 022-023, Guanacaste 42-43, 45."
+  ]
+}

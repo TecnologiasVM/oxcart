@@ -237,6 +237,52 @@ def _table_to_md_tsv_and_sentences(html: str, context_title: str = None) -> Dict
     }
 
 
+def _simplify_html_table(html: str) -> str:
+    """
+    Simplify HTML table to a readable text format for LLMs as a last resort.
+
+    Args:
+        html: HTML table string
+
+    Returns:
+        Simplified text representation of the table
+    """
+    if not html or len(html.strip()) < 20:
+        return ""
+
+    try:
+        # Extract rows with minimal processing
+        rows = re.findall(r"<tr[^>]*>(.*?)</tr>", html, flags=re.I|re.S)
+        if not rows or len(rows) > 50:  # Limit to reasonable size
+            return ""
+
+        simplified_rows = []
+        for i, row in enumerate(rows[:20]):  # Process max 20 rows
+            # Extract cells
+            cells = re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", row, flags=re.I|re.S)
+            # Clean cell content
+            cells = [re.sub(r"<.*?>", "", cell).strip()[:80] for cell in cells]
+            cells = [cell for cell in cells if cell]  # Remove empty cells
+
+            if cells and len(cells) <= 8:  # Reasonable column limit
+                if i == 0:  # Header row
+                    simplified_rows.append("Headers: " + " | ".join(cells))
+                else:
+                    simplified_rows.append(f"Row {i}: " + " | ".join(cells))
+
+        if len(simplified_rows) >= 2:  # At least header + 1 data row
+            result = "\n".join(simplified_rows)
+            # Ensure reasonable size
+            if len(result) > 1500:
+                result = result[:1500] + "\n... (truncated)"
+            return result
+
+    except Exception as e:
+        print(f"Warning: HTML table simplification failed: {e}")
+
+    return ""
+
+
 def _normalize_box(bbox: List[float], w: Optional[int], h: Optional[int]) -> Optional[Dict[str, float]]:
     """
     Normalize bounding box coordinates to relative values.
@@ -676,13 +722,22 @@ def transform_dolphin_to_oxcart_preserving_labels(
 
                 # Convert table to multiple formats with strict validation
                 conv = _table_to_md_tsv_and_sentences(txt, context_title=None)
-                
-                # Skip if conversion failed
-                if not conv["markdown"] and not conv["tsv"]:
-                    print(f"Warning: Table conversion failed on page {pno}, skipping")
-                    continue
-                
-                main_text = conv["markdown"] or conv["tsv"] or txt
+
+                # Smart format selection - prioritize Markdown > TSV > Simplified HTML
+                table_format = "unknown"
+                if conv["markdown"]:
+                    main_text = conv["markdown"]
+                    table_format = "markdown"
+                elif conv["tsv"]:
+                    main_text = conv["tsv"]
+                    table_format = "tsv"
+                else:
+                    # Last resort: simplify HTML for LLM readability
+                    main_text = _simplify_html_table(txt)
+                    table_format = "simplified_html"
+                    if not main_text:
+                        print(f"Warning: All table conversion methods failed on page {pno}, skipping")
+                        continue
                 
                 # More strict size validation
                 if len(main_text) > 3000:  # Much stricter limit
@@ -705,9 +760,7 @@ def transform_dolphin_to_oxcart_preserving_labels(
                     "metadata": {
                         "labels": [label],
                         "reading_order_range": [ro, ro],
-                        "table_html": txt,
-                        "table_markdown": conv["markdown"],
-                        "table_tsv": conv["tsv"],
+                        "table_format": table_format,  # Indicates which format was selected
                         "headers": conv["headers"],
                         "n_rows": len(conv["row_sentences"])
                     }
