@@ -1,0 +1,137 @@
+{
+  "issue_data": {
+    "issue_id": "CR-1881-82-SURCHARGES",
+    "section": "Surface Mail",
+    "title": "Surcharges 1881-82",
+    "country": "Costa Rica",
+    "issue_dates": {
+      "announced": "1880-12-16",
+      "placed_on_sale": "1882-09-01",
+      "probable_first_circulation": "1882-09-01",
+      "second_plate_sale": "1882-12-01",
+      "demonetized": "1883-02-01"
+    },
+    "legal_basis": [
+      {
+        "type": "accord",
+        "id": "Accord 53",
+        "date": "1880-12-16",
+        "ids": [],
+        "officials": []
+      }
+    ],
+    "currency_context": {
+      "original": "real",
+      "decimal_adoption": "1864-01-01",
+      "revaluation_date": null,
+      "revaluation_map": {
+        "1 real": "100c"
+      }
+    },
+    "printing": {
+      "printer": "Imprenta Nacional",
+      "process": [
+        "surcharge"
+      ],
+      "format": {
+        "panes": null
+      },
+      "plates": {
+        "0.5_real": {
+          "plates": [
+            1,
+            2
+          ],
+          "notes": "straight and cursive letters"
+        }
+      }
+    },
+    "perforation": ""
+  },
+  "production_orders": {
+    "printings": [],
+    "remainders": {
+      "date": null,
+      "note": "",
+      "quantities": []
+    }
+  },
+  "stamps": [
+    {
+      "catalog_no": "5",
+      "issue_id": "CR-1881-82-SURCHARGES",
+      "denomination": {
+        "value": 1,
+        "unit": "c"
+      },
+      "color": "",
+      "plate": 1,
+      "perforation": "",
+      "watermark": null,
+      "quantity_reported": null,
+      "status": "regular",
+      "notes": "1c on 1/2 real (plate 1), straight letters surcharge in vermilion",
+      "overprint": {
+        "present": true,
+        "type": "surcharge",
+        "surcharge_denomination": {
+          "value": 1,
+          "unit": "c"
+        },
+        "on_denomination": {
+          "value": 0.5,
+          "unit": "real"
+        },
+        "color": "vermilion"
+      },
+      "base_stamp_ref": "1"
+    },
+    {
+      "catalog_no": "6",
+      "issue_id": "CR-1881-82-SURCHARGES",
+      "denomination": {
+        "value": 1,
+        "unit": "c"
+      },
+      "color": "",
+      "plate": 1,
+      "perforation": "",
+      "watermark": null,
+      "quantity_reported": null,
+      "status": "regular",
+      "notes": "1c on 1/2 real (plate 1), cursive letters surcharge in vermilion",
+      "overprint": {
+        "present": true,
+        "type": "surcharge",
+        "surcharge_denomination": {
+          "value": 1,
+          "unit": "c"
+        },
+        "on_denomination": {
+          "value": 0.5,
+          "unit": "real"
+        },
+        "color": "vermilion"
+      }
+    }
+  ],
+  "varieties": [
+    {
+      "base_catalog_no": "5",
+      "suffix": "a",
+      "type": "surcharge",
+      "description": "surcharge on 1A (plate 2)",
+      "position": null,
+      "plate": 2
+    }
+  ],
+  "proofs": {
+    "die_proofs": [],
+    "plate_proofs": [],
+    "color_proofs": [],
+    "imperforate_proofs": []
+  },
+  "essays": [],
+  "specimens": [],
+  "postal_stationery": []
+}

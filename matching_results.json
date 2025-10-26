@@ -1,0 +1,671 @@
+{
+  "issue_match": {
+    "mena_issue_id": "CR-1923-COFFEE-OVERPRINT",
+    "mena_title": "Overprint \"Compre Ud. Cafe de Costa Rica\" in circle",
+    "candidate_pool_size": 386
+  },
+  "assignments": [
+    {
+      "mena_catalog_no": "113",
+      "scott_number": "073",
+      "confidence": "HIGH",
+      "score": 73.0,
+      "signals": {
+        "denomination": 35,
+        "color": 8.0,
+        "year": 20,
+        "perforation": 10
+      },
+      "breakdown": "Denom: \u2713 | Color: 26%",
+      "requires_review": false
+    }
+  ],
+  "statistics": {
+    "total_mena_stamps": 1,
+    "total_assignments": 1,
+    "high_confidence": 1,
+    "medium_confidence": 0,
+    "low_confidence": 0,
+    "success_rate": 100.0
+  },
+  "scoring_matrix": [
+    {
+      "mena_catalog_no": "113",
+      "candidates": [
+        {
+          "scott_number": "073",
+          "score": 73.0,
+          "signals": {
+            "denomination": 35,
+            "color": 8.0,
+            "year": 20,
+            "perforation": 10
+          },
+          "breakdown": "Denom: \u2713 | Color: 26%"
+        },
+        {
+          "scott_number": "G57",
+          "score": 65.0,
+          "signals": {
+            "denomination": 35,
+            "color": 30.0
+          },
+          "breakdown": "Denom: \u2713 | Color: 100%"
+        },
+        {
+          "scott_number": "G66",
+          "score": 65.0,
+          "signals": {
+            "denomination": 35,
+            "color": 30.0
+          },
+          "breakdown": "Denom: \u2713 | Color: 100%"
+        },
+        {
+          "scott_number": "O67",
+          "score": 61.0,
+          "signals": {
+            "denomination": 35,
+            "color": 6.0,
+            "year": 20
+          },
+          "breakdown": "Denom: \u2713 | Color: 20%"
+        },
+        {
+          "scott_number": "C15",
+          "score": 60.90909090909091,
+          "signals": {
+            "denomination": 35,
+            "color": 10.90909090909091,
+            "perforation": 10,
+            "category": 5
+          },
+          "breakdown": "Denom: \u2713 | Color: 36% | Cat: \u2713"
+        },
+        {
+          "scott_number": "B2",
+          "score": 57.5,
+          "signals": {
+            "denomination": 35,
+            "color": 7.5,
+            "year": 15
+          },
+          "breakdown": "Denom: \u2713 | Color: 25%"
+        },
+        {
+          "scott_number": "B5",
+          "score": 57.5,
+          "signals": {
+            "denomination": 35,
+            "color": 7.5,
+            "year": 15
+          },
+          "breakdown": "Denom: \u2713 | Color: 25%"
+        },
+        {
+          "scott_number": "191",
+          "score": 50.90909090909091,
+          "signals": {
+            "denomination": 35,
+            "color": 10.90909090909091,
+            "category": 5
+          },
+          "breakdown": "Denom: \u2713 | Color: 36% | Cat: \u2713"
+        },
+        {
+          "scott_number": "37a",
+          "score": 50.0,
+          "signals": {
+            "denomination": 35,
+            "color": 10.0,
+            "category": 5
+          },
+          "breakdown": "Denom: \u2713 | Color: 33% | Cat: \u2713"
+        },
+        {
+          "scott_number": "059",
+          "score": 50.0,
+          "signals": {
+            "denomination": 0,
+            "color": 30.0,
+            "year": 10,
+            "perforation": 10
+          },
+          "breakdown": "Denom: \u2717 | Color: 100%"
+        },
+        {
+          "scott_number": "258",
+          "score": 49.23076923076923,
+          "signals": {
+            "denomination": 35,
+            "color": 9.230769230769232,
+            "category": 5
+          },
+          "breakdown": "Denom: \u2713 | Color: 30% | Cat: \u2713"
+        },
+        {
+          "scott_number": "37",
+          "score": 48.0,
+          "signals": {
+            "denomination": 35,
+            "color": 8.0,
+            "category": 5
+          },
+          "breakdown": "Denom: \u2713 | Color: 26% | Cat: \u2713"
+        },
+        {
+          "scott_number": "21",
+          "score": 47.05882352941177,
+          "signals": {
+            "denomination": 35,
+            "color": 7.0588235294117645,
+            "category": 5
+          },
+          "breakdown": "Denom: \u2713 | Color: 23% | Cat: \u2713"
+        },
+        {
+          "scott_number": "O22a",
+          "score": 42.05882352941177,
+          "signals": {
+            "denomination": 35,
+            "color": 7.0588235294117645
+          },
+          "breakdown": "Denom: \u2713 | Color: 23%"
+        },
+        {
+          "scott_number": "O22b",
+          "score": 42.05882352941177,
+          "signals": {
+            "denomination": 35,
+            "color": 7.0588235294117645
+          },
+          "breakdown": "Denom: \u2713 | Color: 23%"
+        },
+        {
+          "scott_number": "G17",
+          "score": 42.05882352941177,
+          "signals": {
+            "denomination": 35,
+            "color": 7.0588235294117645
+          },
+          "breakdown": "Denom: \u2713 | Color: 23%"
+        },
+        {
+          "scott_number": "G21",
+          "score": 42.05882352941177,
+          "signals": {
+            "denomination": 35,
+            "color": 7.0588235294117645
+          },
+          "breakdown": "Denom: \u2713 | Color: 23%"
+        },
+        {
+          "scott_number": "G25",
+          "score": 42.05882352941177,
+          "signals": {
+            "denomination": 35,
+            "color": 7.0588235294117645
+          },
+          "breakdown": "Denom: \u2713 | Color: 23%"
+        },
+        {
+          "scott_number": "G29",
+          "score": 42.05882352941177,
+          "signals": {
+            "denomination": 35,
+            "color": 7.0588235294117645
+          },
+          "breakdown": "Denom: \u2713 | Color: 23%"
+        },
+        {
+          "scott_number": "G33",
+          "score": 42.05882352941177,
+          "signals": {
+            "denomination": 35,
+            "color": 7.0588235294117645
+          },
+          "breakdown": "Denom: \u2713 | Color: 23%"
+        },
+        {
+          "scott_number": "G37",
+          "score": 42.05882352941177,
+          "signals": {
+            "denomination": 35,
+            "color": 7.0588235294117645
+          },
+          "breakdown": "Denom: \u2713 | Color: 23%"
+        },
+        {
+          "scott_number": "G40",
+          "score": 42.05882352941177,
+          "signals": {
+            "denomination": 35,
+            "color": 7.0588235294117645
+          },
+          "breakdown": "Denom: \u2713 | Color: 23%"
+        },
+        {
+          "scott_number": "G42",
+          "score": 42.05882352941177,
+          "signals": {
+            "denomination": 35,
+            "color": 7.0588235294117645
+          },
+          "breakdown": "Denom: \u2713 | Color: 23%"
+        },
+        {
+          "scott_number": "G43",
+          "score": 42.05882352941177,
+          "signals": {
+            "denomination": 35,
+            "color": 7.0588235294117645
+          },
+          "breakdown": "Denom: \u2713 | Color: 23%"
+        },
+        {
+          "scott_number": "014",
+          "score": 41.666666666666664,
+          "signals": {
+            "denomination": 35,
+            "color": 6.666666666666666
+          },
+          "breakdown": "Denom: \u2713 | Color: 22%"
+        },
+        {
+          "scott_number": "B1",
+          "score": 40.0,
+          "signals": {
+            "denomination": 0,
+            "color": 30.0,
+            "perforation": 10
+          },
+          "breakdown": "Denom: \u2717 | Color: 100%"
+        },
+        {
+          "scott_number": "C824 AP183",
+          "score": 40.0,
+          "signals": {
+            "denomination": 35,
+            "color": 0.0,
+            "category": 5
+          },
+          "breakdown": "Denom: \u2713 | Color: 0% | Cat: \u2713"
+        },
+        {
+          "scott_number": "059a",
+          "score": 40.0,
+          "signals": {
+            "denomination": 0,
+            "color": 30.0,
+            "year": 10
+          },
+          "breakdown": "Denom: \u2717 | Color: 100%"
+        },
+        {
+          "scott_number": "076",
+          "score": 40.0,
+          "signals": {
+            "denomination": 0,
+            "color": 10.0,
+            "year": 20,
+            "perforation": 10
+          },
+          "breakdown": "Denom: \u2717 | Color: 33%"
+        },
+        {
+          "scott_number": "077",
+          "score": 39.473684210526315,
+          "signals": {
+            "denomination": 0,
+            "color": 9.473684210526315,
+            "year": 20,
+            "perforation": 10
+          },
+          "breakdown": "Denom: \u2717 | Color: 31%"
+        },
+        {
+          "scott_number": "O16",
+          "score": 39.285714285714285,
+          "signals": {
+            "denomination": 35,
+            "color": 4.285714285714286
+          },
+          "breakdown": "Denom: \u2713 | Color: 14%"
+        },
+        {
+          "scott_number": "075",
+          "score": 39.0,
+          "signals": {
+            "denomination": 0,
+            "color": 9.0,
+            "year": 20,
+            "perforation": 10
+          },
+          "breakdown": "Denom: \u2717 | Color: 30%"
+        },
+        {
+          "scott_number": "071",
+          "score": 38.0,
+          "signals": {
+            "denomination": 0,
+            "color": 8.0,
+            "year": 20,
+            "perforation": 10
+          },
+          "breakdown": "Denom: \u2717 | Color: 26%"
+        },
+        {
+          "scott_number": "C22",
+          "score": 37.5,
+          "signals": {
+            "denomination": 0,
+            "color": 22.5,
+            "perforation": 10,
+            "category": 5
+          },
+          "breakdown": "Denom: \u2717 | Color: 75% | Cat: \u2713"
+        },
+        {
+          "scott_number": "C163",
+          "score": 37.5,
+          "signals": {
+            "denomination": 0,
+            "color": 22.5,
+            "perforation": 10,
+            "category": 5
+          },
+          "breakdown": "Denom: \u2717 | Color: 75% | Cat: \u2713"
+        },
+        {
+          "scott_number": "070",
+          "score": 37.05882352941177,
+          "signals": {
+            "denomination": 0,
+            "color": 7.0588235294117645,
+            "year": 20,
+            "perforation": 10
+          },
+          "breakdown": "Denom: \u2717 | Color: 23%"
+        },
+        {
+          "scott_number": "074",
+          "score": 37.05882352941177,
+          "signals": {
+            "denomination": 0,
+            "color": 7.0588235294117645,
+            "year": 20,
+            "perforation": 10
+          },
+          "breakdown": "Denom: \u2717 | Color: 23%"
+        },
+        {
+          "scott_number": "078",
+          "score": 37.05882352941177,
+          "signals": {
+            "denomination": 0,
+            "color": 7.0588235294117645,
+            "year": 20,
+            "perforation": 10
+          },
+          "breakdown": "Denom: \u2717 | Color: 23%"
+        },
+        {
+          "scott_number": "C19",
+          "score": 36.1764705882353,
+          "signals": {
+            "denomination": 0,
+            "color": 21.176470588235297,
+            "perforation": 10,
+            "category": 5
+          },
+          "breakdown": "Denom: \u2717 | Color: 70% | Cat: \u2713"
+        },
+        {
+          "scott_number": "22",
+          "score": 35.0,
+          "signals": {
+            "denomination": 0,
+            "color": 30.0,
+            "category": 5
+          },
+          "breakdown": "Denom: \u2717 | Color: 100% | Cat: \u2713"
+        },
+        {
+          "scott_number": "UNKNOWN",
+          "score": 35.0,
+          "signals": {
+            "denomination": 0,
+            "color": 30.0,
+            "category": 5
+          },
+          "breakdown": "Denom: \u2717 | Color: 100% | Cat: \u2713"
+        },
+        {
+          "scott_number": "AP63",
+          "score": 35.0,
+          "signals": {
+            "denomination": 35,
+            "color": 0
+          },
+          "breakdown": "Denom: \u2713"
+        },
+        {
+          "scott_number": "RA2",
+          "score": 35.0,
+          "signals": {
+            "denomination": 35,
+            "color": 0.0
+          },
+          "breakdown": "Denom: \u2713 | Color: 0%"
+        },
+        {
+          "scott_number": "RA2a",
+          "score": 35.0,
+          "signals": {
+            "denomination": 35,
+            "color": 0.0
+          },
+          "breakdown": "Denom: \u2713 | Color: 0%"
+        },
+        {
+          "scott_number": "O68",
+          "score": 33.84615384615385,
+          "signals": {
+            "denomination": 0,
+            "color": 13.846153846153847,
+            "year": 20
+          },
+          "breakdown": "Denom: \u2717 | Color: 46%"
+        },
+        {
+          "scott_number": "079",
+          "score": 33.529411764705884,
+          "signals": {
+            "denomination": 0,
+            "color": 3.5294117647058822,
+            "year": 20,
+            "perforation": 10
+          },
+          "breakdown": "Denom: \u2717 | Color: 11%"
+        },
+        {
+          "scott_number": "O65",
+          "score": 30.90909090909091,
+          "signals": {
+            "denomination": 0,
+            "color": 10.90909090909091,
+            "year": 20
+          },
+          "breakdown": "Denom: \u2717 | Color: 36%"
+        },
+        {
+          "scott_number": "O66",
+          "score": 30.90909090909091,
+          "signals": {
+            "denomination": 0,
+            "color": 10.90909090909091,
+            "year": 20
+          },
+          "breakdown": "Denom: \u2717 | Color: 36%"
+        },
+        {
+          "scott_number": "36",
+          "score": 30.5,
+          "signals": {
+            "denomination": 0,
+            "color": 25.5,
+            "category": 5
+          },
+          "breakdown": "Denom: \u2717 | Color: 85% | Cat: \u2713"
+        },
+        {
+          "scott_number": "O17",
+          "score": 30.0,
+          "signals": {
+            "denomination": 0,
+            "color": 30.0
+          },
+          "breakdown": "Denom: \u2717 | Color: 100%"
+        },
+        {
+          "scott_number": "O23a",
+          "score": 30.0,
+          "signals": {
+            "denomination": 0,
+            "color": 30.0
+          },
+          "breakdown": "Denom: \u2717 | Color: 100%"
+        },
+        {
+          "scott_number": "O23b",
+          "score": 30.0,
+          "signals": {
+            "denomination": 0,
+            "color": 30.0
+          },
+          "breakdown": "Denom: \u2717 | Color: 100%"
+        },
+        {
+          "scott_number": "O69",
+          "score": 30.0,
+          "signals": {
+            "denomination": 0,
+            "color": 10.0,
+            "year": 20
+          },
+          "breakdown": "Denom: \u2717 | Color: 33%"
+        },
+        {
+          "scott_number": "072",
+          "score": 30.0,
+          "signals": {
+            "denomination": 0,
+            "color": 0.0,
+            "year": 20,
+            "perforation": 10
+          },
+          "breakdown": "Denom: \u2717 | Color: 0%"
+        },
+        {
+          "scott_number": "RA50",
+          "score": 30.0,
+          "signals": {
+            "denomination": 0,
+            "color": 30.0
+          },
+          "breakdown": "Denom: \u2717 | Color: 100%"
+        },
+        {
+          "scott_number": "RA92",
+          "score": 30.0,
+          "signals": {
+            "denomination": 0,
+            "color": 30.0
+          },
+          "breakdown": "Denom: \u2717 | Color: 100%"
+        },
+        {
+          "scott_number": "RA98",
+          "score": 30.0,
+          "signals": {
+            "denomination": 0,
+            "color": 30.0
+          },
+          "breakdown": "Denom: \u2717 | Color: 100%"
+        },
+        {
+          "scott_number": "G15",
+          "score": 30.0,
+          "signals": {
+            "denomination": 0,
+            "color": 30.0
+          },
+          "breakdown": "Denom: \u2717 | Color: 100%"
+        },
+        {
+          "scott_number": "G22",
+          "score": 30.0,
+          "signals": {
+            "denomination": 0,
+            "color": 30.0
+          },
+          "breakdown": "Denom: \u2717 | Color: 100%"
+        },
+        {
+          "scott_number": "G26",
+          "score": 30.0,
+          "signals": {
+            "denomination": 0,
+            "color": 30.0
+          },
+          "breakdown": "Denom: \u2717 | Color: 100%"
+        },
+        {
+          "scott_number": "G30",
+          "score": 30.0,
+          "signals": {
+            "denomination": 0,
+            "color": 30.0
+          },
+          "breakdown": "Denom: \u2717 | Color: 100%"
+        },
+        {
+          "scott_number": "G34",
+          "score": 30.0,
+          "signals": {
+            "denomination": 0,
+            "color": 30.0
+          },
+          "breakdown": "Denom: \u2717 | Color: 100%"
+        },
+        {
+          "scott_number": "G38",
+          "score": 30.0,
+          "signals": {
+            "denomination": 0,
+            "color": 30.0
+          },
+          "breakdown": "Denom: \u2717 | Color: 100%"
+        },
+        {
+          "scott_number": "G41",
+          "score": 30.0,
+          "signals": {
+            "denomination": 0,
+            "color": 30.0
+          },
+          "breakdown": "Denom: \u2717 | Color: 100%"
+        },
+        {
+          "scott_number": "G45",
+          "score": 30.0,
+          "signals": {
+            "denomination": 0,
+            "color": 30.0
+          },
+          "breakdown": "Denom: \u2717 | Color: 100%"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "issue_data": {
+    "issue_id": "issue-1",
+    "section": "First Issue",
+    "title": "First Issue",
+    "country": "",
+    "issue_dates": {},
+    "legal_basis": [],
+    "currency_context": {
+      "original": ""
+    },
+    "printing": {
+      "printer": "",
+      "process": [],
+      "format": {}
+    },
+    "perforation": ""
+  },
+  "production_orders": {
+    "printings": [],
+    "remainders": {
+      "notes": [],
+      "quantities": []
+    }
+  },
+  "stamps": [],
+  "varieties": [],
+  "proofs": {
+    "die_proofs": [],
+    "plate_proofs": [],
+    "color_proofs": [],
+    "imperforate_proofs": []
+  },
+  "essays": [],
+  "specimens": [],
+  "postal_stationery": []
+}
