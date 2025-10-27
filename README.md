@@ -38,31 +38,6 @@ The system combines:
 - **Multi-stage re-ranking and context compression**
 - **Guardrails** for minimum similarity thresholds and grounded answers
 
-This README supersedes the earlier project doc and keeps the same spirit while reflecting the current architecture, tooling, and retrieval strategies.
-
----
-
-## 🧠 What's New
-
-### Two Retrieval Tiers
-
-**Basic (fast)**: Hybrid (BM25+vector) with MMR and domain filters.
-
-**Advanced (accurate)**: Multi-query expansion (LLM-generated variants), union retrieval, summary compression, and multi-rerank (hybrid score + MMR + domain priors).
-
-### Confidence & Safety
-
-- **Adaptive k** with score thresholds: refuse/clarify if evidence is weak
-- **Dedup & consensus** across sources; mandatory citations
-
-### Parsing Upgrades
-
-- **Landing.ai ADE** added for selected PDFs with complex tables/figures
-
-### Philatelic Schema & Filters
-
-- First-class support for **Scott numbers**, **year spans**, **issue notices**, **varieties**
-
 ---
 
 ## 🗂️ Corpus & Indexing Snapshot
