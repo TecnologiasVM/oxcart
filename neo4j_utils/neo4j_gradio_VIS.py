@@ -63,7 +63,7 @@ def run_cypher(cypher_text: str):
         return f"<pre>❌ AuthError: {e}</pre>"
 
     nodes_map = {}  # element_id -> dict (avoid duplicates)
-    rels_map = {}   # element_id -> dict (avoid duplicates) - CAMBIADO de lista a diccionario
+    rels_map = {}   # element_id -> dict (avoid duplicates)
 
     try:
         session_kwargs = {}
@@ -159,7 +159,7 @@ def _generate_vis_html(nodes_map: dict, rels_map: dict) -> str:
     
     # Calculate degree for node sizing
     degree = {k: 0 for k in nodes_map.keys()}
-    for e in rels_map.values():  # Iterar sobre values() del diccionario
+    for e in rels_map.values():
         if e["from"] in degree: 
             degree[e["from"]] += 1
         if e["to"] in degree: 
@@ -196,9 +196,9 @@ def _generate_vis_html(nodes_map: dict, rels_map: dict) -> str:
             "properties": serialized_props
         })
     
-    # Prepare edges data - convertir diccionario a lista
+    # Prepare edges data
     vis_edges = []
-    for rel in rels_map.values():  # Usar .values() para obtener solo los valores
+    for rel in rels_map.values():
         rel_props = rel.get("properties", {})
         
         vis_edges.append({
@@ -548,39 +548,54 @@ def _generate_vis_html(nodes_map: dict, rels_map: dict) -> str:
             }}, 15000);
         }});
         
-        // Handle node clicks
+        // Handle node clicks - FIX: Preserve color when updating
         network.on('click', function(params) {{
             if (params.nodes.length > 0) {{
                 const nodeId = params.nodes[0];
                 const node = nodes.get(nodeId);
                 
-                // Restore previous node label
+                // Restore previous node label (preserving color)
                 if (selectedNodeId && selectedNodeId !== nodeId) {{
                     const prevNode = nodes.get(selectedNodeId);
                     if (prevNode && prevNode.labelFull) {{
                         const shortLabel = prevNode.labelFull.length > 30 
                             ? prevNode.labelFull.substring(0, 28) + '…' 
                             : prevNode.labelFull;
-                        nodes.update({{id: selectedNodeId, label: shortLabel}});
+                        // FIX: Preserve color when updating
+                        nodes.update({{
+                            id: selectedNodeId, 
+                            label: shortLabel,
+                            color: prevNode.color  // ✅ Mantener el color original
+                        }});
                     }}
                 }}
                 
-                // Expand current node label
+                // Expand current node label (preserving color)
                 if (node && node.labelFull) {{
-                    nodes.update({{id: nodeId, label: node.labelFull}});
+                    // FIX: Preserve color when updating
+                    nodes.update({{
+                        id: nodeId, 
+                        label: node.labelFull,
+                        color: node.color  // ✅ Mantener el color original
+                    }});
                     selectedNodeId = nodeId;
                 }}
                 
                 showNodeInfo(node);
             }} else {{
-                // Click on canvas - restore labels
+                // Click on canvas - restore labels (preserving colors)
                 if (selectedNodeId) {{
                     const node = nodes.get(selectedNodeId);
                     if (node && node.labelFull) {{
                         const shortLabel = node.labelFull.length > 30 
                             ? node.labelFull.substring(0, 28) + '…' 
                             : node.labelFull;
-                        nodes.update({{id: selectedNodeId, label: shortLabel}});
+                        // FIX: Preserve color when updating
+                        nodes.update({{
+                            id: selectedNodeId, 
+                            label: shortLabel,
+                            color: node.color  // ✅ Mantener el color original
+                        }});
                     }}
                     selectedNodeId = null;
                 }}
@@ -751,11 +766,9 @@ def _add_node(n: Node, nodes_map: dict):
     caption_full = None
     
     if main_label == "Stamp":
-        # For stamps, show catalog_no
         caption_full = props.get("catalog_no")
         
     elif main_label == "Variety":
-        # For varieties, show base_catalog_no + suffix (e.g., "1a")
         base = props.get("base_catalog_no", "")
         suffix = props.get("suffix", "")
         if base and suffix:
@@ -764,15 +777,12 @@ def _add_node(n: Node, nodes_map: dict):
             caption_full = base
             
     elif main_label in ("Specimen", "Essay"):
-        # For specimens and essays, show code
         caption_full = props.get("code")
         
     elif main_label in ("Proof", "DieProof", "PlateProof", "ColorProof"):
-        # For all proof types, show code
         caption_full = props.get("code")
         
     elif main_label == "Issue":
-        # For issues, prefer title over issue_id
         caption_full = props.get("title") or props.get("issue_id")
         
     elif main_label == "Person":
@@ -782,7 +792,6 @@ def _add_node(n: Node, nodes_map: dict):
         caption_full = props.get("name")
         
     elif main_label == "LegalAct":
-        # For documents, show type + id
         doc_type = props.get("type", "")
         doc_id = props.get("id", "")
         if doc_type and doc_id:
@@ -791,7 +800,6 @@ def _add_node(n: Node, nodes_map: dict):
             caption_full = doc_type or doc_id
             
     elif main_label == "Plate":
-        # For plates, try to build a descriptive name
         denom = props.get("denomination", "")
         plate_no = props.get("no", "")
         if denom and plate_no:
@@ -800,21 +808,17 @@ def _add_node(n: Node, nodes_map: dict):
             caption_full = f"Plate {plate_no}"
             
     elif main_label == "PlatePosition":
-        # For plate positions, show position
         pos = props.get("pos")
         if pos:
             caption_full = f"Pos {pos}"
             
     elif main_label == "ProductionOrder":
-        # Show date
         caption_full = props.get("date")
         
     elif main_label == "Quantity":
-        # Show plate_desc or quantity
         caption_full = props.get("plate_desc") or f"Qty: {props.get('quantity', '')}"
         
     elif main_label == "RemaindersEvent":
-        # Show date
         caption_full = props.get("date") or "Remainders"
     
     # Fallback to generic field search if nothing found
@@ -882,11 +886,11 @@ def _add_rel(r: Relationship, rels_map: dict):
     }
 
 # ======== Gradio UI ========
-TITLE = "Costa Rica Postal Catalogue — Neo4j Graph Viewer"
+TITLE = "Costa Rica Postal Catalogue – Neo4j Graph Viewer"
 HERO_MD = """
 # 🎨 Neo4j Graph Visualization
 
-**POSTAL CATALOGUE — COSTA RICA**
+**POSTAL CATALOGUE – COSTA RICA**
 
 Interactive graph visualization with modern force-directed layout powered by **vis.js**. Type your **Cypher** query below and click **Render** to explore your data.
 
@@ -921,7 +925,7 @@ with gr.Blocks(
     
     with gr.Row():
         cypher = gr.Textbox(
-            label="🔍 Cypher Query",
+            label="📝 Cypher Query",
             value=DEFAULT_CYPHER,
             lines=7,
             placeholder="e.g. MATCH (n)-[r]->(m) RETURN n, r, m LIMIT 200",
