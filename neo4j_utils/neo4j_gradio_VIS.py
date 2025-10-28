@@ -7,6 +7,10 @@ from typing import Optional
 import base64
 import json
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 # ======== Config interna (oculta al usuario) ========
 URI = os.getenv("NEO4J_URI", "neo4j://127.0.0.1:7687")
 USER = os.getenv("NEO4J_USER", "neo4j")

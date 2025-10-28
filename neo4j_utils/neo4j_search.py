@@ -7,8 +7,7 @@ from openai import OpenAI
 
 from dotenv import load_dotenv
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-load_dotenv(dotenv_path=os.path.join(BASE_DIR, ".env"))
+load_dotenv()
 
 NEO4J_URI      = os.getenv("NEO4J_URI",      "bolt://localhost:7687")
 NEO4J_USER     = os.getenv("NEO4J_USER",     "neo4j")
@@ -289,12 +288,12 @@ def main(
     # Capture issues so we can feed them into the graph builder
     issues = result["results"]
 
-    print("\nCypher Generation:")
-    output_cypher = build_issue_graph_cypher(issues)
-    print(output_cypher)
+    #print("\nCypher Generation:")
+    # output_cypher = build_issue_graph_cypher(issues)
+    #print(output_cypher)
     
 
-    return output_cypher
+    return issues
 
 if __name__ == "__main__":
     # Override these defaults by editing the main() call or setting environment variables.
