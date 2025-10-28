@@ -15,7 +15,7 @@
 
 ## 🚀 Demo
 
-**[Try the live demo →](https://22cff9b7ee096dee7e.gradio.live)**
+**[Try the live demo →](https://de710840e4aa1c3ad9.gradio.live)**
 
 ---
 
