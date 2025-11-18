@@ -1,7 +1,7 @@
-# OXCART RAG — Philatelic Research & Document Intelligence
+# Oxcart Graph RAG — Philatelic Research & Document Intelligence
 
 <div align="center">
-  <img src="./assets/oxcart_logo.svg" width="300" alt="OXCART RAG Logo">
+  <img src="./assets/oxcart_logo.svg" width="300" alt="Oxcart Graph RAG Logo">
   <br><br>
 
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-lightgray" alt="License: MIT"></a>
@@ -10,23 +10,18 @@
   <a href="https://openai.com/"><img src="https://img.shields.io/badge/Embeddings-OpenAI-000000" alt="OpenAI Embeddings"></a>
   <a href="https://www.landing.ai/"><img src="https://img.shields.io/badge/PDF%20Parser-Landing.ai%20ADE-3333aa" alt="Landing.ai ADE"></a>
   <a href="https://gradio.app/"><img src="https://img.shields.io/badge/UI-Gradio-ff6c3f" alt="Gradio"></a>
+  <a href="https://neo4j.com/"><img src="https://img.shields.io/badge/Graph%20DB-Neo4j-008CC1" alt="Neo4j"></a>
 </div>
 
-## 🎬 Demo
+## 🚀 Demo
 
-<div align="center">
-
-[![OXCART RAG Demo](https://img.youtube.com/vi/mLhTES6oDtE/maxresdefault.jpg)](https://www.youtube.com/watch?v=mLhTES6oDtE)
-
-**[Try the live demo →](https://huggingface.co/spaces/oxcart/philatelic-rag)** *(Public demo link coming soon)*
-
-</div>
+**[Try the live demo →](https://6b1d2a1126e4129365.gradio.live)**
 
 ---
 
 ## 📋 Overview
 
-**OXCART RAG** is a domain-specialized Retrieval-Augmented Generation system for philatelic research (Costa Rica focus). It ingests complex PDF literature (catalogs, journals, monographs, exhibits), normalizes structure, indexes **193,180 text chunks** from **1,424 documents**, and serves trustworthy answers with first-class citations.
+**Oxcart Graph RAG** is a domain-specialized Retrieval-Augmented Generation system for philatelic research (Costa Rica focus). It ingests complex PDF literature (catalogs, journals, monographs, exhibits), normalizes structure, indexes **193,180 text chunks** from **1,424 documents**, and serves trustworthy answers with first-class citations.
 
 > 📚 **[View Complete Literature Catalog →](PHILATELIC_LITERATURE.md)** — Comprehensive documentation of all 1,424 source documents, organized by category with detailed statistics.
 
@@ -40,7 +35,7 @@ The system combines:
 
 ---
 
-## 🗂️ Corpus & Indexing Snapshot
+## 📊 Corpus & Indexing Snapshot
 
 - **Total chunks**: 193,180
 - **Unique PDFs**: 1,424
@@ -73,7 +68,7 @@ The system combines:
 
 ---
 
-## 🧭 Retrieval Approaches
+## 🔍 Retrieval Approaches
 
 ### Tier 1 — Basic (Fast & Strong Baseline)
 
@@ -129,7 +124,7 @@ If `< CONSENSUS_MIN_SOURCES` or all scores `< thresholds` → return a clarifyin
 
 ---
 
-## 🧱 Data Model & Domain Filters
+## 🗄️ Data Model & Domain Filters
 
 ### Key metadata (per chunk) indexed in Weaviate:
 
@@ -153,7 +148,10 @@ If `< CONSENSUS_MIN_SOURCES` or all scores `< thresholds` → return a clarifyin
 ```
 PDFs → (Dolphin | Landing.ai ADE) → JSON/Markdown → Chunker/Normalizer
     → Quality checks → Weaviate (OpenAI embeddings) → RAG Orchestrator
-    → (Basic or Advanced Retrieval) → Context Compression → Answer & Citations
+                    ↘                                      ↗
+Mena Catalog → Neo4j (Graph + Vector + Fulltext indexes)
+
+    → (Basic or Advanced Retrieval + Graph Expansion) → Context Compression → Answer & Citations
 ```
 
 ### PDF Parsers
@@ -168,6 +166,148 @@ PDFs → (Dolphin | Landing.ai ADE) → JSON/Markdown → Chunker/Normalizer
 ### Vector DB
 
 - **Weaviate** (hybrid, BM25, near_text, metadata filters)
+
+---
+
+## 🕸️ Graph Knowledge Layer (Neo4j)
+
+Oxcart Graph RAG augments vector search with a **structured knowledge graph** built from the **Mena 2018 Costa Rica Catalog**. This graph provides precise relationships between philatelic entities that complement the literature corpus indexed in Weaviate.
+
+### Graph Schema (V1 Model)
+
+The Neo4j graph represents the complete taxonomy of Costa Rican postal history:
+
+**Core Entities**:
+- **`:Issue`** — Postal issues (e.g., "1863 First Issue")
+- **`:Stamp`** — Base catalog numbers with denomination, color, perforation
+- **`:Variety`** — Suffixed variants (plate flaws, perforation anomalies)
+- **`:Proof`** — Die/Plate/Color proofs
+- **`:Plate`** — Printing plates with position tracking
+- **`:PlatePosition`** — Specific positions for constant plate flaws
+
+**Administrative Context**:
+- **`:LegalAct`** — Decrees, resolutions authorizing issues
+- **`:Person`** — Officials, printers, provenance
+- **`:Printer`** — Printing companies
+- **`:Organization`** — Philatelic organizations
+- **`:ProductionOrder`** — Print runs with quantities
+- **`:RemaindersEvent`** — Unsold stock disposition
+
+**Key Relationships**:
+- `(:Issue)-[:HAS_STAMP]->(:Stamp)-[:HAS_VARIETY]->(:Variety)`
+- `(:Issue)-[:AUTHORIZED_BY]->(:LegalAct)-[:SIGNED_BY]->(:Person)`
+- `(:Stamp)-[:USES_PLATE]->(:Plate)`
+- `(:Variety)-[:AT_POSITION]->(:PlatePosition)`
+- `(:Stamp)-[:OVERPRINTED_ON]->(:Stamp)` (derivations)
+
+### Hybrid Search Architecture
+
+Queries combine three retrieval strategies:
+
+1. **Full-text search** (Neo4j Lucene index on issue titles/descriptions)
+2. **Vector similarity** (OpenAI embeddings, cosine distance)
+3. **Graph expansion** (relationship traversal to enrich context)
+
+**Example workflow**:
+```
+User query: "1863 first issue varieties"
+  ↓
+[1] Neo4j full-text → retrieves Issue node
+[2] Graph traversal → HAS_STAMP → HAS_VARIETY → AT_POSITION
+[3] Vector search → finds related literature chunks in Weaviate
+[4] Unified answer with catalog structure + textual evidence
+```
+
+### Interactive Graph Viewer (Gradio + vis.js)
+
+The Gradio interface includes a **live graph viewer** that:
+- Executes custom Cypher queries
+- Renders relationships with color-coded node types
+- Provides tooltips with entity properties
+- Supports physics simulation (toggle, zoom, fullscreen)
+
+**Sample Views**:
+
+<div align="center">
+  <img src="./neo4j_utils/img/Stamp View Sample.png" width="45%" alt="Stamp View">
+  <img src="./neo4j_utils/img/Issue View Sample.png" width="45%" alt="Issue View">
+  <br>
+  <i>Left: Stamp-level view with varieties and plates. Right: Issue-level view with all related entities.</i>
+</div>
+
+### Sample Cypher Queries
+
+**Find all stamps in an issue with varieties**:
+```cypher
+MATCH (iss:Issue {issue_id: 'CR-1863-FIRST-ISSUE'})-[:HAS_STAMP]->(s:Stamp)
+OPTIONAL MATCH (s)-[:HAS_VARIETY]->(v:Variety)
+RETURN s.catalog_no AS no, s.color, s.perforation,
+       collect(v.suffix) AS varieties
+ORDER BY no;
+```
+
+**Trace overprint derivations**:
+```cypher
+MATCH (d:Stamp)-[r:OVERPRINTED_ON]->(b:Stamp)
+RETURN d.issue_id AS derived, d.catalog_no,
+       r.type AS overprint_type,
+       b.issue_id AS base, b.catalog_no
+ORDER BY derived;
+```
+
+**Production orders timeline**:
+```cypher
+MATCH (iss:Issue)-[:HAS_PRODUCTION_ORDER]->(po:ProductionOrder)
+      -[:INCLUDES]->(q:Quantity)
+RETURN iss.issue_id, po.date, q.plate_desc, q.quantity
+ORDER BY po.date;
+```
+
+> **📚 Full technical guide**: [neo4j_technical_guide_cypher_cookbook.md](neo4j_utils/neo4j_technical_guide_cypher_cookbook.md)
+
+### Setup
+
+**1. Start Neo4j** (Docker or Desktop):
+```bash
+docker run -d \
+  --name neo4j \
+  -p 7474:7474 -p 7687:7687 \
+  -e NEO4J_AUTH=neo4j/your_password \
+  neo4j:latest
+```
+
+**2. Ingest Mena catalog**:
+```bash
+export DATA_JSON="path/to/mena_all_with_raw.json"
+python neo4j_utils/neo4j_ingest_mena_v1.py
+```
+
+**3. Create indexes & embeddings**:
+```bash
+python neo4j_utils/neo4j_index_and_embed.py
+```
+
+**4. Launch graph viewer**:
+```bash
+python neo4j_utils/neo4j_gradio_VIS.py
+```
+
+Or use the integrated viewer in `gradio_app.ipynb` (Graph Viewer tab).
+
+### Integration with RAG Pipeline
+
+Graph knowledge enhances answers by:
+- **Catalog precision**: Resolve Scott/Mena numbers to exact entities
+- **Relationship context**: "Show all varieties of this stamp"
+- **Temporal ordering**: Production dates, issue sequences
+- **Provenance tracking**: Legal acts, printers, officials
+- **Cross-reference validation**: Verify claims against structured catalog
+
+When a query mentions catalog numbers or issue names, the system:
+1. Queries Neo4j for exact matches + neighborhood
+2. Expands via relationships (stamps → varieties → positions)
+3. Retrieves related literature from Weaviate
+4. Synthesizes structured data + textual evidence
 
 ---
 
@@ -208,6 +348,12 @@ OPENAI_EMBED_MODEL=text-embedding-3-large
 # Parsing
 PARSER_BACKEND=dolphin          # dolphin | landing_ai_ade | auto
 ADE_API_KEY=your_landing_ai_key # if using ADE for selected PDFs
+
+# Neo4j Graph Database
+NEO4J_URI=neo4j://localhost:7687
+NEO4J_USER=neo4j
+NEO4J_PASSWORD=your_neo4j_password
+NEO4J_DATABASE=neo4j            # optional
 
 # RAG
 HYBRID_ALPHA=0.35
@@ -330,6 +476,15 @@ oxcart/
 ├── 🧪 test_bilingual_philatelic.py        # Bilingual processing tests
 ├── 🧪 philatelic_metadata_tests.py        # Metadata validation tests
 │
+├── 📁 neo4j_utils/                        # Neo4j graph knowledge layer
+│   ├── neo4j_ingest_mena_v1.py            # Mena catalog → Neo4j ingestion
+│   ├── neo4j_index_and_embed.py           # Full-text + vector indexes
+│   ├── neo4j_search.py                    # Hybrid search (fulltext/vector/graph)
+│   ├── neo4j_gradio_VIS.py                # vis.js graph viewer (Gradio)
+│   ├── neo4j_ingest_mena_v1_en.md         # Schema documentation (V1 model)
+│   ├── neo4j_technical_guide_cypher_cookbook.md  # Cypher queries & cookbook
+│   └── img/                               # Graph visualization samples
+│
 ├── 📁 utils/                              # Helper modules
 ├── 📁 config/                             # Model configurations
 ├── 📁 assets/                             # Images and diagrams
@@ -342,7 +497,7 @@ oxcart/
 
 ---
 
-## ⚖️ Configuration Knobs
+## 🎛️ Configuration Knobs
 
 - **HYBRID_ALPHA** (default 0.35): blend between BM25 and vector
 - **MIN_HYBRID_SCORE** / **MIN_COSINE_SIM**: acceptance thresholds
@@ -354,7 +509,7 @@ oxcart/
 
 ---
 
-## 🧪 Quality, Safety & Monitoring
+## ✅ Quality, Safety & Monitoring
 
 - **Grounding**: Every answer references `doc_id`/`page` with links when available
 - **Thresholds**: Refuse to answer if all candidates fall below MIN_HYBRID_SCORE/MIN_COSINE_SIM
@@ -377,7 +532,7 @@ oxcart/
 
 ---
 
-## 🧰 Dev Notes
+## 💻 Dev Notes
 
 - **Embedding model**: `text-embedding-3-large` (cosine) recommended for long-tail philatelic terminology
 - **Tokenizer drift**: keep embedder consistent across (re)indexing
@@ -385,7 +540,7 @@ oxcart/
 
 ---
 
-## 🖥️ Gradio Interface
+## 🎨 Gradio Interface
 
 Start the UI:
 
@@ -403,7 +558,7 @@ jupyter notebook gradio_app.ipynb
 
 ---
 
-## 🚢 Deployment
+## 🐳 Deployment
 
 ```bash
 docker-compose up -d
@@ -439,6 +594,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - [**Weaviate**](https://weaviate.io/) - Vector database for hybrid search
+- [**Neo4j**](https://neo4j.com/) - Graph database for structured philatelic knowledge
 - [**OpenAI**](https://openai.com/) - High-quality embeddings
 - [**Dolphin**](https://github.com/bytedance/Dolphin) - PDF structure extraction
 - [**Landing.ai ADE**](https://www.landing.ai/) - High-fidelity parsing on selected PDFs
