@@ -601,7 +601,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Philatelic community & contributors** - For sharing knowledge and resources
 
 ---
+<br>
 
+
+<p align="center">
+  <img src="assets/preview_full.png" alt="Project Preview" width="100%" />
+</p>
 
 
 
@@ -609,7 +614,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
   <i>Built with ❤️ for stamp history, scholarship, and collectors.</i>
 </div>
 
-
-<p align="center">
-  <img src="assets/preview_full.png" alt="Project Preview" width="100%" />
-</p>
