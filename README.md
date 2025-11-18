@@ -446,6 +446,14 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
+
+
+
 <div align="center">
   <i>Built with ❤️ for stamp history, scholarship, and collectors.</i>
 </div>
+
+
+<p align="center">
+  <img src="assets/preview_full.png" alt="Project Preview" width="100%" />
+</p>
