@@ -108,10 +108,11 @@ validation report**.
 | `retrieve.py` | Retrieval API: `answer()` (compact card) **and** `context_bundle()` (the graph-first, quality-gated, per-source-budget bundle — recommended). See **`retrieve.md`**. |
 | `examples_runner.py` | CLI for `context_bundle()` — prints the graph-first context (domain → related → ranked source docs → all good lexical passages → thin Weaviate backup) and **auto-saves a transcript** to `results/`. `--q`/`--stamp`/`--max-lexical`/`--min-link`/`--k-weaviate`/`--width`/`--demo`. |
 | `retrieve.md` | **How to use retrieval + feed an LLM.** Output shapes, worked examples, the generate-step prompt pattern, depth levers, and the graph-first `context_bundle` mode (§9). |
-| `results/` | Per-run context transcripts written by `examples_runner.py` (gitignored). |
+| `results/` | Per-run context transcripts (`examples_runner.py`) + `--dry-run` reports (gitignored). |
+| `sample40.txt` | A 36-doc Spanish-heavy validation sample (CRF 01–12 + Filatelia/Timbre/Juventud/Philatelist/AFCR + non-first-issue negative controls) for `--docs-file` dry-runs. |
 | `run_end_to_end.py` | Orchestrates sanitize → domain → lexical → link → validation report. |
 | `teardown.py` | Deletes **only** prototype-tagged Neo4j data (`prototype = PROTOTYPE_TAG`). `--yes` to skip the confirmation prompt. |
-| `coverage_scan.py` | **Full-collection scan (Approach A).** Sanitizes in-memory + scores *every* chunk of many/all OXCART docs, but materializes **only** first-issue hits (deduped) plus `MENTIONS`/`MENTIONS_STAMP`. `--all` (whole collection) / `--sample N` / `--docs ...`. Resets prototype `Chunk`/`Document` first (keeps the Scott layer). |
+| `coverage_scan.py` | **Whole-corpus scan (Approach A).** Sanitizes in-memory + scores *every* chunk of all docs, but materializes **only** first-issue hits (**prefix-deduped, keep-longest**) plus `MENTIONS`/`MENTIONS_STAMP`. `--all` scans the full corpus **except** the 526 Boletín Correos bulletins + the Mena/Scott catalogs = **894 docs**; also `--sample N`, `--docs ...`, `--docs-file PATH`, `--include-boletines`, and **`--dry-run`** (score-only; writes a `results/` report, **no** Neo4j/Weaviate writes — validate a lexicon change before committing it). Resets prototype `Chunk`/`Document` first (keeps the Scott layer + Mena domain). |
 | `evaluate.py` | **Read-only ground-truth + coverage report.** Coverage stats, `link_score` distribution, per-stamp mentions, domain join, and a precision sample (strongest + weakest linked chunks with their text) so you can judge precision yourself. |
 | `cypher_queries.md` | Copy-paste **Neo4j Browser** queries: domain layer, clean evidence set (`score≥6, ¬COMPETING`), per-stamp evidence, coverage, and a subgraph visualization. |
 | `EVALUATION.md` | Coverage numbers, ground-truth precision verdict, and the **chunking root-cause** analysis for the remaining false positives. |
@@ -145,7 +146,8 @@ validation report**.
 ".venv-clean\Scripts\python.exe" first_issue_graphrag\retrieve.py --q "Who printed the 1863 half real and what color is it?"
 
 # 3b. RECOMMENDED for LLM hand-off: graph-first context bundle (auto-saves to results/)
-".venv-clean\Scripts\python.exe" first_issue_graphrag\examples_runner.py --q "the first issue plate crack and its positions" --stamp 1 --max-lexical 15 --width 1500
+#     defaults give ALL good lexical passages with FULL text (no truncation)
+".venv-clean\Scripts\python.exe" first_issue_graphrag\examples_runner.py --q "the first issue plate crack and its positions" --stamp 1
 
 # 4. Roll back: remove ONLY our prototype-tagged Neo4j data
 ".venv-clean\Scripts\python.exe" first_issue_graphrag\teardown.py --yes
@@ -160,31 +162,44 @@ MERGE and takes argparse defaults):
 ".venv-clean\Scripts\python.exe" first_issue_graphrag\link_lexical_to_domain.py
 ```
 
-### Full-collection coverage + evaluation (Approach A)
+### Whole-corpus coverage + evaluation (Approach A)
 
 `run_end_to_end.py` builds the **10-doc demo** (it ingests *all* chunks of those
-docs). To cover the **whole OXCART collection** instead — scanning every chunk of
-all 258 `OXCART*_final.json` docs but materializing **only** the first-issue hits
-(deduped) — use `coverage_scan.py`, then read the ground-truth report:
+docs). To cover the **whole corpus** instead — scanning every chunk of all
+**894 docs** (the 1,424-PDF corpus **minus** the 526 Boletín Correos bulletins
+and the Mena/Scott catalogs, which already live in the domain graph) and
+materializing **only** the first-issue hits (prefix-deduped) — use
+`coverage_scan.py`.
+
+**Validate before you write.** `--dry-run` scores everything and dumps a
+linked + near-miss report to `results/` **without touching Neo4j or Weaviate** —
+the safe way to test a lexicon/threshold change. Then do the real run:
 
 ```powershell
-# Build domain layer once (idempotent), then scan the full collection
-".venv-clean\Scripts\python.exe" first_issue_graphrag\build_domain_scott.py
-".venv-clean\Scripts\python.exe" first_issue_graphrag\coverage_scan.py --all      # or --sample 80
+# 0. (optional) dry-run a representative sample first — NO database writes
+".venv-clean\Scripts\python.exe" first_issue_graphrag\coverage_scan.py --dry-run --docs-file first_issue_graphrag\sample40.txt
 
-# Read coverage stats + a ground-truth precision sample (strongest & weakest links)
+# 1. Build domain layer once (idempotent), then scan the full corpus into Neo4j
+".venv-clean\Scripts\python.exe" first_issue_graphrag\build_domain_scott.py
+".venv-clean\Scripts\python.exe" first_issue_graphrag\coverage_scan.py --all --no-weaviate   # 894 docs; or --sample 80
+
+# 2. Read coverage stats + a ground-truth precision sample (strongest & weakest links)
 ".venv-clean\Scripts\python.exe" first_issue_graphrag\evaluate.py --top 15 --weak 15
 ```
 
-Then inspect it in **Neo4j Browser** with the queries in `cypher_queries.md`
-(start with the *clean evidence set*: `score ≥ 6 AND NOT 'COMPETING' IN signals`).
-See `EVALUATION.md` for the measured coverage and precision findings.
+Current full build: **296 docs / 653 distinct first-issue chunks** (170 docs /
+431 chunks are newly-added non-OXCART sources). Inspect it in **Neo4j Browser**
+with `cypher_queries.md` — start with the *clean evidence set* (`score ≥ 6 AND
+NOT 'COMPETING' IN signals`) and see §14–§17 for the multi-corpus expansion.
+`EVALUATION.md` records the measured coverage, precision/recall, and the
+de-duplication finding.
 
 > **`coverage_scan.py` (Approach A) vs `build_lexical_graph.py` + `link_lexical_to_domain.py`:**
 > the two-step path ingests *all* chunks of the chosen docs (fine for the 10-doc
 > demo; ~193k nodes for the whole corpus). `coverage_scan.py` is the
 > prototype-correct path for wide coverage — it scans everything but writes only
-> the hits, and dedupes near-identical repeated passages within a doc.
+> the hits, collapses nested/near-duplicate passages (prefix-dedupe, keep-longest),
+> and drops heading/byline fragments.
 
 ### Curated document subset
 
@@ -304,7 +319,12 @@ would remove and asks for confirmation before deleting.
 | `FIRST_ISSUE_STAMP_MIN_CONF` | `0.5` | Min confidence to attach a specific stamp (denomination ± color). |
 
 > The linker also requires at least one **core** cue (`YEAR_ANCHOR`=1863, a reales/peso
-> `DENOM`, or the `ABNCo` `PRINTER`) — this is structural, not a tunable. See `EVALUATION.md`.
+> `DENOM`, or the `ABNCo`/`Banco Americano` `PRINTER`) — this is structural, not a tunable.
+> It is **bilingual** (English + Spanish: `primera emisión`/`primera serie`, `medio/dos/cuatro
+> reales`, `un peso`, `Decreto N° 2`, …) and applies three structural suppressors:
+> **FOREIGN** (another country's classic issue, unless Costa Rica is named), **COMPETING**
+> (commemorative / 1881-83 surcharge / Guanacaste / later issue), and **FISCAL** (revenue
+> stamps, unless the 1863 anchor is present). See `EVALUATION.md`.
 | `NEO4J_URI` / `NEO4J_USER` / `NEO4J_PASSWORD` / `NEO4J_DATABASE` | `bolt://127.0.0.1:7687` / `neo4j` / — / `neo4j` | Neo4j connection. |
 | `WEAVIATE_HOST` / `WEAVIATE_HTTP_PORT` / `WEAVIATE_GRPC_PORT` | `localhost` / `8085` / `50056` | Weaviate connection (read-only). |
 | `OPENAI_API_KEY` | — | Optional. Only enables Weaviate's server-side `near_text`/`hybrid`; BM25 works without it. Never used for direct LLM calls. |

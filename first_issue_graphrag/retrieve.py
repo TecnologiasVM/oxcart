@@ -97,12 +97,12 @@ def build_lucene_query(question: str) -> str:
 # --------------------------------------------------------------------------- #
 # Small helpers
 # --------------------------------------------------------------------------- #
-def _snippet(text: Optional[str], limit: int = 280) -> str:
-    """Collapse whitespace and truncate a passage for display/citation."""
+def _snippet(text: Optional[str], limit: Optional[int] = 280) -> str:
+    """Collapse whitespace and (optionally) truncate. ``limit`` None/0 -> full text."""
     if not text:
         return ""
     flat = re.sub(r"\s+", " ", str(text)).strip()
-    if len(flat) <= limit:
+    if not limit or limit <= 0 or len(flat) <= limit:
         return flat
     return flat[: limit - 1].rstrip() + "…"
 
@@ -362,13 +362,14 @@ def _weaviate_hit(obj: Any, mode: str) -> Dict[str, Any]:
     props = obj.properties or {}
     meta = getattr(obj, "metadata", None)
     score = getattr(meta, "score", None) if meta is not None else None
-    # Prefer the CLEAN text_original for the snippet; fall back to enriched text.
+    # Prefer the CLEAN text_original; fall back to enriched text. FULL text (no
+    # truncation) so the saved bundle is complete for LLM hand-off.
     snippet_source = props.get("text_original") or props.get("text")
     return {
         "chunk_id": props.get("chunk_id"),
         "doc_id": props.get("doc_id"),
         "page": props.get("page_number"),
-        "snippet": _snippet(snippet_source),
+        "snippet": _snippet(snippet_source, limit=None),
         "score": _as_float(score),
         "via": mode,  # "bm25" | "hybrid"
     }

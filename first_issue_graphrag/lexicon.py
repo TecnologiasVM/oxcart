@@ -44,7 +44,16 @@ from config import (
 _FLAGS = re.IGNORECASE
 
 ISSUE_PHRASE_RE = re.compile(
-    r"\b(first\s+issue|primera?\s+emisi[oó]n|primer\s+emisi[oó]n)\b", _FLAGS
+    r"\b("
+    r"first\s+issue|"
+    # Spanish "primera emisión / primera serie", OCR-tolerant (emision/emission),
+    # plus "primer(a) sello/estampilla" and "emisión inicial".
+    r"primera?\s+(?:emisi[oó]n|emision|emission|serie)|"
+    r"primer\s+emisi[oó]n|"
+    r"primer(?:a|os|as)?\s+(?:sello|estampilla)s?|"
+    r"emisi[oó]n\s+inicial"
+    r")\b",
+    _FLAGS,
 )
 
 # "first issue" used GENERICALLY (a new/forthcoming issue, not the 1863 proper
@@ -58,12 +67,38 @@ GENERIC_PHRASE_RE = re.compile(
 
 # Competing / later-issue context: strong cue that a DIFFERENT issue is the
 # subject (commemoratives, air mail, charity, sports, named modern series).
+# Also: the 1881-83 SURCHARGE issue (overprints on the reales base, U.P.U.),
+# the 1885+ Guanacaste overprints, and provisionals — these reuse first-issue
+# cues (reales, escudo, ABNCo) but are NOT the 1863 postage first issue.
+# (FISCAL/revenue context is handled by its own HARD guard below.)
 COMPETING_RE = re.compile(
-    r"\b(commemorat\w*|conference|congress|olympic\w*|olimpiad\w*|centennial|"
-    r"anniversary|souvenir\s+sheet|air\s*mail|aéreo|aereo|red\s+cross|cruz\s+roja|"
-    r"boy\s+scout|unicef|world\s+cup|copa\s+mundial|cocor[ií]|san\s+vicente)\b",
+    r"\b(commemorat\w*|conmemorativ\w*|conference|congress|olympic\w*|olimpiad\w*|centennial|"
+    r"anniversary|souvenir\s+sheet|air\s*mail|a[eé]reo|red\s+cross|cruz\s+roja|"
+    r"boy\s+scout|unicef|world\s+cup|copa\s+mundial|cocor[ií]|san\s+vicente|"
+    r"188[12]|u\.?\s*p\.?\s*u\.?|guanacaste|provisional\w*|sobretasa)\b",
     _FLAGS,
 )
+
+# Foreign classic issues share the SAME cues as Costa Rica's (reales, escudo,
+# "primera emisión"). Latin-American neighbours especially. If a passage is
+# explicitly about one of these AND never mentions Costa Rica, it is not ours.
+# Note: México also appears as the old spelling "Méjico/mejicano".
+FOREIGN_COUNTRY_RE = re.compile(
+    r"\b(m[eé][xj]ico|m[eé]?xican\w*|mejican\w*|colombia\w*|granadin\w*|chile\w*|chilen\w*|"
+    r"per[uú]\b|peruan\w*|peruvian\w*|argentin\w*|guatemal\w*|nicarag\w*|hondur\w*|salvador\w*|"
+    r"panam[aá]\w*|venezuel\w*|ecuador\w*|bolivia\w*|brasil\w*|brazil\w*|cuba\w*|espa[nñ]a|spain\b)\b",
+    _FLAGS,
+)
+
+# Costa Rica as the subject (country / adjective / "C.R.").
+COSTA_RICA_RE = re.compile(r"\b(costa\s*rica\w*|costarricens\w*|c\.\s*r\.)", _FLAGS)
+
+# FISCAL / revenue-stamp context. The Timbre journal mixes postage and revenue;
+# a revenue article can say "primera emisión [de timbres fiscales]" (the first
+# issue of REVENUE stamps) and reuse escudo/ABNCo. Treated as a HARD guard:
+# fiscal context with NO 1863 anchor cannot be the 1863 postage first issue,
+# even if an (ambiguous) issue-phrase is present.
+FISCAL_RE = re.compile(r"\b(fiscal\w*|papel\s+sellado|timbre\s+de\s+renta)\b", _FLAGS)
 
 # First-issue timeline years. 1863 is the anchor; others corroborate.
 YEAR_ANCHOR = 1863
@@ -71,23 +106,30 @@ FIRST_ISSUE_YEARS: Set[int] = {1862, 1863, 1864, 1866, 1875, 1883}
 YEAR_RE = re.compile(r"\b(18\d{2})\b")
 
 PRINTER_RE = re.compile(
-    r"\b(abnco\.?|american\s+bank\s*note(?:\s+co\.?)?)\b", _FLAGS
+    r"\b(abnco?\.?|american\s+bank\s*note(?:\s+co\.?)?|"
+    r"banco\s+americano\s+de\s+billetes)\b",
+    _FLAGS,
 )
 
 DESIGN_RE = re.compile(
-    r"\b(coat\s+of\s+arms|escudo|volcano|sailing\s+ship|five\s+stars|ornate\s+scrollwork)\b",
+    r"\b(coat\s+of\s+arms|escudo(?:\s+de\s+armas)?|volcano(?:es)?|volc[aá]n(?:es)?|"
+    r"sailing\s+ship|velero|five\s+stars|cinco\s+estrellas|ornate\s+scrollwork|"
+    r"papel\s+indio|india\s+paper)\b",
     _FLAGS,
 )
 
 # People / events that are specific to the First Issue narrative.
 ENTITY_RE = re.compile(
     r"\b(mechin|mayer|jaime\s+ross|julian\s+volio|francisco\s+echeverr[ií]a|"
-    r"luis\s+molina|demonetized|decree\s*#?\s*2\b)\b",
+    r"luis\s+molina|demonetiz\w*|desmonetiz\w*|"
+    r"decree\s*#?\s*2\b|decreto\s+n[°ºo.\s]*2\b)\b",
     _FLAGS,
 )
 
 PLATE_RE = re.compile(
-    r"\b(second\s+plate|light\s+blue|pos\s*\.?\s*(?:2|8|87|89|96)\b|plate\s+variet)",
+    r"\b(second\s+plate|primera\s+plancha|segunda\s+plancha|plate\s+(?:2|two|ii)\b|"
+    r"light\s+blue|pos\s*\.?\s*(?:2|8|87|89|96)\b|plate\s+variet|"
+    r"rotura\s+de\s+la\s+plancha|sin\s+perforar|sin\s+dentar|imperforad\w*)",
     _FLAGS,
 )
 
@@ -104,7 +146,7 @@ COLOR_PATTERNS: Dict[str, re.Pattern] = {
 # Denomination detectors. key -> compiled regex.
 DENOM_PATTERNS: Dict[str, re.Pattern] = {
     "half_real": re.compile(
-        r"(½|1\s*/\s*2|\bhalf\b|\bmedio\b)\s*real(?:es)?\b", _FLAGS
+        r"(½|1\s*/\s*2|\bhalf\b|\bmedi[oa]\b)\s*real(?:es)?\b", _FLAGS
     ),
     "two_reales": re.compile(r"\b(2|dos|two)\s*real(?:es)?\b", _FLAGS),
     "four_reales": re.compile(r"\b(4|cuatro|four)\s*real(?:es)?\b", _FLAGS),
@@ -328,6 +370,22 @@ def score_chunk(text: str) -> ChunkLink:
     # so a commemorative passage cannot link on denomination/printer alone.
     if linked and competing and not (signals.get("YEAR_ANCHOR") or signals.get("ISSUE_PHRASE")):
         linked = False
+
+    # Geographic guard: a passage explicitly about ANOTHER country that never
+    # mentions Costa Rica is a foreign classic issue reusing the same cues
+    # (reales / escudo / "primera emisión"), not our 1863 first issue.
+    foreign = sorted({m.group(0).lower() for m in FOREIGN_COUNTRY_RE.finditer(text)})
+    if foreign:
+        signals["FOREIGN"] = foreign
+        if linked and not COSTA_RICA_RE.search(text):
+            linked = False
+
+    # Fiscal/revenue HARD guard: "first issue of fiscal stamps" must not pass as
+    # the 1863 postage first issue. Only the 1863 anchor rescues a fiscal passage.
+    if FISCAL_RE.search(text):
+        signals["FISCAL"] = sorted({m.group(0).lower() for m in FISCAL_RE.finditer(text)})
+        if linked and not signals.get("YEAR_ANCHOR"):
+            linked = False
 
     stamps = match_stamps(text) if linked else []
 

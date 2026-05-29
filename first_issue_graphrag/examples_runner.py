@@ -19,7 +19,7 @@ Knobs:
     --include-competing  keep COMPETING-flagged chunks too.          default off
     --k-weaviate N    Weaviate BACKUP passages (clamped to <=25).    default 5
     --stamp C         scope to a Mena stamp (1=1/2r, 2=2r, 3=4r, 4=1p).
-    --width N         characters of each passage to show.            default 900
+    --width N         characters per passage; 0 = FULL text (no truncation). default 0
 """
 
 from __future__ import annotations
@@ -81,7 +81,12 @@ DEMO = [
 
 
 def _wrap(text: str, width: int) -> str:
-    return textwrap.shorten(" ".join((text or "").split()), width=width, placeholder=" …")
+    """Collapse whitespace. ``width <= 0`` -> FULL text (no truncation) — the
+    default, so the saved transcript is complete for LLM hand-off."""
+    s = " ".join((text or "").split())
+    if width and width > 0:
+        return textwrap.shorten(s, width=width, placeholder=" …")
+    return s
 
 
 def _fmt_score(v: Any) -> str:
@@ -126,14 +131,14 @@ def run(question: str, stamp: Optional[str], max_lexical: int, min_link: float,
         vs = ", ".join(sv.get("varieties") or []) or "(none)"
         print(f"  Mena {sv.get('stamp')} varieties: {vs}")
     if rel.get("proofs"):
-        print(f"  Proofs ({len(rel['proofs'])}): {', '.join(rel['proofs'][:20])}{' …' if len(rel['proofs'])>20 else ''}")
+        print(f"  Proofs ({len(rel['proofs'])}): {', '.join(rel['proofs'])}")
     if rel.get("plates"):
         print(f"  Plates: {', '.join(str(p) for p in rel['plates'])}")
 
     # 3) SOURCE DOCUMENTS that reference this (ranked by quality)
     print(f"\n=== 3) SOURCE DOCUMENTS referencing this query ({len(sources)} docs, ranked) ===")
     for s in sources:
-        pages = ", ".join(f"p.{p}" for p in s.get("pages", [])[:8])
+        pages = ", ".join(f"p.{p}" for p in s.get("pages", []))
         print(f"  {s['doc_id']:<24} chunks={s['chunks']:<3} "
               f"best_ft={_fmt_score(s.get('best_score'))} best_link={_fmt_score(s.get('best_link'))}  [{pages}]")
 
@@ -163,7 +168,8 @@ def main() -> int:
     ap.add_argument("--min-link", type=float, default=6.0, help="Quality gate on MENTIONS score.")
     ap.add_argument("--k-weaviate", type=int, default=5, help="Weaviate backup passages (<=25).")
     ap.add_argument("--include-competing", action="store_true", help="Keep COMPETING-flagged chunks.")
-    ap.add_argument("--width", type=int, default=900, help="Characters per passage shown.")
+    ap.add_argument("--width", type=int, default=0,
+                    help="Characters per passage; 0 = FULL text, no truncation (default — best for LLM hand-off).")
     ap.add_argument("--demo", action="store_true", help="Run the four canned demo questions.")
     args = ap.parse_args()
 

@@ -28,7 +28,10 @@ Run (always via the repo venv, from the repo root)::
 from __future__ import annotations
 
 import argparse
+import json
 import re
+import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
 import lexicon
@@ -44,7 +47,27 @@ from config import (
     weaviate_client,
 )
 
-_FINAL_RE = re.compile(r"^(OXCART[^_]*)_final\.json$", re.IGNORECASE)
+# Match ANY ``<doc_id>_final.json`` (the corpus is no longer OXCART-only).
+_FINAL_RE = re.compile(r"^(.+)_final\.json$", re.IGNORECASE)
+
+# Documents excluded from broad (--all/--sample) scans, matched case-insensitively
+# against the file name:
+#   * Boletín Correos  -- 526 government postal bulletins, no first-issue value.
+#   * Mena / Scott catalogs -- already represented in the Neo4j DOMAIN graph
+#     (Mena 2018 + the Scott layer); re-ingesting them as lexical chunks would be
+#     redundant with the structured catalog (owner decision).
+# The ``^mena``/``^scott``/``^catálogo scott`` anchors only match the actual
+# catalog FILES, never a journal that merely *cites* Scott/Mena numbers.
+_EXCLUDE_RE = re.compile(
+    r"(?i)(?:boletin correos|boletín correos|^mena\b|^scott\b|^cat[aá]logo scott)"
+)
+
+# Where --dry-run dumps its linked/near-miss report (alongside examples_runner output).
+_DRYRUN_DIR = Path(__file__).resolve().parent / "results"
+
+
+def _is_excluded(name: str) -> bool:
+    return bool(_EXCLUDE_RE.search(name))
 
 # --------------------------------------------------------------------------- #
 # Schema (DDL must be auto-commit on Neo4j 5.x — run via session.run, not execute_write)
@@ -83,20 +106,59 @@ def _reset_lexical(session) -> Dict[str, int]:
 # --------------------------------------------------------------------------- #
 # Discovery + per-doc scan
 # --------------------------------------------------------------------------- #
-def list_all_docs() -> List[str]:
-    """Every doc_id that has a results/final_jsons/<doc>_final.json file."""
+def list_all_docs(include_excluded: bool = False) -> List[str]:
+    """
+    Every doc_id that has a results/final_jsons/<doc>_final.json file.
+
+    By default this now spans the WHOLE corpus (not just OXCART), minus the
+    excluded Boletín Correos bulletins. Pass ``include_excluded=True`` to include
+    those too.
+    """
     docs: List[str] = []
     if not FINAL_JSONS_DIR.exists():
         return docs
-    for p in sorted(FINAL_JSONS_DIR.glob("OXCART*_final.json")):
+    for p in sorted(FINAL_JSONS_DIR.glob("*_final.json")):
+        if not include_excluded and _is_excluded(p.name):
+            continue
         m = _FINAL_RE.match(p.name)
         if m:
             docs.append(m.group(1))
     return docs
 
 
+def _read_docs_file(path: str) -> List[str]:
+    """Read explicit doc_ids (one per line) from a UTF-8 file.
+
+    Only ``\\r``/``\\n`` are stripped, so doc_ids with significant trailing
+    spaces (e.g. ``Mena 2018 CRPC ``) round-trip exactly. Blank lines are skipped.
+    """
+    out: List[str] = []
+    with open(path, "r", encoding="utf-8") as fh:
+        for line in fh:
+            doc = line.rstrip("\r\n")
+            if doc.strip():
+                out.append(doc)
+    return out
+
+
 def _norm(text: str) -> str:
     return " ".join((text or "").lower().split())
+
+
+# Nested/overlapping chunks (the parse layer emits the SAME passage at several
+# growing lengths) share a long common head. Dedupe by a normalized prefix so a
+# passage is materialized once. 200 chars is enough to separate distinct passages
+# while collapsing the nested family.
+_PREFIX_LEN = 200
+
+# Minimum substantive length for a LINKED chunk. A heading/byline fragment
+# (e.g. a 100-char article title) carries no retrievable content and is already
+# represented by the full passage it leads.
+_MIN_LINK_CHARS = 140
+
+
+def _prefix_key(text: str) -> str:
+    return _norm(text)[:_PREFIX_LEN]
 
 
 def _confidence_from_score(score: float) -> float:
@@ -113,35 +175,55 @@ def _ro_start(chunk: Dict[str, Any]) -> int:
     return 1_000_000
 
 
-def scan_doc(doc_id: str) -> Dict[str, Any]:
+def scan_doc(doc_id: str, collect_near: bool = False, near_min: float = 2.0) -> Dict[str, Any]:
     """
     Sanitize a doc in-memory, score every chunk, return only the LINKED chunks
     (deduped by normalized text), in reading order, plus per-doc scan counts.
+
+    When ``collect_near`` is set, also return ``near`` — chunks that did NOT link
+    but scored at least ``near_min``. These borderline misses are the recall-audit
+    population (used by --dry-run to find Spanish first-issue mentions the lexicon
+    currently fails to capture).
     """
     try:
         patched = sanitize_chunks.sanitize_doc(doc_id)
     except FileNotFoundError:
-        return {"doc_id": doc_id, "scanned": 0, "linked": [], "missing": True}
+        return {"doc_id": doc_id, "scanned": 0, "linked": [], "near": [], "missing": True}
+    except (json.JSONDecodeError, OSError, ValueError) as exc:
+        print(f"  [warn] skip {doc_id}: {type(exc).__name__}: {exc}")
+        return {"doc_id": doc_id, "scanned": 0, "linked": [], "near": [], "missing": True}
 
     chunks = patched.get("chunks", [])
-    linked: List[Dict[str, Any]] = []
-    seen: set[str] = set()
+    candidates: List[Dict[str, Any]] = []
+    near: List[Dict[str, Any]] = []
+    seen_near: set[str] = set()
 
     for ch in sorted(chunks, key=_ro_start):
         text = ch.get("text") or ""
         link = lexicon.score_chunk(text)
         if not link.linked:
+            if collect_near and link.score >= near_min:
+                key = _prefix_key(text)
+                if key and key not in seen_near:
+                    seen_near.add(key)
+                    near.append(
+                        {
+                            "chunk_id": ch.get("chunk_id"),
+                            "text": text,
+                            "page": ch.get("page"),
+                            "score": link.score,
+                            "signals": link.signal_summary(),
+                        }
+                    )
             continue
-        key = _norm(text)
-        if not key or key in seen:
-            continue  # dedupe near-identical repeated passages within the doc
-        seen.add(key)
+        if len(_norm(text)) < _MIN_LINK_CHARS:
+            continue  # heading/byline fragment — no retrievable content
         stamps = [
             {"mena": s.mena, "scott": s.scott, "confidence": s.confidence, "signals": list(s.signals)}
             for s in link.stamps
             if s.confidence >= FIRST_ISSUE_STAMP_MIN_CONF
         ]
-        linked.append(
+        candidates.append(
             {
                 "chunk_id": ch.get("chunk_id"),
                 "text": text,
@@ -153,7 +235,20 @@ def scan_doc(doc_id: str) -> Dict[str, Any]:
                 "stamps": stamps,
             }
         )
-    return {"doc_id": doc_id, "scanned": len(chunks), "linked": linked, "missing": False}
+
+    # Collapse nested/near-duplicate passages: group by normalized text prefix and
+    # keep the LONGEST (most complete) representative of each group. This removes
+    # the "same passage chunked at 15 growing lengths" artifact.
+    best: Dict[str, Dict[str, Any]] = {}
+    for c in candidates:
+        key = _prefix_key(c["text"])
+        if not key:
+            continue
+        if key not in best or len(c["text"]) > len(best[key]["text"]):
+            best[key] = c
+    linked = sorted(best.values(), key=_ro_start)
+
+    return {"doc_id": doc_id, "scanned": len(chunks), "linked": linked, "near": near, "missing": False}
 
 
 # --------------------------------------------------------------------------- #
@@ -253,29 +348,85 @@ def _weaviate_overlap(linked_chunk_ids: set[str], limit: int = 100) -> Dict[str,
 # --------------------------------------------------------------------------- #
 # Public API
 # --------------------------------------------------------------------------- #
+def _empty_stats() -> Dict[str, Any]:
+    return {
+        "docs_scanned": 0, "docs_missing": 0, "docs_with_first_issue": 0,
+        "chunks_scanned": 0, "chunks_linked": 0, "chunks_after_dedupe": 0,
+        "mentions_issue": 0, "mentions_stamp": 0, "per_doc": [],
+    }
+
+
+def _dry_run(doc_list: Sequence[str], dump_path: Optional[str]) -> Dict[str, Any]:
+    """
+    Score every doc WITHOUT touching Neo4j or Weaviate. Dumps linked + near-miss
+    chunks (with full text) to a JSON report for offline precision/recall audit.
+    This is the DB-safe path used to validate a lexicon change before committing
+    it to the graph.
+    """
+    stats = _empty_stats()
+    linked_out: List[Dict[str, Any]] = []
+    near_out: List[Dict[str, Any]] = []
+    t0 = time.time()
+
+    for i, doc_id in enumerate(doc_list, 1):
+        res = scan_doc(doc_id, collect_near=True)
+        if res["missing"]:
+            stats["docs_missing"] += 1
+            continue
+        stats["docs_scanned"] += 1
+        stats["chunks_scanned"] += res["scanned"]
+        for c in res["near"]:
+            near_out.append({"doc": doc_id, **c})
+        linked = res["linked"]
+        if linked:
+            stats["docs_with_first_issue"] += 1
+            stats["chunks_after_dedupe"] += len(linked)
+            for c in linked:
+                linked_out.append({"doc": doc_id, **c})
+                stats["mentions_issue"] += 1
+                stats["mentions_stamp"] += len(c["stamps"])
+            stats["per_doc"].append({"doc": doc_id, "linked": len(linked)})
+        if i % 25 == 0:
+            print(f"  ...[dry] scanned {i}/{len(doc_list)} docs, "
+                  f"{stats['chunks_after_dedupe']} linked / {len(near_out)} near-miss so far")
+
+    stats["chunks_linked"] = stats["chunks_after_dedupe"]
+    stats["elapsed_sec"] = round(time.time() - t0, 1)
+    stats["per_doc"].sort(key=lambda d: d["linked"], reverse=True)
+
+    _DRYRUN_DIR.mkdir(parents=True, exist_ok=True)
+    path = Path(dump_path) if dump_path else _DRYRUN_DIR / f"_dryrun_{time.strftime('%Y%m%d_%H%M%S')}.json"
+    with path.open("w", encoding="utf-8") as fh:
+        json.dump({"stats": stats, "linked": linked_out, "near_miss": near_out}, fh, ensure_ascii=False, indent=2)
+    print(f"[dry-run] no Neo4j/Weaviate writes. report -> {path}")
+    return {"stats": stats, "dump_path": str(path)}
+
+
 def coverage_scan(
     docs: Optional[Sequence[str]] = None,
     sample: Optional[int] = None,
     reset: bool = True,
     weaviate_xval: bool = True,
     driver: Optional[Any] = None,
+    include_excluded: bool = False,
+    dry_run: bool = False,
+    dump_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     if docs:
         doc_list = list(docs)
     else:
-        doc_list = list_all_docs()
+        doc_list = list_all_docs(include_excluded=include_excluded)
         if sample:
             # Evenly spread the sample across the (numerically sorted) collection.
             step = max(1, len(doc_list) // sample)
             doc_list = doc_list[::step][:sample]
 
+    if dry_run:
+        return _dry_run(doc_list, dump_path)
+
     owns = driver is None
     drv = driver if driver is not None else neo4j_driver()
-    stats: Dict[str, Any] = {
-        "docs_scanned": 0, "docs_missing": 0, "docs_with_first_issue": 0,
-        "chunks_scanned": 0, "chunks_linked": 0, "chunks_after_dedupe": 0,
-        "mentions_issue": 0, "mentions_stamp": 0, "per_doc": [],
-    }
+    stats: Dict[str, Any] = _empty_stats()
     linked_ids: set[str] = set()
 
     try:
@@ -321,9 +472,17 @@ def coverage_scan(
 def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="Full-collection First Issue coverage scan (materialize hits only).")
     g = ap.add_mutually_exclusive_group()
-    g.add_argument("--all", action="store_true", help="Scan every OXCART*_final.json (the full collection).")
+    g.add_argument("--all", action="store_true",
+                   help="Scan every *_final.json (whole corpus, minus excluded Boletín Correos).")
     g.add_argument("--sample", type=int, metavar="N", help="Scan N docs spread across the collection.")
     g.add_argument("--docs", nargs="+", metavar="DOC_ID", help="Scan these specific docs.")
+    g.add_argument("--docs-file", metavar="PATH",
+                   help="Scan the doc_ids listed (one per line, UTF-8) in this file.")
+    ap.add_argument("--include-boletines", action="store_true",
+                    help="Do NOT exclude Boletín Correos bulletins (excluded by default).")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="Score only; write NO Neo4j/Weaviate data. Dump linked+near-miss chunks to results/.")
+    ap.add_argument("--dump", metavar="PATH", help="Explicit output path for the --dry-run report JSON.")
     ap.add_argument("--no-reset", action="store_true", help="Do not clear existing prototype chunks first.")
     ap.add_argument("--no-weaviate", action="store_true", help="Skip the Weaviate BM25 cross-check.")
     return ap.parse_args(argv)
@@ -331,18 +490,30 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = _parse_args(argv)
-    docs = args.docs if args.docs else None
+    if args.docs:
+        docs = args.docs
+    elif args.docs_file:
+        docs = _read_docs_file(args.docs_file)
+        print(f"Loaded {len(docs)} doc_ids from {args.docs_file}")
+    else:
+        docs = None
     sample = args.sample if args.sample else None
     if not docs and not sample and not args.all:
         sample = 80  # sensible default: a wide sample
         print("No scope given; defaulting to --sample 80 (use --all for the full collection).")
 
-    print("Scanning collection (Approach A: materialize first-issue hits only)...")
+    mode = "DRY-RUN (no writes)" if args.dry_run else "Approach A: materialize first-issue hits only"
+    print(f"Scanning collection ({mode})...")
     result = coverage_scan(
         docs=docs, sample=sample, reset=not args.no_reset, weaviate_xval=not args.no_weaviate,
+        include_excluded=args.include_boletines, dry_run=args.dry_run, dump_path=args.dump,
     )
     s = result["stats"]
     print("\n== coverage_scan stats ==")
+    if "elapsed_sec" in s:
+        print(f"  elapsed         : {s['elapsed_sec']}s")
+    if result.get("dump_path"):
+        print(f"  report          : {result['dump_path']}")
     if "reset" in s:
         print(f"  reset           : deleted {s['reset']['chunks_deleted']} chunks, {s['reset']['documents_deleted']} documents")
     print(f"  docs_scanned    : {s['docs_scanned']}  (missing: {s['docs_missing']})")

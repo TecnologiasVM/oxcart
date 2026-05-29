@@ -73,6 +73,49 @@ NEGATIVE_COUNTERFEIT_TELEGRAPH = (
 )
 
 
+# --- Spanish-language fixtures (real patterns from the ~70%-Spanish corpus) ---
+
+# Positive: "primera serie" (= first issue) forgery article (CRF 11).
+ES_PRIMERA_SERIE = (
+    "Las falsificaciones de la primera serie de Costa Rica son numerosas: "
+    "existen falsos de los dos reales, cuatro reales y un peso."
+)
+
+# Positive: the founding decree of the first issue (CRF 05).
+ES_DECRETO = (
+    "El Decreto N° 2 del 18 de agosto de 1862 autoriza la emisión de los sellos "
+    "de dos reales y medio real de Costa Rica."
+)
+
+# Positive: OCR-mangled 'primera emision' + 1863 + denomination (CRF 10).
+ES_PRIMERA_EMISION_OCR = (
+    "Nuevo y valioso documento sobre la primera emision de Costa Rica: el medio "
+    "real azul de 1863."
+)
+
+# Negative: another country's classic issue reusing the same cues — would score
+# high (primera emisión + denom + design) but the geo guard must suppress it.
+ES_FP_COLOMBIA = (
+    "Estudio de la primera emisión de Colombia (Confederación Granadina) de 1859, "
+    "con su escudo de armas, dos reales."
+)
+ES_FP_MEXICO = (
+    "La primera emisión de México de 1862: los cuatro reales y medio real, "
+    "reimpresiones incluidas."
+)
+
+# Negative: the 1881-83 surcharge issue (CRF 08), not the 1863 first issue.
+ES_FP_SURCHARGE_1881 = (
+    "Emisión 1881-83: sobrecarga U.P.U. de 20 cts sobre 4 reales verde."
+)
+
+# Negative: fiscal/revenue stamps (Timbre14), not the 1863 postage first issue.
+ES_FP_FISCAL = (
+    "Los timbres fiscales de medio real y dos reales, impresos por el American "
+    "Bank Note, tipo fiscal de renta."
+)
+
+
 def _check(name: str, cond: bool) -> bool:
     print(f"  [{'PASS' if cond else 'FAIL'}] {name}")
     return cond
@@ -123,6 +166,28 @@ def run() -> int:
         "counterfeit-telegraph article NOT linked (no core first-issue cue)",
         not link7.linked,
     )
+
+    print("test_spanish_first_issue_links")
+    es1 = lx.score_chunk(ES_PRIMERA_SERIE)
+    failures += not _check("'primera serie de Costa Rica' links", es1.linked)
+    failures += not _check("ISSUE_PHRASE fired for 'primera serie'", bool(es1.signals["ISSUE_PHRASE"]))
+    es2 = lx.score_chunk(ES_DECRETO)
+    failures += not _check("'Decreto N° 2 ... 1862' links", es2.linked)
+    failures += not _check("ENTITY fired for decreto", bool(es2.signals["ENTITY"]))
+    es3 = lx.score_chunk(ES_PRIMERA_EMISION_OCR)
+    failures += not _check("OCR 'primera emision' + 1863 links", es3.linked)
+
+    print("test_foreign_and_competing_do_not_link")
+    fp1 = lx.score_chunk(ES_FP_COLOMBIA)
+    failures += not _check("Colombia first issue NOT linked (geo guard)", not fp1.linked)
+    failures += not _check("FOREIGN flagged for Colombia", bool(fp1.signals.get("FOREIGN")))
+    fp2 = lx.score_chunk(ES_FP_MEXICO)
+    failures += not _check("Mexico first issue NOT linked (geo guard)", not fp2.linked)
+    fp3 = lx.score_chunk(ES_FP_SURCHARGE_1881)
+    failures += not _check("1881-83 surcharge NOT linked (competing)", not fp3.linked)
+    failures += not _check("COMPETING flagged for 1881-83", bool(fp3.signals.get("COMPETING")))
+    fp4 = lx.score_chunk(ES_FP_FISCAL)
+    failures += not _check("fiscal stamps NOT linked (competing)", not fp4.linked)
 
     print("test_stamp_color_disambiguation")
     failures += not _check(

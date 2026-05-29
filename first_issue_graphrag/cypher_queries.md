@@ -6,6 +6,14 @@ inspect the prototype graph and judge ground truth yourself.
 All prototype nodes/edges carry `prototype = "first_issue_graphrag"`.
 Issue id is `CR-1863-FIRST-ISSUE`. Run `coverage_scan.py --all` first to populate.
 
+> **Corpus scope (current build):** `--all` now scans the **whole corpus — 894
+> docs** — i.e. every `results/final_jsons/*_final.json` **except** the 526
+> Boletín Correos bulletins and the Mena/Scott catalogs (those already live in
+> the domain graph, so re-ingesting them as lexical chunks would be redundant).
+> Result: **296 documents / 653 distinct first-issue chunks** (170 docs / 431
+> chunks of which are newly-added non-OXCART sources). See §14–§17 for the
+> multi-corpus expansion.
+
 ---
 
 ## 0. Sanity — confirm the Mena domain graph is INTACT (we never touched it)
@@ -246,15 +254,106 @@ RETURN p;
 
 ---
 
+## 14. Multi-corpus expansion — first-issue evidence by SOURCE SERIES
+
+After the full **894-doc** scan, **296 documents / 653 distinct chunks** carry
+first-issue evidence — up from 155 docs in the OXCART-only graph, and now
+**majority non-OXCART** (170 docs / 431 chunks newly added). This groups that
+evidence by source series.
+
+```cypher
+MATCH (d:Document {prototype:'first_issue_graphrag'})-[:HAS_CHUNK]->(c:Chunk)-[:MENTIONS]->(:Issue {issue_id:'CR-1863-FIRST-ISSUE'})
+WITH d, c, CASE
+    WHEN d.doc_id STARTS WITH 'OXCART' THEN 'OXCART studies'
+    WHEN d.doc_id STARTS WITH 'CRF' THEN 'CRF (Costa Rica Filatelica)'
+    WHEN d.doc_id STARTS WITH 'Filatelia Costarricense' THEN 'Filatelia Costarricense'
+    WHEN d.doc_id STARTS WITH 'AFCR' THEN 'AFCR Boletin'
+    WHEN d.doc_id STARTS WITH 'Repertorio' THEN 'Repertorio Filatelico'
+    WHEN d.doc_id STARTS WITH 'Timbre' THEN 'Timbre'
+    WHEN d.doc_id STARTS WITH 'Juventud' THEN 'Juventud Filatelica'
+    WHEN d.doc_id CONTAINS 'Philatelist' THEN 'The Costa Rica Philatelist'
+    ELSE 'Other monographs' END AS series
+RETURN series, count(DISTINCT d) AS docs, count(DISTINCT c) AS chunks
+ORDER BY chunks DESC;
+// Typical: OXCART 126/222 · Other monographs 31/144 · CRF 49/124 · Repertorio 53/109 · ...
+```
+
+## 15. The newly-added references — top NON-OXCART documents
+
+The high-value first-issue sources the OXCART-only graph was missing: Frajola/Mayer
+postal history, Nordberg collections, Alvaro Castro postal history, forgery
+studies, and the CRF / Repertorio / Filatelia runs.
+
+```cypher
+MATCH (d:Document {prototype:'first_issue_graphrag'})-[:HAS_CHUNK]->(c:Chunk)-[m:MENTIONS]->(:Issue {issue_id:'CR-1863-FIRST-ISSUE'})
+WHERE NOT d.doc_id STARTS WITH 'OXCART'
+RETURN d.doc_id AS doc,
+       sum(CASE WHEN m.score >= 6 AND NOT 'COMPETING' IN m.signals THEN 1 ELSE 0 END) AS clean_chunks,
+       count(c) AS chunks, max(m.score) AS best_score
+ORDER BY clean_chunks DESC, chunks DESC
+LIMIT 30;
+```
+
+## 16. Spanish-language recall — first-issue evidence in Spanish
+
+The corpus is ~70% Spanish; these chunks linked via the Spanish vocabulary the
+lexicon now understands (`primera emisión`, `primera serie`, `medio real`,
+`dos/cuatro reales`, `un peso`, `Decreto N° …`). ~298 chunks across 126 non-OXCART docs.
+
+```cypher
+MATCH (c:Chunk)-[m:MENTIONS]->(:Issue {issue_id:'CR-1863-FIRST-ISSUE'})
+WHERE c.text =~ '(?is).*(primera emisi[oó]n|primera serie|medio real|dos reales|cuatro reales|un peso|decreto n).*'
+  AND NOT c.doc_id STARTS WITH 'OXCART'
+RETURN c.doc_id AS doc, m.score AS score, m.signals AS signals, left(c.text, 220) AS snippet
+ORDER BY m.score DESC
+LIMIT 40;
+```
+
+## 17. GRAPH VIEW — the Issue + its top NEW (non-OXCART) source documents
+
+Renders the first issue plus the 12 strongest newly-added documents (≤3 clean
+chunks each) — a quick visual of what the corpus expansion contributed.
+
+```cypher
+MATCH (i:Issue {issue_id:'CR-1863-FIRST-ISSUE'})
+CALL (i) {
+  MATCH (d:Document {prototype:'first_issue_graphrag'})-[:HAS_CHUNK]->(:Chunk)-[mm:MENTIONS]->(i)
+  WHERE NOT d.doc_id STARTS WITH 'OXCART' AND mm.score >= 6 AND NOT 'COMPETING' IN mm.signals
+  WITH d, count(*) AS n ORDER BY n DESC LIMIT 12
+  RETURN collect(d) AS topDocs
+}
+UNWIND topDocs AS d
+CALL (d, i) {
+  MATCH p = (d)-[:HAS_CHUNK]->(c:Chunk)-[m:MENTIONS]->(i)
+  WHERE m.score >= 6 AND NOT 'COMPETING' IN m.signals
+  WITH p, m ORDER BY m.score DESC LIMIT 3
+  RETURN collect(p) AS paths
+}
+WITH reduce(acc=[], x IN collect(paths) | acc + x) AS allPaths
+UNWIND allPaths AS p
+RETURN p;
+```
+
+---
+
 ### Notes for interpreting results
 
 - **Trust `score >= 6` and `NOT 'COMPETING'`** (queries #2/#10) as the clean evidence set.
 - The **`score = 4` tier** (query #4) is the precision boundary: it mixes genuine
   first-issue catalogue/auction listings with **oversized combined-chunk artifacts**
   (a single merged chunk spanning unrelated sections where `1863` + a denomination
-  co-occur by accident). Fixing those requires splitting the merged chunks at the
-  parsing layer — it is not a lexicon problem.
+  co-occur by accident). Fixing those fully requires splitting the merged chunks at
+  the parsing layer — it is not a lexicon problem.
+- **De-duplication:** each distinct passage is materialized **once**. The parse
+  layer emits the same passage at several growing lengths (nested chunks); the
+  scanner collapses those by normalized text prefix and keeps the most complete
+  one. (This is why the deduped graph has ~653 chunks, not the ~thousands of raw
+  nested copies.)
 - `signals` on each `MENTIONS` edge tells you *why* it linked
-  (`YEAR_ANCHOR`=1863, `DENOM`, `PRINTER`=ABNCo, `ISSUE_PHRASE`, `PLATE`, `ENTITY`,
-  `DESIGN`, and `COMPETING` when commemorative/later-issue context was detected).
+  (`YEAR_ANCHOR`=1863, `DENOM`, `PRINTER`=ABNCo/Banco Americano, `ISSUE_PHRASE`
+  incl. Spanish `primera emisión`/`primera serie`, `PLATE`, `ENTITY` incl.
+  `Decreto N° 2`, `DESIGN`). Suppression flags: **`COMPETING`** (commemorative /
+  1881-83 surcharge / Guanacaste / later issue), **`FOREIGN`** (another country's
+  classic issue — suppressed unless Costa Rica is also named), and **`FISCAL`**
+  (revenue-stamp context — suppressed unless the 1863 anchor is present).
 ```

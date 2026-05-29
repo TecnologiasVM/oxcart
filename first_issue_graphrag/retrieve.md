@@ -449,19 +449,23 @@ has `score ≥ min_link` (default **6** — the clean tier from `EVALUATION.md`)
 | `--include-competing` | `exclude_competing=False` | off | keep COMPETING-flagged chunks |
 | `--k-weaviate` | `k_weaviate` | `5` (hard cap 25) | backup breadth; `0` = pure graph |
 | `--stamp` | `stamp` | none | scope to a Mena stamp (1=½r, 2=2r, 3=4r, 4=1p) |
-| `--width` | — | `900` | characters of each passage shown |
+| `--width` | — | `0` (= FULL text) | characters per passage; `0`/negative = **no truncation** (default) |
+
+**Full text by default:** every passage (lexical *and* Weaviate backup) is printed
+in FULL — nothing is truncated — so the saved transcript is complete to paste into
+an LLM. Pass `--width 900` only if you want short passages for a quick terminal scan.
 
 **Auto-save:** every `examples_runner.py` run writes a timestamped transcript to
 `first_issue_graphrag/results/<slug>_<timestamp>.txt` (gitignored) — open it and
 paste into your LLM.
 
 **Recommended usage:**
+- Maximum breadth (everything good in the graph, full text) → defaults.
 - Tight, on-topic context for a specific question → `--max-lexical 15`.
-- Maximum breadth (everything good in the graph) → default `--max-lexical 0`.
 - Pure graph, skip Weaviate entirely → `--k-weaviate 0`.
 
 ```powershell
-.\.venv-clean\Scripts\python.exe first_issue_graphrag\examples_runner.py --q "the first issue plate crack and its positions" --stamp 1 --max-lexical 15 --width 1500
+.\.venv-clean\Scripts\python.exe first_issue_graphrag\examples_runner.py --q "the first issue plate crack and its positions" --stamp 1
 ```
 
 Programmatic:
