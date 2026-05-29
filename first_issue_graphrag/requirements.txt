@@ -1,0 +1,18 @@
+# First Issue GraphRAG prototype — runtime dependencies.
+#
+# NOTE: These packages are ALREADY installed in the repo's `.venv-clean`
+#       interpreter (.venv-clean\Scripts\python.exe). This file exists only for
+#       documentation / portability — you do NOT need to `pip install` anything
+#       to run the prototype against the existing venv. If you ever recreate the
+#       environment, install with:
+#
+#           ".venv-clean\Scripts\python.exe" -m pip install -r first_issue_graphrag\requirements.txt
+#
+# No LLM client libraries appear here on purpose: this prototype makes NO direct
+# LLM API calls. Weaviate's own OpenAI vectorizer (server-side) is the only
+# accepted exception and needs no client package here.
+
+neo4j>=5.0          # Neo4j Python driver 5.x (execute_write, FULLTEXT FOR..ON EACH, MERGE)
+weaviate-client>=4.16  # Weaviate v4 client; READ-ONLY usage (BM25 needs no API key)
+python-dotenv>=1.0  # loads repo-root .env (Neo4j creds, Weaviate ports, OPENAI key)
+tqdm                # progress bars for batch ingest / linking loops

@@ -1,0 +1,66 @@
+{
+  "stamps": [
+    {
+      "scott_number": "1",
+      "illustration": "A1",
+      "denomination": "½r",
+      "color": "blue",
+      "mint_value": 0.5,
+      "used_value": 1.1,
+      "perforation": "Perf. 12"
+    },
+    {
+      "scott_number": "1a",
+      "variety_of": "1",
+      "description": "½r light blue",
+      "mint_value": 0.5,
+      "used_value": 1.1
+    },
+    {
+      "scott_number": "1b",
+      "variety_of": "1",
+      "description": "Pair, imperf. horiz.",
+      "mint_value": 6000.0
+    },
+    {
+      "scott_number": "2",
+      "illustration": "A1",
+      "denomination": "2r",
+      "color": "scarlet",
+      "mint_value": 2.25,
+      "used_value": 2.25,
+      "perforation": "Perf. 12"
+    },
+    {
+      "scott_number": "3",
+      "illustration": "A1",
+      "denomination": "4r",
+      "color": "green",
+      "mint_value": 16.0,
+      "used_value": 16.0,
+      "perforation": "Perf. 12"
+    },
+    {
+      "scott_number": "4",
+      "illustration": "A1",
+      "denomination": "1p",
+      "color": "orange",
+      "mint_value": 35.0,
+      "used_value": 35.0,
+      "perforation": "Perf. 12"
+    }
+  ],
+  "illustrations": [
+    {
+      "illustration_number": "A1",
+      "design_name": "Coat of Arms",
+      "design_description": "A dark blue historical postage stamp with a serrated edge, featuring a central landscape image and text at the top and bottom.",
+      "denomination": "MEDIO REAL"
+    }
+  ],
+  "header": "1863",
+  "notes": [
+    "The ½r was printed from two plates. The second is in light blue with little or no sky over the mountains.",
+    "Imperforate stamps of Nos. 1-2 are corner stamps from poorly perforated sheets."
+  ]
+}

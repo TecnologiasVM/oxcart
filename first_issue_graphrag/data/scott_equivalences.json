@@ -1,0 +1,12 @@
+{
+  "CR-1863-FIRST-ISSUE": {
+    "issue_id": "CR-1863-FIRST-ISSUE",
+    "equivalences": [
+      { "mena": "1",  "scott": "1",  "confidence": "high" },
+      { "mena": "1A", "scott": "1a", "confidence": "high" },
+      { "mena": "2",  "scott": "2",  "confidence": "high" },
+      { "mena": "3",  "scott": "3",  "confidence": "high" },
+      { "mena": "4",  "scott": "4",  "confidence": "high" }
+    ]
+  }
+}
