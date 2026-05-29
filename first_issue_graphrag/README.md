@@ -105,8 +105,10 @@ validation report**.
 | `build_domain_scott.py` | Loads `data/scott_first_issue.json` + `data/scott_equivalences.json`; MERGEs `ScottStamp` / `Illustration` nodes; creates `HAS_SCOTT_STAMP`, `DEPICTS`, `VARIETY_OF`, and `EQUIVALENT_TO` (to existing Mena `Stamp`). |
 | `build_lexical_graph.py` | Reads the patched chunk JSONs; MERGEs `Document` + `Chunk` nodes; creates `HAS_CHUNK` and `NEXT` (reading order). |
 | `link_lexical_to_domain.py` | Runs `lexicon.score_chunk()` over each `Chunk`; creates `MENTIONS` (→ `Issue`) and `MENTIONS_STAMP` (→ `Stamp`) edges with confidence/signals/score. |
-| `retrieve.py` | Query-time fusion: Neo4j domain query + Neo4j lexical fulltext/expansion + Weaviate BM25/`near_text`. `--q "<question>"`. See **`retrieve.md`** for the full guide. |
-| `retrieve.md` | **How to use retrieval + feed an LLM.** Output shape, examples, the generate-step prompt pattern, and how to deepen the context for trustworthy grounding. |
+| `retrieve.py` | Retrieval API: `answer()` (compact card) **and** `context_bundle()` (the graph-first, quality-gated, per-source-budget bundle — recommended). See **`retrieve.md`**. |
+| `examples_runner.py` | CLI for `context_bundle()` — prints the graph-first context (domain → related → ranked source docs → all good lexical passages → thin Weaviate backup) and **auto-saves a transcript** to `results/`. `--q`/`--stamp`/`--max-lexical`/`--min-link`/`--k-weaviate`/`--width`/`--demo`. |
+| `retrieve.md` | **How to use retrieval + feed an LLM.** Output shapes, worked examples, the generate-step prompt pattern, depth levers, and the graph-first `context_bundle` mode (§9). |
+| `results/` | Per-run context transcripts written by `examples_runner.py` (gitignored). |
 | `run_end_to_end.py` | Orchestrates sanitize → domain → lexical → link → validation report. |
 | `teardown.py` | Deletes **only** prototype-tagged Neo4j data (`prototype = PROTOTYPE_TAG`). `--yes` to skip the confirmation prompt. |
 | `coverage_scan.py` | **Full-collection scan (Approach A).** Sanitizes in-memory + scores *every* chunk of many/all OXCART docs, but materializes **only** first-issue hits (deduped) plus `MENTIONS`/`MENTIONS_STAMP`. `--all` (whole collection) / `--sample N` / `--docs ...`. Resets prototype `Chunk`/`Document` first (keeps the Scott layer). |
@@ -141,6 +143,9 @@ validation report**.
 
 # 3. Ask a question (combines Neo4j domain + Neo4j lexical + Weaviate read-only)
 ".venv-clean\Scripts\python.exe" first_issue_graphrag\retrieve.py --q "Who printed the 1863 half real and what color is it?"
+
+# 3b. RECOMMENDED for LLM hand-off: graph-first context bundle (auto-saves to results/)
+".venv-clean\Scripts\python.exe" first_issue_graphrag\examples_runner.py --q "the first issue plate crack and its positions" --stamp 1 --max-lexical 15 --width 1500
 
 # 4. Roll back: remove ONLY our prototype-tagged Neo4j data
 ".venv-clean\Scripts\python.exe" first_issue_graphrag\teardown.py --yes

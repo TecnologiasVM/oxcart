@@ -419,6 +419,65 @@ it isn't**, and is **only limited on broad thematic questions by retrieval ranki
 
 ---
 
+## 9. Graph-first context bundle (the RECOMMENDED retrieval mode)
+
+`context_bundle()` — and its CLI, **`examples_runner.py`** — is the preferred way
+to assemble LLM context. It treats the **graph as the knowledge base** (cheap
+Cypher, predominant) and keeps **Weaviate as a thin, capped backup** (slow/heavy).
+
+**Precedence — what the bundle returns, in order:**
+1. **`domain`** — authoritative structured facts (Issue + Mena↔Scott + illustration).
+2. **`related`** — cheap one-hop graph expansion: variety suffixes per stamp, proof codes, plate numbers.
+3. **`sources`** — ranked list of the documents that reference the query (the
+   high-quality "where to read more" panel; free — aggregated from the lexical hits).
+4. **`lexical`** — the predominant evidence: ALL **good** first-issue chunks
+   (quality-gated), deduped, full text, ranked by query relevance then link strength.
+5. **`weaviate`** — least important: a small backup tail (≤25), only passages the
+   graph did not already cover.
+
+**Quality gate (no garbage):** lexical includes only chunks whose `MENTIONS` edge
+has `score ≥ min_link` (default **6** — the clean tier from `EVALUATION.md`) and is
+**not** `COMPETING`-flagged. Near-duplicate combined-chunks are collapsed by a
+300-character text prefix, so there are no repeats.
+
+**Knobs (CLI flag / function arg):**
+
+| flag | arg | default | effect |
+|------|-----|---------|--------|
+| `--max-lexical` | `max_lexical` | `0` (= ALL good) | cap on graph passages |
+| `--min-link` | `min_link_score` | `6.0` | quality gate; lower = more recall + more noise |
+| `--include-competing` | `exclude_competing=False` | off | keep COMPETING-flagged chunks |
+| `--k-weaviate` | `k_weaviate` | `5` (hard cap 25) | backup breadth; `0` = pure graph |
+| `--stamp` | `stamp` | none | scope to a Mena stamp (1=½r, 2=2r, 3=4r, 4=1p) |
+| `--width` | — | `900` | characters of each passage shown |
+
+**Auto-save:** every `examples_runner.py` run writes a timestamped transcript to
+`first_issue_graphrag/results/<slug>_<timestamp>.txt` (gitignored) — open it and
+paste into your LLM.
+
+**Recommended usage:**
+- Tight, on-topic context for a specific question → `--max-lexical 15`.
+- Maximum breadth (everything good in the graph) → default `--max-lexical 0`.
+- Pure graph, skip Weaviate entirely → `--k-weaviate 0`.
+
+```powershell
+.\.venv-clean\Scripts\python.exe first_issue_graphrag\examples_runner.py --q "the first issue plate crack and its positions" --stamp 1 --max-lexical 15 --width 1500
+```
+
+Programmatic:
+```python
+from retrieve import context_bundle
+b = context_bundle("the first issue plate crack and its positions",
+                   stamp="1", max_lexical=15, k_weaviate=5)
+# keys: b["domain"], b["related"], b["sources"], b["lexical"], b["weaviate"], b["counts"]
+```
+
+> The older `answer(question, k)` (§2) still exists (compact, single shared `k`,
+> 280-char snippets). `context_bundle` supersedes it for graph-first retrieval
+> with per-source budgets and quality gating — use it for LLM hand-off.
+
+---
+
 See also: `README.md` (architecture/run), `EVALUATION.md` (coverage + precision +
 the chunking root cause), `cypher_queries.md` (graph inspection & stamp-scoped queries).
 ```

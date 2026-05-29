@@ -439,6 +439,263 @@ def fetch_weaviate_evidence(question: str, k: int) -> List[Dict[str, Any]]:
 
 
 # --------------------------------------------------------------------------- #
+# Graph-first context bundle: DOMAIN > ALL lexical (deduped) > thin Weaviate tail
+# --------------------------------------------------------------------------- #
+# Separate budgets per source, with the lexical graph given predominance: pull
+# *every* distinct relevant chunk from the graph (no small cap), de-duplicated by
+# normalized text (so the combined-chunk duplicates collapse), then add only a
+# small Weaviate tail of passages NOT already covered by the graph.
+
+def _norm_text(text: Optional[str]) -> str:
+    return " ".join((text or "").lower().split())
+
+
+_LEX_FULLTEXT_SCORE_CYPHER = """
+CALL db.index.fulltext.queryNodes('chunk_text_fts', $q) YIELD node AS c, score
+WHERE c.prototype = $tag
+RETURN c.chunk_id AS chunk_id, score AS score
+ORDER BY score DESC
+LIMIT 1000
+"""
+
+# Quality gate: only chunks whose MENTIONS edge is strong (score >= min_link) and
+# (by default) NOT flagged COMPETING — i.e. the clean evidence set, no garbage.
+_LEX_CLEAN_ISSUE_CYPHER = """
+MATCH (c:Chunk {prototype:$tag})-[m:MENTIONS]->(:Issue {issue_id:$issue_id})
+WHERE m.score >= $min_link AND ($keep_competing OR NOT 'COMPETING' IN m.signals)
+RETURN c.chunk_id AS chunk_id, c.doc_id AS doc_id, c.page AS page,
+       c.text AS text, c.link_score AS link_score, m.signals AS signals
+"""
+
+_LEX_CLEAN_STAMP_CYPHER = """
+MATCH (c:Chunk {prototype:$tag})-[ms:MENTIONS_STAMP]->(:Stamp {issue_id:$issue_id, catalog_no:$cno})
+MATCH (c)-[m:MENTIONS]->(:Issue {issue_id:$issue_id})
+WHERE m.score >= $min_link AND ($keep_competing OR NOT 'COMPETING' IN m.signals)
+RETURN c.chunk_id AS chunk_id, c.doc_id AS doc_id, c.page AS page,
+       c.text AS text, c.link_score AS link_score, m.signals AS signals,
+       ms.confidence AS conf
+"""
+
+
+def _lex_rank(d: Dict[str, Any]) -> tuple:
+    """Rank lexical hits: query relevance (fulltext) first, then link strength."""
+    ft = d.get("score") if d.get("score") is not None else -1.0
+    ls = d.get("link_score") if d.get("link_score") is not None else -1.0
+    return (float(ft), float(ls))
+
+
+def fetch_lexical_all(
+    driver: Any,
+    question: str,
+    stamp: Optional[str] = None,
+    max_lexical: int = 0,
+    min_link_score: float = 6.0,
+    exclude_competing: bool = True,
+    include_issue_mentions: bool = True,  # accepted for API compat; clean set is always issue-linked
+) -> List[Dict[str, Any]]:
+    """
+    Pull the GOOD first-issue chunks (not garbage) from the lexical graph.
+
+    Quality gate: only chunks whose ``MENTIONS`` edge has ``score >= min_link_score``
+    and (by default) is NOT flagged ``COMPETING`` — the clean evidence set from
+    EVALUATION.md. Within that set, results are ranked by query relevance (fulltext
+    score) first, then link strength, and de-duplicated by normalized text.
+    ``max_lexical=0`` = no cap (bring as much good graph as the query supports).
+    """
+    lucene_q = build_lucene_query(question)
+    keep_competing = not exclude_competing
+    items_by_id: Dict[str, Dict[str, Any]] = {}
+
+    with driver.session(database=NEO4J_DATABASE) as session:
+        # 1) the clean universe of GOOD first-issue chunks (quality-gated)
+        try:
+            if stamp:
+                clean_rows = session.execute_read(lambda tx: list(tx.run(
+                    _LEX_CLEAN_STAMP_CYPHER, tag=PROTOTYPE_TAG, issue_id=ISSUE_ID,
+                    cno=str(stamp), min_link=float(min_link_score), keep_competing=keep_competing)))
+            else:
+                clean_rows = session.execute_read(lambda tx: list(tx.run(
+                    _LEX_CLEAN_ISSUE_CYPHER, tag=PROTOTYPE_TAG, issue_id=ISSUE_ID,
+                    min_link=float(min_link_score), keep_competing=keep_competing)))
+        except Exception as exc:
+            clean_rows = []
+            print(f"[neo4j] lexical (clean) path unavailable ({type(exc).__name__}): {exc}")
+        for r in clean_rows:
+            d = dict(r)
+            d["score"] = None
+            d["via"] = "mentions_stamp" if stamp else "mentions"
+            items_by_id[d["chunk_id"]] = d
+
+        # 2) query relevance (fulltext) — attach scores to the clean set for ranking
+        try:
+            ft_rows = session.execute_read(lambda tx: list(tx.run(
+                _LEX_FULLTEXT_SCORE_CYPHER, q=lucene_q, tag=PROTOTYPE_TAG)))
+        except Exception as exc:
+            ft_rows = []
+            print(f"[neo4j] fulltext unavailable ({type(exc).__name__}): {exc}")
+        for r in ft_rows:
+            cid = r["chunk_id"]
+            if cid in items_by_id:
+                items_by_id[cid]["score"] = r["score"]
+                items_by_id[cid]["via"] = "fulltext+graph"
+
+    # De-duplicate by a normalized-text PREFIX. Overlapping combined chunks restate
+    # the same passage with different tails (so full-text keys miss them); keying on
+    # the first 300 chars collapses those repeats while keeping genuinely distinct
+    # passages (which diverge well before 300 chars). Keep the highest-ranked.
+    best: Dict[str, Dict[str, Any]] = {}
+    for d in items_by_id.values():
+        key = _norm_text(d.get("text"))[:300]
+        if not key:
+            continue
+        cur = best.get(key)
+        if cur is None or _lex_rank(d) > _lex_rank(cur):
+            best[key] = d
+
+    items = sorted(best.values(), key=_lex_rank, reverse=True)
+    if max_lexical and max_lexical > 0:
+        items = items[:max_lexical]
+    return items
+
+
+# Cheap graph-derived enrichment (no Weaviate, no extra cost worth worrying about).
+_DOMAIN_RELATED_CYPHER = """
+MATCH (i:Issue {issue_id:$issue_id})-[:HAS_STAMP]->(s:Stamp)
+WHERE $cno IS NULL OR s.catalog_no = $cno
+OPTIONAL MATCH (s)-[:HAS_VARIETY]->(v:Variety)
+WITH i, s, [x IN collect(DISTINCT v.suffix) WHERE x IS NOT NULL] AS suffixes
+WITH i, collect({stamp: s.catalog_no, varieties: suffixes}) AS stamp_varieties
+OPTIONAL MATCH (i)-[:HAS_PROOF]->(pr:Proof)
+WITH stamp_varieties, [x IN collect(DISTINCT pr.code) WHERE x IS NOT NULL] AS proofs
+OPTIONAL MATCH (i)-[:HAS_PLATE]->(pl:Plate)
+RETURN stamp_varieties AS stamp_varieties, proofs[..40] AS proofs,
+       [x IN collect(DISTINCT pl.no) WHERE x IS NOT NULL][..20] AS plates
+"""
+
+
+def fetch_domain_related(driver: Any, stamp: Optional[str] = None) -> Dict[str, Any]:
+    """Cheap one-hop domain expansion: variety suffixes per stamp, proof codes, plate numbers."""
+    try:
+        with driver.session(database=NEO4J_DATABASE) as session:
+            rows = session.execute_read(
+                lambda tx: list(tx.run(_DOMAIN_RELATED_CYPHER,
+                                       issue_id=ISSUE_ID, cno=(str(stamp) if stamp else None)))
+            )
+    except Exception as exc:
+        print(f"[neo4j] related path unavailable ({type(exc).__name__}): {exc}")
+        return {"stamp_varieties": [], "proofs": [], "plates": []}
+    if not rows:
+        return {"stamp_varieties": [], "proofs": [], "plates": []}
+    r = rows[0]
+    return {
+        "stamp_varieties": r.get("stamp_varieties") or [],
+        "proofs": r.get("proofs") or [],
+        "plates": r.get("plates") or [],
+    }
+
+
+def _sources_from_lexical(lexical: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Aggregate the lexical hits into a ranked 'documents that reference this' list (free — no DB call)."""
+    by_doc: Dict[str, Dict[str, Any]] = {}
+    for d in lexical:
+        doc = d.get("doc_id")
+        if not doc:
+            continue
+        e = by_doc.setdefault(doc, {"doc_id": doc, "chunks": 0, "best_score": None, "best_link": None, "pages": set()})
+        e["chunks"] += 1
+        s = d.get("score")
+        if s is not None:
+            e["best_score"] = float(s) if e["best_score"] is None else max(e["best_score"], float(s))
+        ls = d.get("link_score")
+        if ls is not None:
+            e["best_link"] = float(ls) if e["best_link"] is None else max(e["best_link"], float(ls))
+        if d.get("page") is not None:
+            e["pages"].add(d["page"])
+    out = []
+    for e in by_doc.values():
+        e["pages"] = sorted(e["pages"])
+        out.append(e)
+    out.sort(
+        key=lambda e: (
+            e["best_score"] if e["best_score"] is not None else -1.0,
+            e["best_link"] if e["best_link"] is not None else -1.0,
+            e["chunks"],
+        ),
+        reverse=True,
+    )
+    return out
+
+
+def context_bundle(
+    question: str,
+    stamp: Optional[str] = None,
+    max_lexical: int = 0,
+    k_weaviate: int = 5,
+    min_link_score: float = 6.0,
+    exclude_competing: bool = True,
+    include_issue_mentions: bool = True,
+    related: bool = True,
+) -> Dict[str, Any]:
+    """
+    Graph-first context bundle with PER-SOURCE budgets. The GRAPH is the knowledge
+    base and gets predominance; Weaviate (slow/heavy) is a thin optional tail.
+
+      * ``domain``   -- always first (structured facts).
+      * ``related``  -- cheap graph expansion: variety suffixes / proofs / plates.
+      * ``sources``  -- ranked list of documents that reference the query (free,
+                        aggregated from the lexical hits): the high-quality
+                        "where to read more" panel.
+      * ``lexical``  -- predominant: ALL distinct relevant chunks from the graph,
+                        deduped by text (``max_lexical=0`` = no cap), full text.
+      * ``weaviate`` -- least important: only ``k_weaviate`` passages NOT already
+                        covered by the graph (set ``k_weaviate=0`` for pure-graph).
+
+    Returns {"domain","related","sources","lexical","weaviate","counts"}.
+    """
+    question = (question or "").strip()
+    related_panel: Dict[str, Any] = {"stamp_varieties": [], "proofs": [], "plates": []}
+    try:
+        with neo4j_driver() as drv:
+            domain = fetch_domain_card(drv)
+            if related:
+                related_panel = fetch_domain_related(drv, stamp=stamp)
+            lexical = fetch_lexical_all(
+                drv, question, stamp=stamp, max_lexical=max_lexical,
+                min_link_score=min_link_score, exclude_competing=exclude_competing,
+                include_issue_mentions=include_issue_mentions,
+            )
+    except Exception as exc:
+        print(f"[neo4j] connection unavailable ({type(exc).__name__}): {exc}")
+        domain = {"issue_id": ISSUE_ID, "found": False, "stamps": [], "scott_roster": []}
+        lexical = []
+
+    sources = _sources_from_lexical(lexical)
+
+    # Thin Weaviate BACKUP tail — exclude anything already in the lexical set, and
+    # never let it overwhelm the graph (hard cap 25; it is the slow/heavy source).
+    k_weaviate = max(0, min(int(k_weaviate or 0), 25))
+    lex_ids = {d.get("chunk_id") for d in lexical}
+    weaviate: List[Dict[str, Any]] = []
+    if k_weaviate and k_weaviate > 0:
+        raw = fetch_weaviate_evidence(question, k_weaviate * 4)
+        for h in raw:
+            if h.get("chunk_id") in lex_ids:
+                continue
+            weaviate.append(h)
+            if len(weaviate) >= k_weaviate:
+                break
+
+    return {
+        "domain": domain,
+        "related": related_panel,
+        "sources": sources,
+        "lexical": lexical,
+        "weaviate": weaviate,
+        "counts": {"lexical": len(lexical), "weaviate": len(weaviate), "source_docs": len(sources)},
+    }
+
+
+# --------------------------------------------------------------------------- #
 # Public API
 # --------------------------------------------------------------------------- #
 def answer(question: str, k: int = 6) -> Dict[str, Any]:

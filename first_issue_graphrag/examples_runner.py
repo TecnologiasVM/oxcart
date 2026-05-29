@@ -1,77 +1,114 @@
 """
-Read-only demo runner: shows the REAL context bundle retrieve.py would hand an
-LLM for a given First Issue question, with FULL passage text (not truncated
-snippets) so it reflects a realistic GraphRAG context.
+Graph-first context bundle for a First Issue question (read-only), ready to paste
+into an LLM. The GRAPH is the knowledge base and gets predominance:
+
+    DOMAIN facts  ->  RELATED graph entities  ->  ranked SOURCE DOCS  ->
+    ALL good LEXICAL passages (quality-gated, deduped, full text)  ->
+    thin WEAVIATE backup (slow/heavy; capped, only fills gaps).
+
+Cheap Cypher does the heavy lifting; Weaviate is a small backup tail.
 
 Usage:
     ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\examples_runner.py --demo
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\examples_runner.py --q "..." --stamp 4
+    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\examples_runner.py --q "the first issue plate crack and its positions" --stamp 1
+    ... --q "..." --max-lexical 0 --min-link 6 --k-weaviate 5 --width 1200
+
+Knobs:
+    --max-lexical N   max graph passages (0 = ALL good ones).        default 0
+    --min-link F      quality gate on the MENTIONS score.            default 6
+    --include-competing  keep COMPETING-flagged chunks too.          default off
+    --k-weaviate N    Weaviate BACKUP passages (clamped to <=25).    default 5
+    --stamp C         scope to a Mena stamp (1=1/2r, 2=2r, 3=4r, 4=1p).
+    --width N         characters of each passage to show.            default 900
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
+import re
 import sys
 import textwrap
+from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import retrieve
-from config import ISSUE_ID, NEO4J_DATABASE, PROTOTYPE_TAG, neo4j_driver
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except (AttributeError, ValueError):
     pass
 
+# Every run writes a transcript here (created on demand).
+OUT_DIR = Path(__file__).resolve().parent / "results"
+
+
+@contextlib.contextmanager
+def _tee_stdout(buf: io.StringIO):
+    """Temporarily mirror everything printed to both the real stdout and ``buf``."""
+    real = sys.stdout
+
+    class _Tee:
+        def write(self, s: str) -> int:
+            real.write(s)
+            buf.write(s)
+            return len(s)
+
+        def flush(self) -> None:
+            real.flush()
+
+    sys.stdout = _Tee()
+    try:
+        yield
+    finally:
+        sys.stdout = real
+
+
+def _slug(question: str, stamp: Optional[str]) -> str:
+    base = re.sub(r"[^a-z0-9]+", "_", (question or "").lower()).strip("_")[:50] or "query"
+    if stamp:
+        base += f"_s{stamp}"
+    return f"{base}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+
 DEMO = [
     ("How many covers exist of the 1 peso of the first issue?", "4"),
     ("What are the main varieties of the first issue?", None),
-    ("What is the crack plate of the first issue half real?", "1"),
+    ("the first issue plate crack and its positions", "1"),
     ("What is the 4 reales double transfer at plate position 8?", "3"),
 ]
 
 
-def _wrap(text: str, width: int = 1000) -> str:
-    flat = " ".join((text or "").split())
-    return textwrap.shorten(flat, width=width, placeholder=" …")
+def _wrap(text: str, width: int) -> str:
+    return textwrap.shorten(" ".join((text or "").split()), width=width, placeholder=" …")
 
 
-def _full_text(session, chunk_ids: List[str]) -> Dict[str, str]:
-    if not chunk_ids:
-        return {}
-    rows = session.execute_read(
-        lambda tx: list(tx.run(
-            "MATCH (c:Chunk) WHERE c.chunk_id IN $ids "
-            "RETURN c.chunk_id AS id, c.text AS text", ids=chunk_ids))
-    )
-    return {r["id"]: r["text"] for r in rows}
+def _fmt_score(v: Any) -> str:
+    return f"{v:.2f}" if isinstance(v, (int, float)) else "n/a"
 
 
-def _stamp_scoped(session, catalog_no: str, k: int) -> List[Dict[str, Any]]:
-    rows = session.execute_read(
-        lambda tx: list(tx.run(
-            """
-            MATCH (c:Chunk {prototype:$tag})-[ms:MENTIONS_STAMP]->(s:Stamp {issue_id:$iid, catalog_no:$cno})
-            RETURN c.doc_id AS doc, c.page AS page, c.chunk_id AS id,
-                   ms.confidence AS conf, c.link_score AS score, c.text AS text
-            ORDER BY ms.confidence DESC, c.link_score DESC
-            LIMIT $k
-            """, tag=PROTOTYPE_TAG, iid=ISSUE_ID, cno=catalog_no, k=k))
-    )
-    return [dict(r) for r in rows]
-
-
-def run(question: str, k: int, stamp: Optional[str], textwidth: int) -> None:
-    print("\n" + "#" * 88)
+def run(question: str, stamp: Optional[str], max_lexical: int, min_link: float,
+        k_weaviate: int, width: int, include_competing: bool) -> None:
+    print("\n" + "#" * 90)
     print(f"# QUESTION: {question}")
-    if stamp:
-        print(f"# (stamp-scoped to Mena catalog_no '{stamp}')")
-    print("#" * 88)
+    print(f"# scope: stamp={stamp or 'all'} | min_link={min_link} | "
+          f"max_lexical={'ALL' if not max_lexical else max_lexical} | "
+          f"competing={'kept' if include_competing else 'excluded'} | k_weaviate<=25={k_weaviate}")
+    print("#" * 90)
 
-    ctx = retrieve.answer(question, k=k)
-    d = ctx["domain"]
+    b = retrieve.context_bundle(
+        question, stamp=stamp, max_lexical=max_lexical, k_weaviate=k_weaviate,
+        min_link_score=min_link, exclude_competing=not include_competing,
+    )
+    d = b["domain"]
+    rel = b["related"]
+    sources = b["sources"]
+    lexical = b["lexical"]
+    weav = b["weaviate"]
 
-    print("\n--- DOMAIN FACTS (Neo4j structured) ---")
+    # 1) DOMAIN FACTS
+    print("\n=== 1) DOMAIN FACTS (graph — authoritative) ===")
     print(f"Issue: {d.get('title')} ({d.get('country')}), perf {d.get('perforation')}")
     if d.get("issue_dates"):
         print(f"Dates: {d.get('issue_dates')}")
@@ -83,63 +120,65 @@ def run(question: str, k: int, stamp: Optional[str], textwidth: int) -> None:
         print(f"  - Mena {s.get('catalog_no')}: {s.get('denomination_value')} {s.get('denomination_unit')} "
               f"{s.get('color')} | qty {s.get('quantity_reported')} -> {eq}")
 
-    with neo4j_driver() as drv, drv.session(database=NEO4J_DATABASE) as session:
-        n4 = ctx["neo4j_evidence"]
-        full = _full_text(session, [c.get("chunk_id") for c in n4 if c.get("chunk_id")])
-        print(f"\n--- NEO4J LEXICAL EVIDENCE (top {len(n4)}, FULL text) ---")
-        seen = set()
-        for c in n4:
-            cid = c.get("chunk_id")
-            body = _wrap(full.get(cid, c.get("snippet", "")), textwidth)
-            key = body[:80]
-            if key in seen:
-                continue
-            seen.add(key)
-            print(f"  [{c.get('doc_id')} p.{c.get('page')}] (score {c.get('score')}, via {c.get('via')})")
-            print(f"     {body}")
+    # 2) RELATED graph entities (cheap one-hop expansion)
+    print("\n=== 2) RELATED GRAPH ENTITIES (cheap Cypher) ===")
+    for sv in rel.get("stamp_varieties", []):
+        vs = ", ".join(sv.get("varieties") or []) or "(none)"
+        print(f"  Mena {sv.get('stamp')} varieties: {vs}")
+    if rel.get("proofs"):
+        print(f"  Proofs ({len(rel['proofs'])}): {', '.join(rel['proofs'][:20])}{' …' if len(rel['proofs'])>20 else ''}")
+    if rel.get("plates"):
+        print(f"  Plates: {', '.join(str(p) for p in rel['plates'])}")
 
-        if stamp:
-            ss = _stamp_scoped(session, stamp, k)
-            print(f"\n--- STAMP-SCOPED EVIDENCE (chunks that MENTIONS_STAMP Mena {stamp}, FULL text) ---")
-            seen = set()
-            for r in ss:
-                body = _wrap(r["text"], textwidth)
-                key = body[:80]
-                if key in seen:
-                    continue
-                seen.add(key)
-                print(f"  [{r['doc']} p.{r['page']}] (conf {r['conf']}, link_score {r['score']})")
-                print(f"     {body}")
+    # 3) SOURCE DOCUMENTS that reference this (ranked by quality)
+    print(f"\n=== 3) SOURCE DOCUMENTS referencing this query ({len(sources)} docs, ranked) ===")
+    for s in sources:
+        pages = ", ".join(f"p.{p}" for p in s.get("pages", [])[:8])
+        print(f"  {s['doc_id']:<24} chunks={s['chunks']:<3} "
+              f"best_ft={_fmt_score(s.get('best_score'))} best_link={_fmt_score(s.get('best_link'))}  [{pages}]")
 
-    wv = ctx["weaviate_evidence"]
-    print(f"\n--- WEAVIATE BASELINE (top {len(wv)}, snippet prefers text_original) ---")
-    seen = set()
-    for c in wv:
-        body = _wrap(c.get("snippet", ""), textwidth)
-        key = body[:80]
-        if key in seen:
-            continue
-        seen.add(key)
-        print(f"  [{c.get('doc_id')} p.{c.get('page')}] (score {c.get('score')}, via {c.get('via')})")
-        print(f"     {body}")
+    # 4) LEXICAL passages (the graph evidence — ALL good, deduped, full text)
+    print(f"\n=== 4) LEXICAL EVIDENCE — graph passages ({len(lexical)} good, deduped, full text) ===")
+    for i, c in enumerate(lexical, 1):
+        print(f"\n  [{i}] {c.get('doc_id')} p.{c.get('page')} "
+              f"(link_score {_fmt_score(c.get('link_score'))}, ft {_fmt_score(c.get('score'))}, via {c.get('via')})")
+        print(f"      {_wrap(c.get('text'), width)}")
+
+    # 5) WEAVIATE backup
+    print(f"\n=== 5) WEAVIATE BACKUP ({len(weav)}, slow/heavy — gap-filler only) ===")
+    if not weav:
+        print("  (none needed — the graph covered it)")
+    for i, c in enumerate(weav, 1):
+        print(f"  [{i}] {c.get('doc_id')} p.{c.get('page')} (score {_fmt_score(c.get('score'))}, via {c.get('via')})")
+        print(f"      {_wrap(c.get('snippet'), width)}")
+
+    print(f"\n--- counts: {b['counts']} ---")
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Show the real GraphRAG context bundle for a question (read-only).")
+    ap = argparse.ArgumentParser(description="Graph-first First Issue context bundle (read-only).")
     ap.add_argument("--q")
-    ap.add_argument("--stamp", help="Mena catalog_no to scope stamp evidence (1,2,3,4).")
-    ap.add_argument("--k", type=int, default=8)
-    ap.add_argument("--width", type=int, default=900)
+    ap.add_argument("--stamp", help="Mena catalog_no to scope (1=1/2r, 2=2r, 3=4r, 4=1p).")
+    ap.add_argument("--max-lexical", type=int, default=0, help="Max graph passages (0 = ALL good).")
+    ap.add_argument("--min-link", type=float, default=6.0, help="Quality gate on MENTIONS score.")
+    ap.add_argument("--k-weaviate", type=int, default=5, help="Weaviate backup passages (<=25).")
+    ap.add_argument("--include-competing", action="store_true", help="Keep COMPETING-flagged chunks.")
+    ap.add_argument("--width", type=int, default=900, help="Characters per passage shown.")
     ap.add_argument("--demo", action="store_true", help="Run the four canned demo questions.")
     args = ap.parse_args()
 
-    if args.demo:
-        for q, stamp in DEMO:
-            run(q, args.k, stamp, args.width)
-    elif args.q:
-        run(args.q, args.k, args.stamp, args.width)
-    else:
+    jobs = DEMO if args.demo else ([(args.q, args.stamp)] if args.q else None)
+    if jobs is None:
         ap.error("provide --q or --demo")
+
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    for q, stamp in jobs:
+        buf = io.StringIO()
+        with _tee_stdout(buf):
+            run(q, stamp, args.max_lexical, args.min_link, args.k_weaviate, args.width, args.include_competing)
+        out_path = OUT_DIR / _slug(q, stamp)
+        out_path.write_text(buf.getvalue(), encoding="utf-8")
+        print(f"\n[saved] {out_path}")
     return 0
 
 
