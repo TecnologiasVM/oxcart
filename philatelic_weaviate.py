@@ -42,14 +42,14 @@ def create_weaviate_client(url: str = WEAVIATE_URL, openai_key: Optional[str] = 
             host, port_str = url_clean.split(":", 1)
             http_port = int(port_str)
             # Mapear puerto HTTP al puerto gRPC correspondiente
-            if http_port == 8083:
-                grpc_port = 50054  # Puerto gRPC para nuestro OXCART Weaviate
+            if http_port == 8085:
+                grpc_port = 50056  # Puerto gRPC para nuestro OXCART Weaviate
             else:
-                grpc_port = 50051  # Puerto gRPC por defecto
+                grpc_port = 50056  # Puerto gRPC por defecto
         else:
             host = url_clean
-            http_port = 8080
-            grpc_port = 50051
+            http_port = 8085
+            grpc_port = 50056
         
         client = weaviate.connect_to_local(
             host=host,

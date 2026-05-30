@@ -164,3 +164,12 @@ hf_model/
 pdfs/
 results/
 graph_outputs/
+
+# Claude Code per-user settings (may contain API keys via `env` block)
+.claude/settings.local.json
+
+# Local experiments / non-project assets (kept on disk, not tracked)
+/CRF 156 FINAL.pdf
+/test-notification-hook.ps1
+/zelda_secret.wav
+*.wav
