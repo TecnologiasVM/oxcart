@@ -1,0 +1,453 @@
+/*
+ * ink-cobalt-paper v2.0 — design tokens + base styles for the First Issue KG UI.
+ *
+ * Editorial, reductionist, FLAT. No gradients, no depth shadows, no 3D, no texture.
+ * 4px spacing grid. 70-90% of every surface is cream + ink; color is rare.
+ *   Paper  #F4EFE5  page bg + shape interiors
+ *   Ink    #0A0A0A  structure / outlines / most text
+ *   Cobalt #1E3A6B  structural accent ONLY (1-2 elements per view)
+ *   Amber  #C4923A  exactly ONE focal accent per view (smallest; selected moment)
+ * Type: serif display (Fraunces) weight 300 sentence-case; mono labels UPPERCASE
+ *       ~10px tracking ~1.6px; body sans (Inter) weight 400 LEFT-aligned 14-16px.
+ * NEVER amber on type. NEVER centered body text.
+ *
+ * Font families are wired via next/font in app/layout.tsx and exposed as the
+ * --font-serif / --font-mono / --font-sans CSS variables; fallbacks below keep
+ * components legible if layout has not injected them yet.
+ */
+
+:root {
+  /* Palette */
+  --color-paper: #f4efe5;
+  --color-ink: #0a0a0a;
+  --color-cobalt: #1e3a6b;
+  --color-amber: #c4923a;
+  --color-ink-muted: #6b6b6b;
+  --color-hairline: rgba(10, 10, 10, 0.16);
+
+  /* Typography (next/font overrides --font-* at runtime) */
+  --font-serif: var(--font-fraunces, "Fraunces", "Newsreader", Georgia, serif);
+  --font-mono: var(--font-jetbrains, "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace);
+  --font-sans: var(--font-inter, "Inter", system-ui, -apple-system, sans-serif);
+
+  /* Spacing grid (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Type scale */
+  --text-mono: 10px;
+  --text-body: 15px;
+  --text-body-sm: 13px;
+  --text-h3: 20px;
+  --text-h2: 28px;
+  --text-h1: clamp(2.25rem, 1.4rem + 3.4vw, 4rem);
+
+  --mono-tracking: 1.6px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  font-weight: 400;
+  line-height: 1.55;
+  text-align: left;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- Display / serif headlines: weight 300, sentence-case, left-aligned ---- */
+.serif {
+  font-family: var(--font-serif);
+  font-weight: 300;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  text-align: left;
+  color: var(--color-ink);
+  text-transform: none;
+}
+.serif-h1 {
+  font-family: var(--font-serif);
+  font-weight: 300;
+  font-size: var(--text-h1);
+  line-height: 1.02;
+  letter-spacing: -0.015em;
+  text-align: left;
+  margin: 0;
+}
+.serif-h2 {
+  font-family: var(--font-serif);
+  font-weight: 300;
+  font-size: var(--text-h2);
+  line-height: 1.1;
+  text-align: left;
+  margin: 0;
+}
+.serif-h3 {
+  font-family: var(--font-serif);
+  font-weight: 300;
+  font-size: var(--text-h3);
+  line-height: 1.15;
+  text-align: left;
+  margin: 0;
+}
+
+/* ---- Mono labels / dates: UPPERCASE, ~10px, wide tracking ---- */
+.mono-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  font-weight: 500;
+  letter-spacing: var(--mono-tracking);
+  text-transform: uppercase;
+  color: var(--color-ink);
+  line-height: 1.4;
+}
+.mono-muted {
+  color: var(--color-ink-muted);
+}
+
+/* ---- Body sans: left-aligned, 14-16px ---- */
+.body {
+  font-family: var(--font-sans);
+  font-weight: 400;
+  font-size: var(--text-body);
+  line-height: 1.6;
+  text-align: left;
+  color: var(--color-ink);
+}
+.body-sm {
+  font-size: var(--text-body-sm);
+}
+
+/* ---- Flat surfaces: outline-only, cream interior, hairline rules ---- */
+.surface {
+  background-color: var(--color-paper);
+  border: 1px solid var(--color-ink);
+  padding: var(--space-4);
+}
+.surface-outline {
+  background-color: var(--color-paper);
+  border: 1px solid var(--color-hairline);
+}
+.rule {
+  border: none;
+  border-top: 1px solid var(--color-hairline);
+  margin: 0;
+}
+.rule-ink {
+  border-top-color: var(--color-ink);
+}
+
+/* ---- Structural accent (cobalt) — use sparingly ---- */
+.accent-cobalt {
+  color: var(--color-cobalt);
+}
+.bar-cobalt {
+  background-color: var(--color-cobalt);
+}
+
+/* ---- Focal accent (amber) — exactly one per view, never on type ---- */
+.bar-amber {
+  background-color: var(--color-amber);
+}
+.dot-amber {
+  background-color: var(--color-amber);
+}
+.border-amber {
+  border-color: var(--color-amber);
+}
+
+/* ---- Mono chip (signals) ---- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border: 1px solid var(--color-ink);
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  line-height: 1.2;
+}
+.chip-competing {
+  border-color: var(--color-cobalt);
+  color: var(--color-cobalt);
+}
+
+/* ---- Interactive states (designed, flat) ---- */
+.tappable {
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+.tappable:hover {
+  border-color: var(--color-amber);
+}
+.tappable:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: 2px;
+}
+
+button {
+  font-family: var(--font-mono);
+  cursor: pointer;
+}
+
+/* ---- Definition list (detail panel) ---- */
+.dl {
+  display: grid;
+  grid-template-columns: minmax(96px, 34%) 1fr;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+.dl dt {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+.dl dd {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-body-sm);
+  color: var(--color-ink);
+  word-break: break-word;
+}
+
+/* ---- Node detail panel (explore / query): human-readable, scrollable ---- */
+.detail-panel {
+  max-height: 640px;
+  overflow-y: auto;
+}
+.detail-group {
+  margin-top: var(--space-5);
+}
+.detail-group > .mono-label {
+  display: block;
+  margin-bottom: var(--space-2);
+}
+.kv-row {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-body-sm);
+}
+.kv-row .mono-label {
+  margin-right: var(--space-2);
+}
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  margin-top: var(--space-2);
+}
+.plain-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-2) 0 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.plain-list li {
+  font-size: var(--text-body-sm);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.plain-list .lead {
+  font-weight: 500;
+}
+.evi-card {
+  border: 1px solid var(--color-hairline);
+  padding: var(--space-3);
+  margin-top: var(--space-2);
+}
+.evi-text {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-body-sm);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.chunk-text {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-body-sm);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ---- Layout: page container ---- */
+.container {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding-left: var(--space-6);
+  padding-right: var(--space-6);
+  width: 100%;
+}
+
+/* ---- Top navigation (mono, flat, amber marks the current page) ---- */
+.nav {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--color-hairline);
+}
+.nav__brand {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: var(--mono-tracking);
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--color-ink);
+}
+.nav__links {
+  display: flex;
+  gap: var(--space-6);
+  margin-left: auto;
+}
+.nav__link {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--mono-tracking);
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--color-ink);
+  padding-bottom: 3px;
+  border-bottom: 2px solid transparent;
+  transition: border-color 120ms ease;
+}
+.nav__link:hover {
+  border-bottom-color: var(--color-hairline);
+}
+/* The single focal accent for "where am I": amber underline on the active route. */
+.nav__link--active {
+  border-bottom-color: var(--color-amber);
+}
+
+/* ---- Buttons / filter chips (outline-only; amber border = active/selected) ---- */
+.btn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  color: var(--color-ink);
+  background-color: var(--color-paper);
+  border: 1px solid var(--color-ink);
+  padding: var(--space-2) var(--space-3);
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.btn:hover {
+  border-color: var(--color-amber);
+}
+.btn:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: 2px;
+}
+.btn--active {
+  border-color: var(--color-amber);
+  font-weight: 500;
+}
+
+/* ---- Text input ---- */
+.input {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  color: var(--color-ink);
+  background-color: var(--color-paper);
+  border: 1px solid var(--color-ink);
+  padding: var(--space-2) var(--space-3);
+  line-height: 1.4;
+}
+.input:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: 2px;
+}
+.input::placeholder {
+  color: var(--color-ink-muted);
+}
+
+/* ---- Serif display (large numerals / titles): weight 300, sentence-case ---- */
+.serif-display {
+  font-family: var(--font-serif);
+  font-weight: 300;
+  line-height: 1.04;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+  text-align: left;
+}
+
+/* ---- Faint hairline rule (alias of .rule with editorial spacing) ---- */
+.rule-faint {
+  border: none;
+  border-top: 1px solid var(--color-hairline);
+  margin: var(--space-8) 0;
+}
+
+/* ---- Graph canvas frame: bordered, cream, sized; canvas fills it ---- */
+.graph-frame {
+  position: relative;
+  width: 100%;
+  min-height: 420px;
+  border: 1px solid var(--color-ink);
+  background-color: var(--color-paper);
+  overflow: hidden;
+}
+.graph-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---- Two-column working layouts (graph + inspector). Collapse on narrow. ---- */
+.explore-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: var(--space-6);
+  align-items: start;
+}
+.query-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 460px);
+  gap: var(--space-6);
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .explore-grid,
+  .query-grid {
+    grid-template-columns: 1fr;
+  }
+  .nav {
+    gap: var(--space-4);
+  }
+}
+
+/* ---- Scrollbar discipline (flat) ---- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-hairline);
+}
