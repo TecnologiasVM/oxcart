@@ -1,0 +1,54 @@
+"""Query router: read-only retrieval endpoints (NO LLM).
+
+Endpoints (mounted under ``/api`` by :mod:`app.main`):
+
+* ``GET  /api/examples`` -> ``list[ExampleQuery]`` -- the demo questions from
+  ``examples_runner.DEMO``.
+* ``POST /api/query``    -> ``QueryResponse`` -- wraps
+  ``retrieve.context_bundle`` (sanitized) plus a derived visualisation
+  subgraph. There is no answer-generation step.
+
+All heavy lifting lives in :mod:`app.query_service`; this router stays thin.
+"""
+
+from __future__ import annotations
+
+from fastapi import APIRouter
+
+from app import query_service
+from app.schemas import ExampleQuery, QueryRequest, QueryResponse
+
+router = APIRouter(tags=["query"])
+
+
+@router.get("/examples", response_model=list[ExampleQuery])
+async def get_examples() -> list[ExampleQuery]:
+    """Return the canned demo questions (``examples_runner.DEMO``)."""
+    return query_service.list_examples()
+
+
+@router.post("/query", response_model=QueryResponse)
+async def post_query(payload: QueryRequest) -> QueryResponse:
+    """Run the read-only context bundle for ``payload.question`` (no LLM).
+
+    Returns the sanitized ``retrieve.context_bundle`` fields plus a small
+    ``subgraph`` derived from the retrieved context for visualisation.
+    """
+    bundle = await query_service.run_query(
+        question=payload.question,
+        stamp=payload.stamp,
+        min_link=payload.min_link,
+        max_lexical=payload.max_lexical,
+        k_weaviate=payload.k_weaviate,
+        exclude_competing=payload.exclude_competing,
+    )
+    subgraph = query_service.build_query_subgraph(bundle, stamp=payload.stamp)
+    return QueryResponse(
+        domain=bundle["domain"],
+        related=bundle["related"],
+        sources=bundle["sources"],
+        lexical=bundle["lexical"],
+        weaviate=bundle["weaviate"],
+        counts=bundle["counts"],
+        subgraph=subgraph,
+    )

@@ -1,0 +1,18 @@
+# Backend runtime dependencies for the First Issue KG Explorer.
+#
+# All of these are ALREADY installed in the project's .venv-clean environment.
+# This file documents the dependency set; it is not meant to drive a fresh
+# install into a different interpreter. To (re)install into .venv-clean:
+#
+#   ..\..\.venv-clean\Scripts\python.exe -m pip install -r requirements.txt
+#
+# NEVER use bare `pip` / `python` -- always the .venv-clean interpreter.
+
+fastapi              # web framework (0.116.x verified in .venv-clean)
+uvicorn[standard]    # ASGI server (0.35.x)
+pydantic             # v2 schemas (2.11.x)
+pydantic-settings    # settings management (available if needed)
+neo4j                # graph driver (read-only usage)
+weaviate-client      # vector/keyword store client (read-only usage)
+python-dotenv        # .env loading (used by the prototype config)
+httpx                # used by fastapi.testclient and for any HTTP needs
