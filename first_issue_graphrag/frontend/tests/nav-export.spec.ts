@@ -24,6 +24,15 @@ test.describe("navigation", () => {
     await expect(page).toHaveURL(/\/$/);
   });
 
+  test("nav reaches the Mena Catalogue", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("link", { name: /Mena Catalogue/i }).first().click();
+    await expect(page).toHaveURL(/\/mena$/);
+    await expect(page.locator("h1")).toContainText(/catalogue/i);
+    // The existing brand/route selectors must still resolve unambiguously.
+    await expect(page.getByRole("link", { name: /first issue/i }).first()).toBeVisible();
+  });
+
   test("home clarifies the Scott catalogue count", async ({ page }) => {
     await page.goto("/");
     // The Scott-count clarification (1b is a variety) must be present.

@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { getOverview } from "@/lib/api";
-import type { OverviewResponse } from "@/lib/types";
-import { issueYear, displayDenom } from "@/lib/format";
+import type { OverviewResponse, OverviewStamp } from "@/lib/types";
+import { displayDenom } from "@/lib/format";
+import { StampGlyph, type StampVariant } from "./StampGlyph";
 
 /*
- * Client panel rendering GET /api/overview: issue header, totals as a mono
- * stat row, the stamp roster as outline cards, and a flat bar for the
- * score distribution (ink bars on cream, one amber bar marks the mode).
+ * Landing overview (lean editorial — NO charts, owner decision).
+ * Renders GET /api/overview as: a mono stat row (.stats), the Scott-count note,
+ * and the Mena roster as outline cards with the encoded stamp glyph. The roster
+ * marks the type stamp (No.1) cobalt and the rarest printing amber (the single
+ * focal accent), echoing the redesign mockup without a dashboard.
  */
 export function OverviewPanel() {
   const [data, setData] = useState<OverviewResponse | null>(null);
@@ -41,34 +44,29 @@ export function OverviewPanel() {
     );
   if (!data) return null;
 
+  const totals = data.totals ?? {};
+  const stamps = data.stamps ?? [];
+  const rarestNo = rarestStampNo(stamps);
+
   return (
     <section>
-      <p className="mono-label">{data.issue.country ?? "Costa Rica"} · {issueYear(data.issue.issue_dates)}</p>
-      <h2 style={{ marginTop: "var(--space-2)" }}>{data.issue.title ?? "First Issue"}</h2>
-
-      {/* Totals */}
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "var(--space-8)",
-          marginTop: "var(--space-6)",
-        }}
-      >
-        {Object.entries(data.totals ?? {}).map(([key, value]) => (
-          <div key={key}>
-            <div className="serif-display" style={{ fontSize: "2.2rem" }}>
-              {value}
+      {/* Mono stat row (the only numeric summary — no charts) */}
+      <div className="stats">
+        {Object.entries(totals).map(([key, value]) => {
+          const mark = key === "scott_stamps";
+          return (
+            <div className="stat" key={key}>
+              <div className={`stat__num serif-display${mark ? " stat__num--mark" : ""}`}>{value}</div>
+              <span className={`mono${mark ? " cobalt" : " mono-muted"}`}>{key.replace(/_/g, " ")}</span>
             </div>
-            <div className="mono-label">{key.replace(/_/g, " ")}</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {typeof data.issue.scott_note === "string" && (
         <p
           style={{
-            marginTop: "var(--space-3)",
+            marginTop: "var(--space-4)",
             fontSize: 13,
             color: "var(--color-ink-muted)",
             maxWidth: "78ch",
@@ -78,89 +76,88 @@ export function OverviewPanel() {
         </p>
       )}
 
-      <hr className="rule-faint" />
-
-      {/* Stamp roster */}
-      <p className="mono-label">Mena roster</p>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-          gap: "var(--space-4)",
-          marginTop: "var(--space-3)",
-        }}
-      >
-        {(data.stamps ?? []).map((s) => (
-          <div className="surface" key={s.catalog_no}>
-            <p className="mono-label">No. {s.catalog_no}</p>
-            <h3 className="serif-display" style={{ fontSize: "1.3rem", marginTop: "var(--space-2)" }}>
-              {displayDenom(s.catalog_no, s.denomination_value, s.denomination_unit) || "—"}
-            </h3>
-            <dl style={{ margin: "var(--space-3) 0 0", display: "grid", gap: "var(--space-1)" }}>
-              {s.color && <Row k="Color" v={s.color} />}
-              {s.perforation && <Row k="Perf" v={s.perforation} />}
-              {s.quantity_reported != null && <Row k="Qty" v={String(s.quantity_reported)} />}
-              {s.equivalent_scott && s.equivalent_scott.length > 0 && (
-                <Row k="Scott" v={s.equivalent_scott.join(", ")} />
-              )}
-            </dl>
-          </div>
-        ))}
+      {/* Mena roster as encoded-stamp cards */}
+      <div className="section__head" style={{ marginTop: "var(--space-10)" }}>
+        <div>
+          <span className="mono mono-muted">Mena roster · 2018 catalogue</span>
+          <h2 className="serif-h2" style={{ marginTop: "var(--space-2)" }}>
+            The roster.
+          </h2>
+        </div>
       </div>
 
-      {/* Score distribution */}
-      {data.score_distribution && data.score_distribution.length > 0 && (
-        <>
-          <hr className="rule-faint" />
-          <p className="mono-label">Link-score distribution</p>
-          <ScoreBars buckets={data.score_distribution} />
-        </>
-      )}
+      <div className="roster">
+        {stamps.map((s) => {
+          const isRare = s.catalog_no === rarestNo;
+          const variant: StampVariant = isRare ? "amber" : s.catalog_no === "1" ? "cobalt" : "ink";
+          return (
+            <div className={`card${isRare ? " card--rare" : ""}`} key={s.catalog_no}>
+              <div className="card__glyph">
+                <StampGlyph denom={s.catalog_no} variant={variant} w={70} h={88} />
+              </div>
+              <div className="card__no">
+                <span className="mono mono-muted">No. {s.catalog_no}</span>
+                {isRare && <span className="tag-rare">Rarest</span>}
+              </div>
+              <div className="card__denom">
+                {displayDenom(s.catalog_no, s.denomination_value, s.denomination_unit) || "—"}
+              </div>
+              <dl className="card__dl">
+                {s.color && (
+                  <>
+                    <dt>Color</dt>
+                    <dd>{s.color}</dd>
+                  </>
+                )}
+                {s.perforation && (
+                  <>
+                    <dt>Perf</dt>
+                    <dd>{s.perforation}</dd>
+                  </>
+                )}
+                {s.quantity_reported != null && (
+                  <>
+                    <dt>Qty</dt>
+                    <dd>{formatQty(s.quantity_reported)}</dd>
+                  </>
+                )}
+                {scottText(s) && (
+                  <>
+                    <dt>Scott</dt>
+                    <dd>{scottText(s)}</dd>
+                  </>
+                )}
+              </dl>
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }
 
-function Row({ k, v }: { k: string; v: string }) {
-  return (
-    <div style={{ display: "flex", gap: "var(--space-3)" }}>
-      <span className="mono-label" style={{ minWidth: 56 }}>
-        {k}
-      </span>
-      <span style={{ fontSize: 14 }}>{v}</span>
-    </div>
-  );
+/** Scott numbers from the backend `scott` field (list of {scott_number}). */
+function scottText(s: OverviewStamp): string {
+  return (s.scott ?? [])
+    .map((x) => x?.scott_number)
+    .filter(Boolean)
+    .join(", ");
 }
 
-function ScoreBars({ buckets }: { buckets: NonNullable<OverviewResponse["score_distribution"]> }) {
-  const max = Math.max(1, ...buckets.map((b) => b.count));
-  const modeIdx = buckets.reduce<number>(
-    (best, b, i, arr) => (b.count > arr[best].count ? i : best),
-    0,
-  );
+/** Catalog_no of the lowest reported printing (the rarest), or null. */
+function rarestStampNo(stamps: OverviewStamp[]): string | null {
+  let best: { no: string; qty: number } | null = null;
+  for (const s of stamps) {
+    const qty = Number(s.quantity_reported);
+    if (!Number.isFinite(qty)) continue;
+    if (best === null || qty < best.qty) best = { no: s.catalog_no, qty };
+  }
+  return best?.no ?? null;
+}
 
-  return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: "var(--space-2)", height: 120, marginTop: "var(--space-3)" }}>
-      {buckets.map((b, i) => {
-        const isMode = i === modeIdx;
-        const h = Math.round((b.count / max) * 100);
-        return (
-          <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-1)" }}>
-            <div
-              title={`${b.label ?? b.bucket ?? i}: ${b.count}`}
-              style={{
-                width: 28,
-                height: `${h}%`,
-                minHeight: 2,
-                // Ink bars on cream; the modal bucket is marked amber (the single focal accent).
-                backgroundColor: isMode ? "var(--color-amber)" : "var(--color-ink)",
-              }}
-            />
-            <span className="mono-label">{b.label ?? b.bucket ?? i}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
+function formatQty(value: number | string): string {
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toLocaleString("en-US") : String(value);
 }
 
 export default OverviewPanel;

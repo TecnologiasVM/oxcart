@@ -8,11 +8,18 @@
 # production
 /build
 
+# local env files (keep .env.example as the committed template)
+.env*
+!.env.example
+
 # playwright
 /test-results
 /playwright-report
+/playwright-report-shadow
 /blob-report
 /playwright/.cache
+# generated visual-regression screenshots (shadow suite)
+/tests/__screenshots__
 
 # misc
 .DS_Store

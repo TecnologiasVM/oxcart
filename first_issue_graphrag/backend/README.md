@@ -58,7 +58,18 @@ first_issue_graphrag/backend/
 
 Store connection details come from the prototype's `config.py` (which reads the
 repo `.env`): `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`, `NEO4J_DATABASE`,
-`WEAVIATE_URL`, etc. No new env vars are introduced by the backend.
+`WEAVIATE_URL`, etc.
+
+### Mena Catalogue tunables (optional; safe defaults)
+
+Read once at import in `app/mena_service.py` via `os.getenv` (never hardcoded).
+Add to the repo `.env` to override:
+
+| Var | Default | Effect |
+|---|---|---|
+| `MENA_SECTION` | `Surface Mail` | The `Issue.section` the `/api/mena/*` endpoints scope to. |
+| `MENA_EVIDENCE_K` | `6` | Default BM25 passages for `/issue/{id}/evidence` (router caps `0..25`). |
+| `MENA_EVIDENCE_MIN_SCORE` | `0.0` | Drop BM25 hits below this score (`0` = keep all). |
 
 `config` constants surfaced through the prototype:
 
@@ -103,6 +114,10 @@ router file by the agents who write them). The intended surface:
 | `GET`  | `/api/examples` | `list[ExampleQuery]` — demo questions from `examples_runner.DEMO`. |
 | `GET`  | `/api/graph...` | `GraphResponse` / `NodeDetail` — subgraph + node detail. |
 | `POST` | `/api/query` | `QueryResponse` — wraps `retrieve.context_bundle` (no LLM). |
+| `GET`  | `/api/mena/surface-mail` | `SurfaceMailResponse` — Surface-Mail issues grouped by year (fast). |
+| `GET`  | `/api/mena/issue/{issue_id}` | `MenaIssueDetail` — fast per-issue facts + Scott match. |
+| `GET`  | `/api/mena/issue/{issue_id}/graph` | `GraphResponse` — lazy per-issue mini-graph. |
+| `GET`  | `/api/mena/issue/{issue_id}/evidence` | `MenaEvidenceResponse` — lazy Weaviate BM25 passages (`?k=`). |
 
 ## Dependencies
 

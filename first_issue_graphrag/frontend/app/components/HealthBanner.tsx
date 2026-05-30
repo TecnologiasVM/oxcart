@@ -45,11 +45,15 @@ export function HealthBanner() {
   const detailText = formatDetail(health.detail);
 
   return (
-    <div style={{ display: "flex", gap: "var(--space-6)", flexWrap: "wrap" }}>
+    <div className="health">
       <StatusPill label="Neo4j" ok={health.neo4j} />
       <StatusPill label="Weaviate" ok={health.weaviate} />
       <StatusPill label="Graph" ok={health.graph_populated} />
-      {detailText && <span className="mono-label">{detailText}</span>}
+      {detailText && (
+        <span className="mono-label mono-muted" style={{ marginLeft: "auto" }}>
+          {detailText}
+        </span>
+      )}
     </div>
   );
 }
@@ -65,20 +69,11 @@ function formatDetail(detail?: Record<string, unknown>): string {
 }
 
 function StatusPill({ label, ok }: { label: string; ok: boolean }) {
+  // Filled ink dot = OK; hollow (cream) ink-outlined dot = DOWN. The OK/DOWN
+  // word carries the same signal (color is not the only cue — a11y).
   return (
-    <span className="mono-label" style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
-      <span
-        aria-hidden
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: "50%",
-          // Filled ink dot = OK; hollow (cream) ink-outlined dot = DOWN. The
-          // OK/DOWN word below carries the same signal (color is not the only cue).
-          backgroundColor: ok ? "var(--color-ink)" : "var(--color-paper)",
-          border: "1.5px solid var(--color-ink)",
-        }}
-      />
+    <span className="health__item mono-label">
+      <span aria-hidden className={`health__dot${ok ? "" : " health__dot--down"}`} />
       {label}: {ok ? "OK" : "DOWN"}
     </span>
   );

@@ -6,15 +6,20 @@ import { ExploreView } from "./ExploreView";
  */
 export default function ExplorePage() {
   return (
-    <main className="container" style={{ paddingTop: "var(--space-10)", paddingBottom: "var(--space-12)" }}>
-      <p className="mono-label">Explore · Knowledge graph</p>
-      <h1 style={{ maxWidth: "16ch", marginTop: "var(--space-3)" }}>Walk the graph.</h1>
-      <p style={{ marginTop: "var(--space-3)" }}>
-        The issue sits at the centre. Stamps, Scott equivalents, varieties, and the documents that
-        cite them radiate outward. Select any node to read its record.
-      </p>
-
-      <hr className="rule-faint" />
+    <main className="container" style={{ paddingBottom: "var(--space-12)" }}>
+      <header className="page-head">
+        <div className="eyebrow">
+          <span className="eyebrow__tick" />
+          <span className="mono">Explore · Knowledge graph</span>
+        </div>
+        <h1>
+          Walk the <em className="cobalt">graph.</em>
+        </h1>
+        <p className="page-head__lede">
+          The issue sits at the centre — the dominant form. Stamps, Scott equivalents, varieties, and
+          the documents that cite them radiate outward. Select any node to read its record.
+        </p>
+      </header>
 
       <ExploreView />
     </main>
