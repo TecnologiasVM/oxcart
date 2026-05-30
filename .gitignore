@@ -5,7 +5,7 @@ __pycache__/
 
 # C extensions
 *.so
-
+redesign-ideas/
 # Distribution / packaging
 .Python
 build/
@@ -173,3 +173,9 @@ graph_outputs/
 /test-notification-hook.ps1
 /zelda_secret.wav
 *.wav
+
+# The First Issue frontend's TypeScript source dir is named "lib" and is NOT a
+# Python build artifact — the generic `lib/` rule above would otherwise drop the
+# entire frontend data/API layer (api.ts, types.ts, format.ts, cytoscape-style.ts,
+# export.ts). Keep it tracked.
+!first_issue_graphrag/frontend/lib/

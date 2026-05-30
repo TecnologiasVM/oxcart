@@ -31,6 +31,9 @@ export function GraphView({ graph, onSelectNode, height }: GraphViewProps) {
   const cyRef = useRef<Core | null>(null);
   const onSelectRef = useRef<GraphViewProps["onSelectNode"]>(onSelectNode);
   const [layoutName, setLayoutName] = useState<LayoutName>("cose");
+  // Live meta read from THIS cytoscape instance (cyRef), never window.__cy.
+  const [meta, setMeta] = useState<{ nodes: number; edges: number }>({ nodes: 0, edges: 0 });
+  const [hasSelection, setHasSelection] = useState(false);
 
   // Keep the latest callback without re-initialising Cytoscape.
   useEffect(() => {
@@ -55,11 +58,15 @@ export function GraphView({ graph, onSelectNode, height }: GraphViewProps) {
 
     cy.on("tap", "node", (evt) => {
       const node = evt.target as NodeSingular;
+      setHasSelection(true);
       onSelectRef.current?.(node.id());
     });
 
     cy.on("tap", (evt) => {
-      if (evt.target === cy) onSelectRef.current?.(null);
+      if (evt.target === cy) {
+        setHasSelection(false);
+        onSelectRef.current?.(null);
+      }
     });
 
     cy.on("mouseover", "node", (evt) => {
@@ -100,6 +107,8 @@ export function GraphView({ graph, onSelectNode, height }: GraphViewProps) {
       cy.elements().remove();
       cy.add(els);
     });
+    setMeta({ nodes: cy.nodes().length, edges: cy.edges().length });
+    setHasSelection(false);
 
     if (els.length > 0) {
       const layout = layoutName === "concentric" ? concentricLayout : defaultLayout;
@@ -128,16 +137,7 @@ export function GraphView({ graph, onSelectNode, height }: GraphViewProps) {
   return (
     <div className="graph-frame" style={height ? { height } : undefined}>
       <div ref={containerRef} className="graph-canvas" />
-      <div
-        style={{
-          position: "absolute",
-          top: "var(--space-4)",
-          right: "var(--space-4)",
-          display: "flex",
-          gap: "var(--space-2)",
-          zIndex: 2,
-        }}
-      >
+      <div className="graph-controls">
         <button
           type="button"
           className={`btn${layoutName === "cose" ? " btn--active" : ""}`}
@@ -155,6 +155,15 @@ export function GraphView({ graph, onSelectNode, height }: GraphViewProps) {
         <button type="button" className="btn" onClick={fit}>
           Fit
         </button>
+      </div>
+      <div className="graph-meta">
+        <span className="mono mono-muted">{meta.nodes} nodes</span>
+        <span className="mono mono-muted">{meta.edges} edges</span>
+        {hasSelection && (
+          <span className="mono">
+            <span style={{ color: "var(--color-amber)" }}>●</span> 1 selected
+          </span>
+        )}
       </div>
     </div>
   );

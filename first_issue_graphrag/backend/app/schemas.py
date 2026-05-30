@@ -175,3 +175,95 @@ class HealthResponse(BaseModel):
         default_factory=dict,
         description="Diagnostic details (counts, errors, versions).",
     )
+
+
+# ---------------------------------------------------------------------------
+# Mena Catalogue -> Surface Mail (read-only navigation over the shared Mena graph)
+# ---------------------------------------------------------------------------
+# These power the /api/mena/* endpoints. The Mena domain graph (Issue/Stamp/...)
+# is shared with the prototype; navigation is scoped to Issue.section == the
+# configured section ("Surface Mail"). No embedding/vector field appears here.
+class SurfaceMailIssue(BaseModel):
+    """One Surface-Mail issue in the year-grouped navigator (lightweight)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    issue_id: str
+    title: str | None = None
+    n_stamps: int = 0
+    year: str = Field(..., description="Four-digit year parsed from issue_id, or 'Undated'.")
+
+
+class SurfaceMailYear(BaseModel):
+    """A year bucket: its issues, ordered for the navigator."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    year: str
+    count: int = 0
+    issues: list[SurfaceMailIssue] = Field(default_factory=list)
+
+
+class SurfaceMailResponse(BaseModel):
+    """The full Surface-Mail navigator index (years -> issues)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    section: str = "Surface Mail"
+    total_issues: int = 0
+    years: list[SurfaceMailYear] = Field(default_factory=list)
+
+
+class MenaScottMatch(BaseModel):
+    """One Mena->Scott equivalence row (from the match catalogue files).
+
+    NOTE: ``confidence`` is a categorical STRING in the source ("high"/"medium"),
+    distinct from the numeric graph-side EQUIVALENT_TO confidence.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    mena: str | None = None
+    scott: str | None = None
+    confidence: str | None = None
+    scott_detail: dict[str, Any] | None = None
+
+
+class MenaIssueDetail(BaseModel):
+    """Fast per-issue facts: catalog data + Scott match (NO graph/Weaviate)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    issue_id: str
+    year: str
+    title: str | None = None
+    issue: dict[str, Any] = Field(default_factory=dict, description="Clean issue facts; issue_dates parsed.")
+    stamps: list[dict[str, Any]] = Field(default_factory=list)
+    counts: dict[str, int] = Field(default_factory=dict)
+    printer: str | None = None
+    printers: list[str] = Field(default_factory=list)
+    legal_acts: list[dict[str, Any]] = Field(default_factory=list)
+    scott_match: list[MenaScottMatch] = Field(default_factory=list)
+    graph_scott_roster: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class MenaEvidencePassage(BaseModel):
+    """A Weaviate BM25 passage relevant to an issue (lazy 'Query evidence')."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    chunk_id: str | None = None
+    doc_id: str | None = None
+    page: int | str | None = None
+    snippet: str = ""
+    score: float | None = None
+
+
+class MenaEvidenceResponse(BaseModel):
+    """Lazy per-issue evidence: the BM25 query used + its passages."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    issue_id: str
+    query: str = ""
+    passages: list[MenaEvidencePassage] = Field(default_factory=list)

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { getNodeDetail } from "@/lib/api";
 import type { NodeDetail } from "@/lib/types";
 import { issueDatesText } from "@/lib/format";
+import { StampGlyph, type StampVariant } from "./StampGlyph";
 
 /*
  * Side panel that loads NodeDetail for the selected graph node and renders it in
@@ -97,10 +98,15 @@ export function NodeDetailPanel({ nodeId }: NodeDetailPanelProps) {
       )}
       {detail && (
         <>
-          <p className="mono-label mono-muted">{detail.type}</p>
-          <h3 className="serif-display" style={{ marginTop: "var(--space-2)" }}>
+          <div className="detail__type">
+            <span className="dot" />
+            <span className="mono mono-muted">{detail.type}</span>
+          </div>
+          <h3 className="detail__title serif-display" style={{ marginTop: "var(--space-2)" }}>
             {detail.title || detail.type}
           </h3>
+
+          <DetailGlyph detail={detail} />
 
           <hr className="rule-faint" />
 
@@ -109,6 +115,32 @@ export function NodeDetailPanel({ nodeId }: NodeDetailPanelProps) {
         </>
       )}
     </aside>
+  );
+}
+
+// --------------------------------------------------------------------------- //
+// Type glyph (encoded stamp) for Stamp / Issue / ScottStamp
+// --------------------------------------------------------------------------- //
+function DetailGlyph({ detail }: { detail: NodeDetail }) {
+  const props = detail.properties ?? {};
+  let denom = "";
+  let variant: StampVariant = "ink";
+  if (detail.type === "Stamp") {
+    denom = String(props.catalog_no ?? "");
+    variant = "amber";
+  } else if (detail.type === "Issue") {
+    denom = "1863";
+    variant = "cobalt";
+  } else if (detail.type === "ScottStamp") {
+    denom = String(props.scott_number ?? "");
+    variant = "cobalt";
+  } else {
+    return null;
+  }
+  return (
+    <div className="detail__glyph">
+      <StampGlyph denom={denom} variant={variant} w={84} h={104} />
+    </div>
   );
 }
 

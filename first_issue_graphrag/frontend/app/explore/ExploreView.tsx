@@ -56,33 +56,35 @@ export function ExploreView() {
 
   return (
     <div>
-      {/* Scope selector + legend */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "var(--space-4)",
-          marginBottom: "var(--space-4)",
-        }}
-      >
-        <div style={{ display: "flex", gap: "var(--space-2)" }}>
-          {STAMP_SCOPES.map((s) => (
-            <button
-              key={s.cno || "all"}
-              type="button"
-              className={`btn${scope === s.cno ? " btn--active" : ""}`}
-              onClick={() => {
-                setScope(s.cno);
-                setSelectedNodeId(null);
-              }}
-            >
-              {s.label}
-            </button>
-          ))}
+      {/* Toolbar: Mena scope (left) + retrieval tier readout (right) */}
+      <div className="explore-toolbar">
+        <div>
+          <span className="mono mono-muted scope__caption">Mena scope</span>
+          <div className="scope">
+            {STAMP_SCOPES.map((s) => (
+              <button
+                key={s.cno || "all"}
+                type="button"
+                className={`btn${scope === s.cno ? " btn--active" : ""}`}
+                onClick={() => {
+                  setScope(s.cno);
+                  setSelectedNodeId(null);
+                }}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <Legend />
+        <div>
+          <span className="mono mono-muted scope__caption" style={{ textAlign: "right" }}>
+            Tier
+          </span>
+          <div className="scope">
+            <span className="chip chip--cobalt">Clean · score ≥ min</span>
+            <span className="chip">No competing</span>
+          </div>
+        </div>
       </div>
 
       {error && (
@@ -92,14 +94,7 @@ export function ExploreView() {
       )}
 
       {/* Graph + detail */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 1fr) 320px",
-          gap: "var(--space-6)",
-          alignItems: "stretch",
-        }}
-      >
+      <div className="explore-grid">
         <div style={{ height: 600 }}>
           <GraphView graph={graph} onSelectNode={setSelectedNodeId} height="100%" />
           {loading && (
@@ -110,6 +105,9 @@ export function ExploreView() {
         </div>
         <NodeDetailPanel nodeId={selectedNodeId} />
       </div>
+
+      {/* Shape-grammar legend */}
+      <Legend />
     </div>
   );
 }

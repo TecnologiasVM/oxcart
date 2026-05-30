@@ -6,15 +6,20 @@ import { QueryView } from "./QueryView";
  */
 export default function QueryPage() {
   return (
-    <main className="container" style={{ paddingTop: "var(--space-10)", paddingBottom: "var(--space-12)" }}>
-      <p className="mono-label">Query · Grounded retrieval</p>
-      <h1 style={{ maxWidth: "18ch", marginTop: "var(--space-3)" }}>Ask, and read the evidence.</h1>
-      <p style={{ marginTop: "var(--space-3)" }}>
-        Questions resolve to a domain record, a retrieval subgraph, and the literature chunks that
-        ground them. No answer is generated — the sources are the answer.
-      </p>
-
-      <hr className="rule-faint" />
+    <main className="container" style={{ paddingBottom: "var(--space-12)" }}>
+      <header className="page-head">
+        <div className="eyebrow">
+          <span className="eyebrow__tick" />
+          <span className="mono">Query · Grounded retrieval</span>
+        </div>
+        <h1>
+          Ask, and read the <em className="cobalt">evidence.</em>
+        </h1>
+        <p className="page-head__lede">
+          Questions resolve to a domain record, a retrieval subgraph, and the literature chunks that
+          ground them. No answer is generated — the sources are the answer.
+        </p>
+      </header>
 
       <QueryView />
     </main>

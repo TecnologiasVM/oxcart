@@ -30,7 +30,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # Importing settings first bootstraps sys.path for the prototype modules.
 from app import settings
 from app.deps import lifespan
-from app.routers import graph, meta, query
+from app.routers import graph, mena, meta, query
 
 app = FastAPI(
     title=settings.SERVICE_NAME,
@@ -50,6 +50,7 @@ app.add_middleware(
 app.include_router(graph.router, prefix="/api")
 app.include_router(meta.router, prefix="/api")
 app.include_router(query.router, prefix="/api")
+app.include_router(mena.router, prefix="/api")
 
 
 @app.get("/", tags=["root"])
