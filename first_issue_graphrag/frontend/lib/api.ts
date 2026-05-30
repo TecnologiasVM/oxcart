@@ -23,8 +23,20 @@ import type {
   SurfaceMailResponse,
 } from "./types";
 
+/**
+ * Base URL for API calls.
+ *
+ * Default is "" (relative) so the browser calls the SAME origin it loaded from
+ * (e.g. http://ZEROTIER_IP:3000/api/...) and Next.js rewrites those to the
+ * FastAPI backend server-side (see next.config.ts). This keeps the backend
+ * internal — only port 3000 is exposed, and no CORS is needed.
+ *
+ * Set NEXT_PUBLIC_API_BASE to an absolute URL (e.g. http://localhost:8090) only
+ * for the legacy "browser talks to FastAPI directly" mode, which then requires
+ * exposing port 8090 and adding the origin to the FastAPI CORS allow-list.
+ */
 export const API_BASE =
-  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "http://localhost:8090";
+  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_API_BASE) || "";
 
 /** Keys matching this are never exposed to the UI. */
 const FORBIDDEN_KEY = /embed|vector/i;
@@ -65,8 +77,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       },
     });
   } catch (e) {
+    const target = API_BASE || "the Next.js /api proxy";
     throw new ApiError(
-      `Cannot reach the First Issue KG backend at ${API_BASE}. Is it running on port 8090?`,
+      `Cannot reach the First Issue KG backend via ${target}. Is FastAPI running on port 8090 (and the frontend proxying to it)?`,
       0,
     );
   }
