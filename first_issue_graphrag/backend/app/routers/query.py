@@ -13,7 +13,8 @@ All heavy lifting lives in :mod:`app.query_service`; this router stays thin.
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
+from fastapi.concurrency import run_in_threadpool
 
 from app import query_service
 from app.schemas import ExampleQuery, QueryRequest, QueryResponse
@@ -53,4 +54,31 @@ async def post_query(payload: QueryRequest) -> QueryResponse:
         counts=bundle["counts"],
         subgraph=subgraph,
         figures=figures,
+    )
+
+
+@router.post("/query/export")
+async def post_query_export(payload: QueryRequest) -> Response:
+    """Full-text, LLM-ready ``.txt`` export for ``payload.question`` (file download).
+
+    This is the ONLY endpoint that returns full chunk text. It is built
+    server-side (:func:`query_service.build_export_text`) and returned as
+    ``text/plain`` with an attachment disposition, so a large body never has to be
+    JSON-parsed by the browser -- which is what causes "Unterminated string in
+    JSON" on the display path (``POST /api/query`` clips card text to keep its JSON
+    small). No LLM is called; this only packages the retrieved evidence.
+    """
+    text = await run_in_threadpool(
+        query_service.build_export_text,
+        payload.question,
+        stamp=payload.stamp,
+        min_link=payload.min_link,
+        max_lexical=payload.max_lexical,
+        k_weaviate=payload.k_weaviate,
+        exclude_competing=payload.exclude_competing,
+    )
+    return Response(
+        content=text,
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="first-issue-export.txt"'},
     )

@@ -132,6 +132,14 @@ FIRST_ISSUE_STAMP_MIN_CONF = float(os.getenv("FIRST_ISSUE_STAMP_MIN_CONF", "0.5"
 # in CSS. retrieve.context_bundle itself is unchanged (CLI/LLM path still gets all).
 # Max lexical hits returned by POST /api/query (0 = no cap; not recommended).
 FIRST_ISSUE_API_MAX_LEXICAL = int(os.getenv("FIRST_ISSUE_API_MAX_LEXICAL", "40"))
+# Per-chunk text/snippet char cap for the DISPLAYED evidence cards in the
+# POST /api/query response. Even with the count cap above, individual chunks can
+# be >10 KB, so a query can still produce a >256 KB JSON body that truncates in
+# transit ("Unterminated string in JSON"). The cards only need a preview, so we
+# clip the displayed text here. The FULL text is never sent for display -- it is
+# available only via POST /api/query/export (a file download, no browser JSON
+# parse). 0 = no truncation (not recommended for the display path).
+FIRST_ISSUE_API_TEXT_LIMIT = int(os.getenv("FIRST_ISSUE_API_TEXT_LIMIT", "700"))
 # Max related page-figures surfaced per query (the "related pictures" gallery).
 FIRST_ISSUE_QUERY_MAX_FIGURES = int(os.getenv("FIRST_ISSUE_QUERY_MAX_FIGURES", "10"))
 

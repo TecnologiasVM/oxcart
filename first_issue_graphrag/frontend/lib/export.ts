@@ -1,18 +1,24 @@
 /*
- * Build a ready-to-paste LLM prompt from a query result and trigger a .txt
- * download. The exported file is self-contained: a researcher can paste it into
- * ChatGPT or Claude and get a grounded, citation-first answer. No LLM is called
- * here — the system is retrieval-only; the file simply packages the evidence.
+ * Trigger a full-text, LLM-ready .txt download for a query.
+ *
+ * The file is built SERVER-SIDE (POST /api/query/export) and streamed as
+ * text/plain, then saved by the browser. This is deliberate:
+ *   - the DISPLAY response (POST /api/query) clips each card's text to keep its
+ *     JSON small, so the full evidence text is NOT in what the page holds;
+ *   - the full text lives only here, and because this is a file download (not a
+ *     browser JSON.parse) it is immune to the "Unterminated string in JSON"
+ *     truncation that large bodies hit on the display path.
+ * No LLM is called — the system is retrieval-only; the file packages the evidence.
  */
-import type { QueryResponse } from "./types";
-import { issueDatesText, displayDenom } from "./format";
+import { API_BASE, ApiError } from "./api";
 
-interface DomainStamp {
-  catalog_no?: unknown;
-  denomination_value?: unknown;
-  denomination_unit?: unknown;
-  color?: unknown;
-  equivalent_scott?: Array<{ scott_number?: unknown }>;
+export interface ExportParams {
+  /** Mena scope code "1".."4" or null (must match the query that produced the view). */
+  stamp?: string | null;
+  min_link?: number;
+  max_lexical?: number;
+  k_weaviate?: number;
+  exclude_competing?: boolean;
 }
 
 function slug(q: string): string {
@@ -25,90 +31,24 @@ function slug(q: string): string {
   );
 }
 
-function str(v: unknown): string {
-  return v === null || v === undefined ? "" : String(v);
-}
-
-export function buildQueryExport(question: string, r: QueryResponse): string {
-  const L: string[] = [];
-  L.push("# Costa Rica 1863 First Issue — grounded retrieval bundle");
-  L.push("");
-  L.push("ROLE: You are a philatelic research assistant for the Costa Rica 1863");
-  L.push("First Issue. Using ONLY the evidence in this file, answer the QUESTION.");
-  L.push("Cite every claim as [doc_id p.PAGE]. If the evidence is insufficient,");
-  L.push("say so plainly instead of guessing. Treat DOMAIN FACTS as authoritative");
-  L.push("for denominations, colours, dates and Scott/Mena equivalences.");
-  L.push("");
-  L.push("## QUESTION");
-  L.push(question || "(none provided)");
-  L.push("");
-
-  const domain = (r.domain ?? {}) as unknown as Record<string, unknown>;
-  L.push("## DOMAIN FACTS (authoritative catalog)");
-  if (domain.title) {
-    L.push(`Issue: ${str(domain.title)}${domain.country ? " — " + str(domain.country) : ""}`);
+/**
+ * Fetch the server-built export for `question` (+ the same params used for the
+ * query) and save it as `first-issue-<slug>.txt`. Throws {@link ApiError} on a
+ * non-2xx response so the caller can surface it.
+ */
+export async function downloadQueryExport(
+  question: string,
+  params: ExportParams = {},
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/query/export`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, ...params }),
+  });
+  if (!res.ok) {
+    throw new ApiError(`Export failed (${res.status})`, res.status);
   }
-  if (domain.issue_dates) L.push(`Dates: ${issueDatesText(domain.issue_dates)}`);
-  if (domain.perforation) L.push(`Perforation: ${str(domain.perforation)}`);
-  const stamps = Array.isArray(domain.stamps) ? (domain.stamps as DomainStamp[]) : [];
-  if (stamps.length) {
-    L.push("Stamps (Mena → Scott):");
-    for (const s of stamps) {
-      const denom = displayDenom(s.catalog_no, s.denomination_value, s.denomination_unit);
-      const color = str(s.color);
-      const scott = (s.equivalent_scott ?? [])
-        .map((x) => (x && x.scott_number != null ? `Scott ${str(x.scott_number)}` : ""))
-        .filter(Boolean)
-        .join(", ");
-      const bits = [denom, color].filter(Boolean).join(" ");
-      L.push(`  - Mena ${str(s.catalog_no)}: ${bits}${scott ? ` = ${scott}` : ""}`);
-    }
-  }
-  const note = domain.plain_raw_text_excerpt;
-  if (note) {
-    L.push("");
-    L.push("Catalog note:");
-    L.push(str(note));
-  }
-  L.push("");
-
-  if (r.sources?.length) {
-    L.push("## SOURCE DOCUMENTS (ranked by relevance)");
-    for (const s of r.sources) {
-      L.push(`  - ${s.doc_id} — ${s.chunks} chunk(s), pp ${(s.pages ?? []).join(", ") || "?"}`);
-    }
-    L.push("");
-  }
-
-  if (r.lexical?.length) {
-    L.push("## EVIDENCE PASSAGES (graph-linked, full text)");
-    r.lexical.forEach((h, i) => {
-      L.push("");
-      const sig = h.signals?.length ? ` — signals: ${h.signals.join(", ")}` : "";
-      L.push(`[${i + 1}] ${h.doc_id} p.${h.page ?? "?"}${sig}`);
-      L.push((h.text ?? "").trim());
-    });
-    L.push("");
-  }
-
-  if (r.weaviate?.length) {
-    L.push("## ADDITIONAL PASSAGES (BM25 keyword backup)");
-    r.weaviate.forEach((h, i) => {
-      L.push("");
-      L.push(`[W${i + 1}] ${h.doc_id} p.${h.page ?? "?"}`);
-      L.push((h.snippet ?? "").trim());
-    });
-    L.push("");
-  }
-
-  L.push("---");
-  L.push("This is a retrieval-only bundle: no answer was generated by the system.");
-  L.push("The documents above are the grounding for your answer.");
-  return L.join("\n");
-}
-
-export function downloadQueryExport(question: string, r: QueryResponse): void {
-  const text = buildQueryExport(question, r);
+  const text = await res.text();
   const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

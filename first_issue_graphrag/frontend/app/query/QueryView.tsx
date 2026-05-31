@@ -27,6 +27,10 @@ export function QueryView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resultQuestion, setResultQuestion] = useState("");
+  // The stamp scope used for the CURRENT result, so the .txt export re-runs the
+  // exact same retrieval (export fetches full text from /api/query/export).
+  const [resultStamp, setResultStamp] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,9 +47,10 @@ export function QueryView() {
   }, []);
 
   async function run(q: string, s?: string | null) {
+    const usedStamp = s ?? (stamp || null);
     const body: QueryRequest = {
       question: q,
-      stamp: s ?? (stamp || null),
+      stamp: usedStamp,
       exclude_competing: true,
     };
     setLoading(true);
@@ -55,10 +60,26 @@ export function QueryView() {
       const res = await postQuery(body);
       setResult(res);
       setResultQuestion(q);
+      setResultStamp(usedStamp);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function onExport() {
+    setExporting(true);
+    setError(null);
+    try {
+      await downloadQueryExport(resultQuestion || question, {
+        stamp: resultStamp,
+        exclude_competing: true,
+      });
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -121,10 +142,11 @@ export function QueryView() {
             <button
               type="button"
               className="btn btn--ghost"
-              onClick={() => downloadQueryExport(resultQuestion || question, result)}
-              title="Download a ready-to-paste prompt with all evidence for ChatGPT or Claude"
+              onClick={() => void onExport()}
+              disabled={exporting}
+              title="Download a ready-to-paste prompt with the FULL evidence text for ChatGPT or Claude"
             >
-              ↓ Export for ChatGPT / Claude (.txt)
+              {exporting ? "Preparing…" : "↓ Export for ChatGPT / Claude (.txt)"}
             </button>
           </div>
 

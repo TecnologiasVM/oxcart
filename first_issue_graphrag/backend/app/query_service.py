@@ -36,6 +36,7 @@ behaviour is used instead. Either way the emitted ids are identical.
 
 from __future__ import annotations
 
+import json
 from typing import Any, Optional
 
 from fastapi.concurrency import run_in_threadpool
@@ -56,18 +57,22 @@ _MAX_CHUNKS_PER_DOC = 3
 _PREVIEW_LEN = 180
 _DEFAULT_ISSUE_TITLE = "First Issue 1863"
 
-# Query API payload bound (read from prototype config; override via .env). Capping
-# the NUMBER of lexical hits keeps the JSON response small enough that it cannot be
+# Query API payload bounds (read from prototype config; override via .env). The
+# display path (POST /api/query) caps BOTH the lexical-hit COUNT and each chunk's
+# DISPLAYED text length, so the JSON body stays small (~tens of KB) and cannot be
 # truncated in transit (which surfaces as "Unterminated string in JSON" in the
-# browser) WITHOUT clipping any chunk's text -- so the .txt export stays complete
-# and the UI is responsible for clamping card height in CSS. retrieve.context_bundle
-# is untouched and still carries every chunk for the CLI / LLM path.
+# browser). The FULL text is never sent for display -- it is delivered only by the
+# export endpoint (build_export_text -> a text/plain file download, no browser JSON
+# parse). retrieve.context_bundle itself is untouched (CLI / export get full text).
 _API_MAX_LEXICAL = _proto_config.FIRST_ISSUE_API_MAX_LEXICAL
+_API_TEXT_LIMIT = _proto_config.FIRST_ISSUE_API_TEXT_LIMIT
 _QUERY_MAX_FIGURES = _proto_config.FIRST_ISSUE_QUERY_MAX_FIGURES
 # Defense-in-depth cap on the Weaviate tail (retrieve already clamps k_weaviate to
 # <=25, and QueryRequest validates le=25, but cap here too so this layer is safe
 # regardless of caller).
 _API_MAX_WEAVIATE = 25
+# Long free-text keys clipped to _API_TEXT_LIMIT in the DISPLAY response only.
+_TEXT_KEYS = ("text", "snippet")
 
 
 # ---------------------------------------------------------------------------
@@ -186,19 +191,37 @@ def _sanitize_list(items: list[Any]) -> list[Any]:
     return out
 
 
-def _sanitize_evidence_list(items: list[Any], max_items: int = 0) -> list[Any]:
-    """Sanitize an evidence list, capping the item COUNT (text is kept in full).
+def _truncate_text(value: Any) -> Any:
+    """Clip a free-text value to ``_API_TEXT_LIMIT`` chars (append an ellipsis)."""
+    if _API_TEXT_LIMIT and isinstance(value, str) and len(value) > _API_TEXT_LIMIT:
+        return value[: _API_TEXT_LIMIT - 1].rstrip() + "…"
+    return value
 
-    Unlike :func:`_sanitize_list`, this is for the ``lexical``/``weaviate`` hit
-    lists: it caps the number of items (the lists are already rank-ordered, so the
-    best evidence is kept) to bound the JSON payload size, but never clips a
-    chunk's ``text``/``snippet`` -- the full text is what the .txt export needs,
-    and the UI clamps card height in CSS. ``max_items <= 0`` keeps every item.
+
+def _sanitize_evidence_list(items: list[Any], max_items: int = 0) -> list[Any]:
+    """Sanitize an evidence list for DISPLAY: cap COUNT and clip long text.
+
+    This is for the ``lexical``/``weaviate`` hit lists shown as cards. It caps the
+    number of items (the lists are already rank-ordered, so the best evidence is
+    kept) AND clips each item's long ``text``/``snippet`` to ``_API_TEXT_LIMIT``,
+    so the JSON body stays small and the cards stay short. The FULL text is NOT in
+    this path -- it is served only by the export endpoint. ``max_items <= 0`` keeps
+    every item (count-wise); text is still clipped.
     """
     src = items or []
     if max_items and max_items > 0:
         src = src[:max_items]
-    return [sanitize_props(it) if isinstance(it, dict) else it for it in src]
+    out: list[Any] = []
+    for it in src:
+        if not isinstance(it, dict):
+            out.append(it)
+            continue
+        clean = sanitize_props(it)
+        for key in _TEXT_KEYS:
+            if key in clean:
+                clean[key] = _truncate_text(clean[key])
+        out.append(clean)
+    return out
 
 
 def _sanitize_domain(domain: dict[str, Any]) -> dict[str, Any]:
@@ -456,6 +479,168 @@ def collect_query_figures(bundle: dict[str, Any]) -> list[dict[str, Any]]:
     """
     lexical = [c for c in (bundle.get("lexical") or []) if isinstance(c, dict)]
     return figure_refs.figures_for_query(lexical, max_figures=_QUERY_MAX_FIGURES)
+
+
+# ---------------------------------------------------------------------------
+# Public: build_export_text (FULL text, server-side; for the file download)
+# ---------------------------------------------------------------------------
+_DATE_LABELS = {
+    "announced": "announced",
+    "placed_on_sale": "placed on sale",
+    "probable_first_circulation": "first circulation",
+    "second_plate_sale": "second plate",
+    "demonetized": "demonetized",
+}
+# Display-only denomination fix mirroring the frontend (Mena 1A = 0.5 real).
+_DENOM_OVERRIDES = {"1A": (0.5, "real")}
+
+
+def _issue_dates_text(value: Any) -> str:
+    """Render the issue_dates map (a JSON string) as 'label value · ...'."""
+    if value in (None, ""):
+        return "—"
+    obj: Any = value
+    if isinstance(value, str):
+        s = value.strip()
+        if not s.startswith("{"):
+            return s
+        try:
+            obj = json.loads(s)
+        except ValueError:
+            return s
+    if not isinstance(obj, dict):
+        return str(value)
+    parts = [
+        f"{_DATE_LABELS.get(k, k.replace('_', ' '))} {v}"
+        for k, v in obj.items()
+        if v not in (None, "")
+    ]
+    return " · ".join(parts) if parts else "—"
+
+
+def _display_denom(catalog_no: Any, value: Any, unit: Any) -> str:
+    """Format a Mena denomination, applying the known 1A source-data override."""
+    override = _DENOM_OVERRIDES.get(str(catalog_no or ""))
+    if override:
+        value, unit = override
+    if value in (None, ""):
+        return str(unit) if unit else ""
+    return f"{value} {unit or ''}".strip()
+
+
+def _page_token(page: Any) -> str:
+    return str(page) if page not in (None, "") else "?"
+
+
+def build_export_text(
+    question: str,
+    stamp: Optional[str] = None,
+    min_link: float = 6.0,
+    max_lexical: int = 0,
+    k_weaviate: int = 5,
+    exclude_competing: bool = True,
+) -> str:
+    """Build the FULL-text, LLM-ready .txt export for a question (server-side).
+
+    This is the ONLY path that exposes full chunk text. It runs
+    ``retrieve.context_bundle`` with full text (no display truncation) and formats
+    a grounded, citation-first prompt. The router returns it as a ``text/plain``
+    file download, so the browser never JSON-parses a large body (which is what
+    causes "Unterminated string in JSON" on the display path). Embedding/vector
+    fields are stripped via the same sanitizers as the display path.
+    """
+    question = (question or "").strip()
+    bundle = retrieve.context_bundle(
+        question,
+        stamp=stamp,
+        max_lexical=max_lexical,
+        k_weaviate=k_weaviate,
+        min_link_score=min_link,
+        exclude_competing=exclude_competing,
+    )
+    domain = _sanitize_domain(bundle.get("domain") or {})
+    sources = [s for s in (bundle.get("sources") or []) if isinstance(s, dict)]
+    lexical = [c for c in (bundle.get("lexical") or []) if isinstance(c, dict)]
+    weaviate = [w for w in (bundle.get("weaviate") or []) if isinstance(w, dict)]
+
+    out: list[str] = [
+        "# Costa Rica 1863 First Issue — grounded retrieval bundle",
+        "",
+        "ROLE: You are a philatelic research assistant for the Costa Rica 1863",
+        "First Issue. Using ONLY the evidence in this file, answer the QUESTION.",
+        "Cite every claim as [doc_id p.PAGE]. If the evidence is insufficient,",
+        "say so plainly instead of guessing. Treat DOMAIN FACTS as authoritative",
+        "for denominations, colours, dates and Scott/Mena equivalences.",
+        "",
+        "## QUESTION",
+        question or "(none provided)",
+        "",
+        "## DOMAIN FACTS (authoritative catalog)",
+    ]
+    if domain.get("title"):
+        country = f" — {domain['country']}" if domain.get("country") else ""
+        out.append(f"Issue: {domain['title']}{country}")
+    if domain.get("issue_dates"):
+        out.append(f"Dates: {_issue_dates_text(domain.get('issue_dates'))}")
+    if domain.get("perforation"):
+        out.append(f"Perforation: {domain['perforation']}")
+    stamps = [s for s in (domain.get("stamps") or []) if isinstance(s, dict)]
+    if stamps:
+        out.append("Stamps (Mena → Scott):")
+        for s in stamps:
+            denom = _display_denom(
+                s.get("catalog_no"), s.get("denomination_value"), s.get("denomination_unit")
+            )
+            scotts = ", ".join(
+                f"Scott {x.get('scott_number')}"
+                for x in (s.get("equivalent_scott") or [])
+                if isinstance(x, dict) and x.get("scott_number") not in (None, "")
+            )
+            bits = " ".join(b for b in (denom, s.get("color") or "") if b)
+            tail = f" = {scotts}" if scotts else ""
+            out.append(f"  - Mena {s.get('catalog_no')}: {bits}{tail}")
+    note = domain.get("plain_raw_text_excerpt")
+    if note:
+        out.extend(["", "Catalog note:", str(note)])
+    out.append("")
+
+    if sources:
+        out.append("## SOURCE DOCUMENTS (ranked by relevance)")
+        for s in sources:
+            pages = ", ".join(str(p) for p in (s.get("pages") or [])) or "?"
+            out.append(f"  - {s.get('doc_id')} — {s.get('chunks')} chunk(s), pp {pages}")
+        out.append("")
+
+    if lexical:
+        out.append("## EVIDENCE PASSAGES (graph-linked, full text)")
+        for i, h in enumerate(lexical, start=1):
+            sigs = h.get("signals")
+            sig = (
+                f" — signals: {', '.join(str(x) for x in sigs)}"
+                if isinstance(sigs, (list, tuple)) and sigs
+                else ""
+            )
+            out.append("")
+            out.append(f"[{i}] {h.get('doc_id')} p.{_page_token(h.get('page'))}{sig}")
+            out.append(str(h.get("text") or "").strip())
+        out.append("")
+
+    if weaviate:
+        out.append("## ADDITIONAL PASSAGES (BM25 keyword backup)")
+        for i, h in enumerate(weaviate, start=1):
+            out.append("")
+            out.append(f"[W{i}] {h.get('doc_id')} p.{_page_token(h.get('page'))}")
+            out.append(str(h.get("snippet") or "").strip())
+        out.append("")
+
+    out.extend(
+        [
+            "---",
+            "This is a retrieval-only bundle: no answer was generated by the system.",
+            "The documents above are the grounding for your answer.",
+        ]
+    )
+    return "\n".join(out)
 
 
 # ---------------------------------------------------------------------------
