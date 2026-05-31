@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getExamples, postQuery } from "@/lib/api";
-import type { ExampleQuery, QueryRequest, QueryResponse } from "@/lib/types";
+import type { ExampleQuery, QueryFigure, QueryRequest, QueryResponse } from "@/lib/types";
 import { issueDatesText, issueDateEvents } from "@/lib/format";
 import { downloadQueryExport } from "@/lib/export";
 import { GraphView } from "../components/GraphView";
@@ -152,6 +152,9 @@ export function QueryView() {
               </div>
             </section>
           )}
+
+          {/* Related page figures — shown right after the graph, before sources */}
+          <Figures result={result} />
 
           {/* Sources */}
           <Sources result={result} />
@@ -331,6 +334,61 @@ function Evidence({ result }: { result: QueryResponse }) {
         </div>
       </div>
     </section>
+  );
+}
+
+function Figures({ result }: { result: QueryResponse }) {
+  const figures = result.figures ?? [];
+  if (figures.length === 0) return null;
+  return (
+    <section className="section" style={{ paddingTop: 0 }} aria-label="Related figures">
+      <div className="section__head" style={{ alignItems: "baseline" }}>
+        <div>
+          <span className="mono mono-muted">Related figures</span>
+          <h2 className="serif-h2" style={{ marginTop: "var(--space-2)" }}>
+            Plates &amp; figures from the cited pages.
+          </h2>
+        </div>
+        <span className="mono mono-muted">
+          {figures.length} image{figures.length === 1 ? "" : "s"} · cropped by the parser
+        </span>
+      </div>
+      <div className="fig-gallery" style={{ marginTop: "var(--space-4)" }}>
+        {figures.map((f) => (
+          <FigureCard key={f.filename} figure={f} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FigureCard({ figure }: { figure: QueryFigure }) {
+  return (
+    <a
+      className="fig-card surface"
+      href={figure.url}
+      target="_blank"
+      rel="noreferrer"
+      title={`${figure.doc_id} · p${figure.page} — open full image`}
+    >
+      <div className="fig-card__frame">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          className="fig-card__img"
+          src={figure.url}
+          alt={`Figure from ${figure.doc_id}, page ${figure.page}`}
+          loading="lazy"
+        />
+      </div>
+      <div className="fig-card__meta">
+        <span className="mono mono-muted">
+          {figure.doc_id} · p{figure.page}
+        </span>
+        {figure.link_score != null && (
+          <span className="fig-card__score">link {figure.link_score.toFixed(1)}</span>
+        )}
+      </div>
+    </a>
   );
 }
 

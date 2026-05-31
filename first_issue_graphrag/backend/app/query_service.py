@@ -47,6 +47,7 @@ from app.schemas import ExampleQuery, GraphEdge, GraphNode, GraphResponse
 
 import config as _proto_config  # prototype config (resolved via app.settings)
 import examples_runner  # prototype module
+import figure_refs  # prototype module (page-figure association)
 import retrieve  # prototype module
 
 # Visualisation budget knobs (kept small; <~60 nodes total).
@@ -54,6 +55,19 @@ _MAX_DOCS = 8
 _MAX_CHUNKS_PER_DOC = 3
 _PREVIEW_LEN = 180
 _DEFAULT_ISSUE_TITLE = "First Issue 1863"
+
+# Query API payload bound (read from prototype config; override via .env). Capping
+# the NUMBER of lexical hits keeps the JSON response small enough that it cannot be
+# truncated in transit (which surfaces as "Unterminated string in JSON" in the
+# browser) WITHOUT clipping any chunk's text -- so the .txt export stays complete
+# and the UI is responsible for clamping card height in CSS. retrieve.context_bundle
+# is untouched and still carries every chunk for the CLI / LLM path.
+_API_MAX_LEXICAL = _proto_config.FIRST_ISSUE_API_MAX_LEXICAL
+_QUERY_MAX_FIGURES = _proto_config.FIRST_ISSUE_QUERY_MAX_FIGURES
+# Defense-in-depth cap on the Weaviate tail (retrieve already clamps k_weaviate to
+# <=25, and QueryRequest validates le=25, but cap here too so this layer is safe
+# regardless of caller).
+_API_MAX_WEAVIATE = 25
 
 
 # ---------------------------------------------------------------------------
@@ -172,6 +186,21 @@ def _sanitize_list(items: list[Any]) -> list[Any]:
     return out
 
 
+def _sanitize_evidence_list(items: list[Any], max_items: int = 0) -> list[Any]:
+    """Sanitize an evidence list, capping the item COUNT (text is kept in full).
+
+    Unlike :func:`_sanitize_list`, this is for the ``lexical``/``weaviate`` hit
+    lists: it caps the number of items (the lists are already rank-ordered, so the
+    best evidence is kept) to bound the JSON payload size, but never clips a
+    chunk's ``text``/``snippet`` -- the full text is what the .txt export needs,
+    and the UI clamps card height in CSS. ``max_items <= 0`` keeps every item.
+    """
+    src = items or []
+    if max_items and max_items > 0:
+        src = src[:max_items]
+    return [sanitize_props(it) if isinstance(it, dict) else it for it in src]
+
+
 def _sanitize_domain(domain: dict[str, Any]) -> dict[str, Any]:
     """Strip embedding/vector keys from the domain block and its nested stamps."""
     clean = sanitize_props(domain) if isinstance(domain, dict) else {}
@@ -201,13 +230,20 @@ def _sanitize_related(related: dict[str, Any]) -> dict[str, Any]:
 
 def _sanitize_bundle(bundle: dict[str, Any]) -> dict[str, Any]:
     """Return a fully sanitized copy of the ``context_bundle`` payload."""
+    lexical = _sanitize_evidence_list(bundle.get("lexical") or [], max_items=_API_MAX_LEXICAL)
+    weaviate = _sanitize_evidence_list(bundle.get("weaviate") or [], max_items=_API_MAX_WEAVIATE)
+    counts = sanitize_props(bundle.get("counts") or {})
+    # Reconcile the displayed counts with the (capped) lists actually returned, so
+    # the UI "lexical hits" stat matches the number of evidence cards rendered.
+    counts["lexical"] = len(lexical)
+    counts["weaviate"] = len(weaviate)
     return {
         "domain": _sanitize_domain(bundle.get("domain") or {}),
         "related": _sanitize_related(bundle.get("related") or {}),
         "sources": _sanitize_list(bundle.get("sources") or []),
-        "lexical": _sanitize_list(bundle.get("lexical") or []),
-        "weaviate": _sanitize_list(bundle.get("weaviate") or []),
-        "counts": sanitize_props(bundle.get("counts") or {}),
+        "lexical": lexical,
+        "weaviate": weaviate,
+        "counts": counts,
     }
 
 
@@ -404,6 +440,22 @@ def build_query_subgraph(bundle: dict[str, Any], stamp: Optional[str] = None) ->
                     builder.add_edge(cnid, snid, "MENTIONS_STAMP")
 
     return builder.build()
+
+
+# ---------------------------------------------------------------------------
+# Public: collect_query_figures
+# ---------------------------------------------------------------------------
+def collect_query_figures(bundle: dict[str, Any]) -> list[dict[str, Any]]:
+    """Related page figures for the query, from its (already sanitized) bundle.
+
+    Delegates to :func:`figure_refs.figures_for_query`, which maps the ranked
+    lexical hits to the figures cropped from their ``(doc_id, page)`` — the
+    sanitized chunk text no longer carries the inline ``![Figure](...)`` embeds,
+    so the association is by page, not by text. Returns at most
+    ``FIRST_ISSUE_QUERY_MAX_FIGURES`` figures, de-duplicated and rank-ordered.
+    """
+    lexical = [c for c in (bundle.get("lexical") or []) if isinstance(c, dict)]
+    return figure_refs.figures_for_query(lexical, max_figures=_QUERY_MAX_FIGURES)
 
 
 # ---------------------------------------------------------------------------

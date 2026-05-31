@@ -302,6 +302,24 @@ export interface BundleCounts {
   source_docs: number;
 }
 
+/**
+ * A page figure related to the query. The backend associates figures by the
+ * source chunk's (doc_id, page) — the sanitized chunk text no longer carries the
+ * inline `![Figure](...)` embeds. `url` is served by the backend's /api/figures
+ * static mount (proxied through the Next.js /api rewrite).
+ */
+export interface QueryFigure {
+  filename: string;
+  doc_id: string;
+  page: number;
+  url: string;
+  chunk_id?: string | null;
+  /** Source chunk's MENTIONS link score (graph link strength). */
+  link_score?: number | null;
+  /** Source chunk's fulltext relevance score, when available. */
+  score?: number | null;
+}
+
 export interface QueryResponse {
   domain: DomainFacts;
   related: RelatedFacts;
@@ -311,6 +329,8 @@ export interface QueryResponse {
   counts: BundleCounts;
   /** Optional retrieval subgraph for the query view (nodes/edges), when present. */
   subgraph?: GraphResponse | null;
+  /** Related page figures for the cited pages (top-N, de-duplicated). */
+  figures?: QueryFigure[];
 }
 
 // ---------------------------------------------------------------------------

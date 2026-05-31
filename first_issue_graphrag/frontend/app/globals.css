@@ -1145,6 +1145,11 @@ button {
   margin: var(--space-3) 0 0;
   font-size: 13.5px;
   line-height: 1.55;
+  /* Cap tall chunks (some are >11k chars) so a card never dominates the page;
+     the full text stays readable by scrolling within the card. */
+  max-height: 16em;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
 }
 .evi-card__signals {
   margin-top: var(--space-3);
@@ -1288,4 +1293,58 @@ button {
   flex-wrap: wrap;
   gap: var(--space-5);
   margin-top: var(--space-4);
+}
+
+/* ---- Related-figures gallery (query view) ---- */
+.fig-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+.fig-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 150ms ease, transform 150ms ease, border-color 150ms ease;
+}
+.fig-card:hover {
+  border-color: var(--color-cobalt);
+  box-shadow: 0 6px 18px rgba(10, 10, 10, 0.14);
+  transform: translateY(-2px);
+}
+.fig-card:focus-visible {
+  outline: 2px solid var(--color-cobalt);
+  outline-offset: 2px;
+}
+.fig-card__frame {
+  aspect-ratio: 4 / 3;
+  background: var(--color-paper-2);
+  border-bottom: 1px solid var(--color-hairline);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.fig-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.fig-card__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+.fig-card__score {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--color-cobalt);
 }

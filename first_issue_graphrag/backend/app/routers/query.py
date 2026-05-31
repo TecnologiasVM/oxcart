@@ -43,6 +43,7 @@ async def post_query(payload: QueryRequest) -> QueryResponse:
         exclude_competing=payload.exclude_competing,
     )
     subgraph = query_service.build_query_subgraph(bundle, stamp=payload.stamp)
+    figures = query_service.collect_query_figures(bundle)
     return QueryResponse(
         domain=bundle["domain"],
         related=bundle["related"],
@@ -51,4 +52,5 @@ async def post_query(payload: QueryRequest) -> QueryResponse:
         weaviate=bundle["weaviate"],
         counts=bundle["counts"],
         subgraph=subgraph,
+        figures=figures,
     )

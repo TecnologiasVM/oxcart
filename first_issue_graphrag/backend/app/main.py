@@ -26,11 +26,14 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 # Importing settings first bootstraps sys.path for the prototype modules.
 from app import settings
 from app.deps import lifespan
 from app.routers import graph, mena, meta, query
+
+import config  # prototype module (resolved via app.settings PKG_DIR bootstrap)
 
 app = FastAPI(
     title=settings.SERVICE_NAME,
@@ -51,6 +54,17 @@ app.include_router(graph.router, prefix="/api")
 app.include_router(meta.router, prefix="/api")
 app.include_router(query.router, prefix="/api")
 app.include_router(mena.router, prefix="/api")
+
+# Static page-figure crops (read-only) served under /api/figures/<file> so the
+# Next.js /api proxy forwards them and the FastAPI port stays internal. The query
+# endpoint returns these URLs in ``QueryResponse.figures``. Mounted only when the
+# directory exists so the app still boots on a machine without the figures.
+if config.FIGURES_DIR.is_dir():
+    app.mount(
+        "/api/figures",
+        StaticFiles(directory=str(config.FIGURES_DIR)),
+        name="figures",
+    )
 
 
 @app.get("/", tags=["root"])

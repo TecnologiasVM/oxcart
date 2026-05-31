@@ -126,12 +126,33 @@ class QueryRequest(BaseModel):
     )
 
 
+class QueryFigure(BaseModel):
+    """A page figure related to the query (by the source chunk's doc_id + page).
+
+    Figures are cropped page images produced by the Dolphin parser; this links
+    them to a query via the chunks that ground it. ``url`` is browser-facing
+    (served by the backend's ``/api/figures`` static mount). No embedding/vector
+    field appears here.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    filename: str
+    doc_id: str
+    page: int
+    url: str = Field(..., description="Browser-facing image URL (/api/figures/<file>).")
+    chunk_id: str | None = Field(default=None, description="Source chunk that surfaced this figure.")
+    link_score: float | None = Field(default=None, description="Source chunk's MENTIONS link score.")
+    score: float | None = Field(default=None, description="Source chunk's fulltext relevance score.")
+
+
 class QueryResponse(BaseModel):
     """Response for ``POST /api/query``.
 
     The first six fields are the raw ``retrieve.context_bundle`` payload
     (after embedding/vector sanitization); ``subgraph`` is a derived
-    visualisation graph for the retrieved context.
+    visualisation graph for the retrieved context; ``figures`` are the related
+    page images for the cited pages (top-N, de-duplicated).
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -143,6 +164,7 @@ class QueryResponse(BaseModel):
     weaviate: list[Any] = Field(default_factory=list)
     counts: dict[str, Any] = Field(default_factory=dict)
     subgraph: GraphResponse = Field(default_factory=GraphResponse)
+    figures: list[QueryFigure] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

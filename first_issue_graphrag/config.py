@@ -29,6 +29,8 @@ REPO_ROOT = PKG_DIR.parent
 
 RESULTS_DIR = REPO_ROOT / "results"
 MARKDOWN_DIR = RESULTS_DIR / "markdown"
+# Dolphin page-figure crops, named ``<doc_id>_page_<NNN>_figure_<MMM>.png``.
+FIGURES_DIR = MARKDOWN_DIR / "figures"
 FINAL_JSONS_DIR = RESULTS_DIR / "final_jsons"
 PATCH_DIR = RESULTS_DIR / "oxcarts-patch"
 
@@ -116,6 +118,22 @@ FIRST_ISSUE_MIN_STRONG_CLASSES = int(os.getenv("FIRST_ISSUE_MIN_STRONG_CLASSES",
 FIRST_ISSUE_COMPETING_MIN_CLASSES = int(os.getenv("FIRST_ISSUE_COMPETING_MIN_CLASSES", "3"))
 # Minimum confidence to attach a specific stamp (denomination+color match).
 FIRST_ISSUE_STAMP_MIN_CONF = float(os.getenv("FIRST_ISSUE_STAMP_MIN_CONF", "0.5"))
+
+# --------------------------------------------------------------------------- #
+# Query API payload bounds (override via .env)
+# --------------------------------------------------------------------------- #
+# The query endpoint serializes the whole context bundle to JSON. Left unbounded
+# (``max_lexical=0`` returns EVERY clean chunk), a broad question can match ~230
+# chunks at ~4.5 KB each -> a ~1.25 MB response that gets truncated in transit
+# through the Next.js /api proxy (over LAN/ZeroTier) -> the browser's JSON.parse
+# then fails with "Unterminated string in JSON". We cap the NUMBER of lexical hits
+# (the list is already rank-ordered, so the best evidence is kept) but keep each
+# chunk's FULL text, so the .txt export stays complete and the UI clamps card size
+# in CSS. retrieve.context_bundle itself is unchanged (CLI/LLM path still gets all).
+# Max lexical hits returned by POST /api/query (0 = no cap; not recommended).
+FIRST_ISSUE_API_MAX_LEXICAL = int(os.getenv("FIRST_ISSUE_API_MAX_LEXICAL", "40"))
+# Max related page-figures surfaced per query (the "related pictures" gallery).
+FIRST_ISSUE_QUERY_MAX_FIGURES = int(os.getenv("FIRST_ISSUE_QUERY_MAX_FIGURES", "10"))
 
 
 def env_summary() -> dict:
