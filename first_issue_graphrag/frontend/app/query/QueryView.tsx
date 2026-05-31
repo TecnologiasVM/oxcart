@@ -271,23 +271,30 @@ function KV({ k, v }: { k: string; v: string }) {
 
 function Sources({ result }: { result: QueryResponse }) {
   if (!result.sources || result.sources.length === 0) return null;
+  const count = result.sources.length;
   return (
     <section className="section" style={{ paddingTop: 0 }}>
-      {/* "Sources" kept as a standalone element — frozen e2e selector getByText("Sources", exact). */}
-      <div className="section__head" style={{ alignItems: "baseline" }}>
-        <span className="mono mono-muted">Sources</span>
-        <span className="mono mono-muted">ranked by best link score</span>
-      </div>
-      <ul className="sources">
-        {result.sources.map((s) => (
-          <li key={s.doc_id}>
-            <span className="doc">{s.doc_id}</span>
-            <span className="mono mono-muted">
-              {s.chunks} chunks · best {Number(s.best_score).toFixed(2)} · pp {(s.pages ?? []).join(", ")}
-            </span>
-          </li>
-        ))}
-      </ul>
+      {/* Collapsed by default (native <details>) — the ranked source list is long
+          and takes a lot of vertical space; click the header to expand.
+          "Sources" kept as a standalone element — frozen e2e selector getByText("Sources", exact). */}
+      <details className="sources-acc">
+        <summary className="section__head sources-acc__summary" style={{ alignItems: "baseline" }}>
+          <span className="mono mono-muted">
+            Sources <span className="sources-acc__count">({count})</span>
+          </span>
+          <span className="mono mono-muted">ranked by best link score · click to expand</span>
+        </summary>
+        <ul className="sources">
+          {result.sources.map((s) => (
+            <li key={s.doc_id}>
+              <span className="doc">{s.doc_id}</span>
+              <span className="mono mono-muted">
+                {s.chunks} chunks · best {Number(s.best_score).toFixed(2)} · pp {(s.pages ?? []).join(", ")}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </details>
     </section>
   );
 }

@@ -1086,10 +1086,40 @@ button {
 }
 
 /* ---- Sources list ---- */
+/* Sources accordion (collapsed by default) ------------------------------- */
+.sources-acc {
+  border-top: 1px solid var(--color-hairline);
+}
+.sources-acc__summary {
+  cursor: pointer;
+  list-style: none; /* hide default disclosure triangle (Firefox) */
+  padding: var(--space-3) 0;
+  user-select: none;
+}
+.sources-acc__summary::-webkit-details-marker {
+  display: none; /* hide default disclosure triangle (WebKit) */
+}
+.sources-acc__summary::after {
+  content: "+";
+  margin-left: var(--space-3);
+  font-family: var(--font-mono);
+  color: var(--color-ink-muted);
+}
+.sources-acc[open] > .sources-acc__summary::after {
+  content: "–";
+}
+.sources-acc__summary:hover .mono-muted,
+.sources-acc__summary:focus-visible .mono-muted {
+  color: var(--color-ink);
+}
+.sources-acc__count {
+  color: var(--color-cobalt);
+}
+
 .sources {
   list-style: none;
   padding: 0;
-  margin: var(--space-3) 0 0;
+  margin: var(--space-2) 0 var(--space-4);
 }
 .sources li {
   display: flex;
