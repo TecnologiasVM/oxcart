@@ -83,6 +83,11 @@ echo   this machine's IP, e.g.:  http://ZEROTIER_IP:%FRONTEND_PORT%/
 echo   The backend stays on localhost; the frontend proxies /api to it,
 echo   so you do NOT expose port %BACKEND_PORT%.
 echo.
+echo   [ZeroTier/LAN] If a remote device's IP is NOT listed in
+echo   next.config.ts "allowedDevOrigins", the page loads but does NOT work
+echo   (empty example chips, dead Retrieve) -- Next 16 blocks its dev resources
+echo   cross-origin. Add the IP there (or set ALLOWED_DEV_ORIGINS) and re-run.
+echo.
 echo   This machine's IPv4 addresses (use your ZeroTier 10.x one):
 for /f "tokens=2 delims=:" %%i in ('ipconfig ^| findstr /i "IPv4"') do echo       http://%%i:%FRONTEND_PORT%/
 echo.
