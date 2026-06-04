@@ -164,7 +164,7 @@ hf_model/
 pdfs/
 results/
 graph_outputs/
-
+socorico/
 # Claude Code per-user settings (may contain API keys via `env` block)
 .claude/settings.local.json
 
