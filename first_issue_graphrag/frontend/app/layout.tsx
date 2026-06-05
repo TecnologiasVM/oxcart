@@ -1,27 +1,30 @@
 import type { Metadata } from "next";
-import { Fraunces, IBM_Plex_Mono, Inter } from "next/font/google";
+import { Newsreader, JetBrains_Mono, Inter } from "next/font/google";
 import "./globals.css";
-import { Nav } from "./components/Nav";
+import Masthead from "./components/Masthead";
+import SiteFooter from "./components/SiteFooter";
 
 /*
- * Fonts (ink-cobalt-paper v2.0):
- *   serif display headlines -> Fraunces, weight 300, sentence-case
- *   mono labels/dates       -> IBM Plex Mono (400, 500), UPPERCASE in CSS
- *   body sans               -> Inter (400, 500), left-aligned
+ * Fonts (SOCORICO redesign):
+ *   serif display headlines -> Newsreader (300, 400; normal + italic)
+ *   mono labels/dates       -> JetBrains Mono (400, 500, 600)
+ *   body sans               -> Inter (400, 500)
  * Multi-word Google fonts use an underscore import name.
+ * CSS variable names below are referenced by globals.css.
  */
-const fraunces = Fraunces({
+const newsreader = Newsreader({
   subsets: ["latin"],
-  weight: ["300"],
+  weight: ["300", "400"],
+  style: ["normal", "italic"],
   display: "swap",
-  variable: "--font-fraunces",
+  variable: "--font-newsreader",
 });
 
-const ibmPlexMono = IBM_Plex_Mono({
+const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  weight: ["400", "500"],
+  weight: ["400", "500", "600"],
   display: "swap",
-  variable: "--font-mono-plex",
+  variable: "--font-jetbrains-mono",
 });
 
 const inter = Inter({
@@ -32,9 +35,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "First Issue · Knowledge Graph",
+  title: "SOCORICO · The Society for Costa Rica Collectors",
   description:
-    "Knowledge-graph explorer for the Costa Rica 1863 First Issue — Mena 2018 catalog, Scott equivalents, and grounded literature evidence.",
+    "The Society for Costa Rica Collectors — stamps and postal history of Costa Rica. Auctions, The Oxcart journal since 1960, exhibits, literature, and a knowledge-graph research tool for the 1863 First Issue.",
 };
 
 export default function RootLayout({
@@ -45,11 +48,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${fraunces.variable} ${ibmPlexMono.variable}`}
+      className={`${inter.variable} ${newsreader.variable} ${jetbrainsMono.variable}`}
     >
       <body>
-        <Nav />
+        <Masthead />
         {children}
+        <SiteFooter />
       </body>
     </html>
   );

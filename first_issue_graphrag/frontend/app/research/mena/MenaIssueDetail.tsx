@@ -10,8 +10,8 @@ import type {
   MenaScottMatch,
 } from "@/lib/types";
 import { cleanCatalogText, displayDenom, issueDatesText } from "@/lib/format";
-import { GraphView } from "../components/GraphView";
-import { StampGlyph } from "../components/StampGlyph";
+import { GraphView } from "../../components/GraphView";
+import { StampGlyph } from "../../components/StampGlyph";
 
 /*
  * Per-issue detail. The FAST path loads only catalogue facts + Scott match on

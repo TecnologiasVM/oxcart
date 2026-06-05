@@ -39,6 +39,11 @@ const nextConfig: NextConfig = {
     return [
       // App Router has no /api route handlers, so this prefix is free to proxy.
       { source: "/api/:path*", destination: `${BACKEND_ORIGIN}/api/:path*` },
+      // Read-only socorico capture (images + PDFs) served by the backend mount.
+      {
+        source: "/socorico-assets/:path*",
+        destination: `${BACKEND_ORIGIN}/socorico-assets/:path*`,
+      },
     ];
   },
 };

@@ -5,8 +5,8 @@ import { getExamples, postQuery } from "@/lib/api";
 import type { ExampleQuery, QueryFigure, QueryRequest, QueryResponse } from "@/lib/types";
 import { issueDatesText, issueDateEvents } from "@/lib/format";
 import { downloadQueryExport } from "@/lib/export";
-import { GraphView } from "../components/GraphView";
-import { NodeDetailPanel } from "../components/NodeDetailPanel";
+import { GraphView } from "../../components/GraphView";
+import { NodeDetailPanel } from "../../components/NodeDetailPanel";
 
 /*
  * Query surface: a question box, example chips (GET /api/examples), and a results

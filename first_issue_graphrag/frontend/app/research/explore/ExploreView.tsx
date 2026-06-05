@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { getGraph, getStampGraph } from "@/lib/api";
 import type { GraphResponse } from "@/lib/types";
-import { GraphView } from "../components/GraphView";
-import { NodeDetailPanel } from "../components/NodeDetailPanel";
-import { Legend } from "../components/Legend";
+import { GraphView } from "../../components/GraphView";
+import { NodeDetailPanel } from "../../components/NodeDetailPanel";
+import { Legend } from "../../components/Legend";
 
 /*
  * Interactive Explore surface:
