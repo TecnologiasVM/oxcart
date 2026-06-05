@@ -2082,3 +2082,20 @@ button {
     gap: var(--space-2);
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Home hero — wide right column for the SOCORICO featured plate.
+   The base .hero is `1fr 320px` (sized for the old single-stamp mark); the 1863
+   plate is a 3-column grid that overflows the bordered frame at 320px. This
+   modifier (home only) gives the plate room so the frame contains every cell.
+   Appended last so it wins the equal-specificity cascade over the base .hero.
+   --------------------------------------------------------------------------- */
+.hero--plate {
+  grid-template-columns: 1.05fr 0.95fr;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .hero--plate {
+    grid-template-columns: 1fr;
+  }
+}
