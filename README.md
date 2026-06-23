@@ -599,6 +599,43 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Philatelic community & contributors** - For sharing knowledge and resources
 
 ---
+
+## 🧭 Use Case in Action — Costa Rica's 1863 First Issue
+
+A worked example of the Graph RAG layer applied to **Costa Rica's First Issue (1863)** — the foundational issue of Costa Rican philately. The **Socorico** graph explorer renders the issue as a living knowledge graph: the **Issue** node sits at the centre, with its **stamps**, **Scott equivalents**, **varieties**, **plates**, and the **literature chunks/documents that cite them** radiating outward. Selecting any node opens its catalog record and the plates & figures the parser cropped from the exact cited pages — every claim traceable back to a source.
+
+This is the same pipeline described above (Weaviate hybrid retrieval + Neo4j graph expansion + Dolphin-parsed figures), surfaced as an interactive exploration of a single issue.
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="assets/first-issue/01-issue-centric-graph.png" alt="Issue-centric graph of the 1863 First Issue" width="100%" />
+      <br>
+      <sub><b>Issue-centric graph (126 nodes · 131 edges).</b> The First Issue at the centre with everything that cites it radiating outward. The record panel resolves the catalog facts — Costa Rica, perforation 12, on sale 1863‑12‑01, demonetized 1883‑01‑31 — and MENA‑scope (½ real → 1 peso) and confidence‑tier filters narrow the view.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img src="assets/first-issue/02-variety-chunk-and-plates.png" alt="Cracked-plate variety chunk with cited plates and figures" width="100%" />
+      <br>
+      <sub><b>Variety chunk → plates & figures.</b> Selecting a literature chunk (OXCART19‑20, p.6) surfaces the <i>Medio Real (Plate 1)</i> "cracked plate" variety, alongside the plate blocks and figures auto‑cropped from the cited pages.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="assets/first-issue/03-retrieval-subgraph.png" alt="Retrieval subgraph highlighting what the query touched" width="100%" />
+      <br>
+      <sub><b>Retrieval subgraph — "what the question touched."</b> A query lights up only the nodes and documents that actually grounded the answer (here, First Issue covers in the Sáenz collection), making the evidence trail explicit.</sub>
+    </td>
+    <td width="50%" valign="top">
+      <img src="assets/first-issue/04-document-evidence-graph.png" alt="Dense document-evidence graph tracing archival sources" width="100%" />
+      <br>
+      <sub><b>Document‑evidence graph (113 nodes · 123 edges).</b> A denser traversal tracing a passage back to its primary sources — American Bank Note Co. archives and R. J. Mechin's research on the 1863 issue.</sub>
+    </td>
+  </tr>
+</table>
+
+> Every answer stays grounded: nodes link to chunks, chunks link to pages, and pages carry the cropped plates — so a collector can follow a variety from the graph all the way down to the printed evidence.
+
+---
 <br>
 
 
