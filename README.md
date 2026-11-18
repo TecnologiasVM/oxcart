@@ -23,7 +23,7 @@
 
 **Oxcart Graph RAG** is a domain-specialized Retrieval-Augmented Generation system for philatelic research (Costa Rica focus). It ingests complex PDF literature (catalogs, journals, monographs, exhibits), normalizes structure, indexes **193,180 text chunks** from **1,424 documents**, and serves trustworthy answers with first-class citations.
 
-> 📚 **[View Complete Literature Catalog →](PHILATELIC_LITERATURE.md)** — Comprehensive documentation of all 1,424 source documents, organized by category with detailed statistics.
+> 📚 **[View Complete Literature Catalog →](docs/PHILATELIC_LITERATURE.md)** — Comprehensive documentation of all 1,424 source documents, organized by category with detailed statistics.
 
 The system combines:
 
@@ -42,7 +42,7 @@ The system combines:
 - **Total pages**: 22,940
 - **Temporal coverage**: 1863-2025 (162 years of philatelic history)
 
-> 📖 **Detailed breakdown available**: [PHILATELIC_LITERATURE.md](PHILATELIC_LITERATURE.md) — Complete catalog with all source documents, authors, and statistics.
+> 📖 **Detailed breakdown available**: [PHILATELIC_LITERATURE.md](docs/PHILATELIC_LITERATURE.md) — Complete catalog with all source documents, authors, and statistics.
 
 ### Chunk Types
 - **text** (148,980)

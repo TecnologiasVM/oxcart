@@ -14,8 +14,9 @@ import os
 from typing import Dict, List, Any
 import json
 
-# Add current directory to Python path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import os, sys
+# tests/ lives one level below the repo root; the modules under test are in pipeline/
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pipeline"))
 
 from philatelic_chunk_logic import (
     SemanticEnricher,

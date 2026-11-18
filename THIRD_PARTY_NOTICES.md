@@ -13,12 +13,12 @@ This repository began as a copy of Dolphin, taken while Dolphin was published un
 here run from 2025-05-26 to 2025-07-10 and are kept in the history with their authors). The Dolphin project later
 changed its own license; that change does not apply to the copy used here.
 
-Files that come from Dolphin, unchanged:
+Files that come from Dolphin, unchanged except for their location:
 
-- `chat.py`, `demo_page.py`
-- `utils/` (`markdown_utils.py`, `model.py`, `processor.py`, `utils.py`)
-- `config/Dolphin.yaml`
-- `deployment/` (the vLLM and TensorRT-LLM serving examples)
-- `pyproject.toml`, `.pre-commit-config.yaml`, `README_CN.md`
+- `third_party/dolphin/chat.py`, `third_party/dolphin/demo_page.py`
+- `third_party/dolphin/utils/` (`markdown_utils.py`, `model.py`, `processor.py`, `utils.py`)
+- `third_party/dolphin/config/Dolphin.yaml`
+- `third_party/dolphin/deployment/` (the vLLM and TensorRT-LLM serving examples)
+- `pyproject.toml`, `.pre-commit-config.yaml`
 
 Files that started in Dolphin and were changed for Oxcart: `README.md`, `requirements.txt`, `.gitignore`.

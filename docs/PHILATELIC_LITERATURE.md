@@ -516,10 +516,9 @@ Chunk ID: scott_2024_cr_p12_c003
 
 ## 📚 For More Information
 
-- **Main README**: [README.md](README.md)
-- **Developer Guide**: [CLAUDE.md](CLAUDE.md)
-- **RAG System Architecture**: See [README.md § Architecture](README.md#-architecture)
-- **Query Examples**: See [README.md § Usage](README.md#-usage)
+- **Main README**: [README.md](../README.md)
+- **RAG System Architecture**: See [README.md § Architecture](../README.md#-architecture)
+- **Query Examples**: See [README.md § Usage](../README.md#-usage)
 
 ---
 

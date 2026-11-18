@@ -4,6 +4,10 @@ Test script to validate that only the 4 major philatelic catalog systems
 are detected and that removed systems (Zumstein, CR_GR, Legacy_A) are ignored.
 """
 
+import os, sys
+# tests/ lives one level below the repo root; the modules under test are in pipeline/
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pipeline"))
+
 from philatelic_chunk_logic import extract_catalog_numbers_secure, detect_efo_varieties_secure
 
 def test_4_major_systems():
