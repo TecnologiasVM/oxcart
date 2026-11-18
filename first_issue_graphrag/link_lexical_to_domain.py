@@ -26,8 +26,8 @@ Owner constraints honored here:
 
 Run (always via the repo venv, from the repo root)::
 
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\link_lexical_to_domain.py
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\link_lexical_to_domain.py --docs OXCART03 OXCART50
+    python first_issue_graphrag/link_lexical_to_domain.py
+    python first_issue_graphrag/link_lexical_to_domain.py --docs OXCART03 OXCART50
 
 Importable API::
 

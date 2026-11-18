@@ -23,7 +23,7 @@ test.describe("Query page (/query)", () => {
   test("click first example, see Sources + >=1 lexical item + subgraph", async ({
     page,
   }) => {
-    await page.goto("/query");
+    await page.goto("/research/query");
 
     // Example chips render once GET /api/examples resolves.
     const exampleChip = page.locator(EXAMPLE_CHIP, { hasText: CHIP_TEXT }).first();
@@ -31,11 +31,12 @@ test.describe("Query page (/query)", () => {
     await exampleChip.click();
 
     // Sources section appears once the backend responds.
-    await expect(page.getByText("Sources", { exact: true })).toBeVisible({
+    await expect(page.locator("summary", { hasText: /^\s*Sources/ })).toBeVisible({
       timeout: 30_000,
     });
 
-    // At least one source document row.
+    // The sources list is a collapsed accordion: open it, then expect a document row.
+    await page.locator("summary", { hasText: /^\s*Sources/ }).click();
     const sourceItems = page.locator("ul li", { hasText: /chunks|best|pp/i });
     await expect(sourceItems.first()).toBeVisible({ timeout: 15_000 });
 
@@ -60,22 +61,22 @@ test.describe("Query page (/query)", () => {
   });
 
   test("manual question submission returns results", async ({ page }) => {
-    await page.goto("/query");
+    await page.goto("/research/query");
 
     await page.locator("#q").fill("What are the main varieties of the first issue?");
     await page.getByRole("button", { name: /Retrieve/i }).click();
 
-    await expect(page.getByText("Sources", { exact: true })).toBeVisible({
+    await expect(page.locator("summary", { hasText: /^\s*Sources/ })).toBeVisible({
       timeout: 30_000,
     });
   });
 
   test("query results never expose embedding/vector data", async ({ page }) => {
-    await page.goto("/query");
+    await page.goto("/research/query");
     const exampleChip = page.locator(EXAMPLE_CHIP, { hasText: CHIP_TEXT }).first();
     await exampleChip.waitFor({ state: "visible", timeout: 30_000 });
     await exampleChip.click();
-    await expect(page.getByText("Sources", { exact: true })).toBeVisible({
+    await expect(page.locator("summary", { hasText: /^\s*Sources/ })).toBeVisible({
       timeout: 30_000,
     });
 

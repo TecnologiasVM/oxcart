@@ -5,7 +5,7 @@ import type { NextConfig } from "next";
  *
  * The browser calls the SAME origin it loaded from (relative `/api/*`), and
  * Next rewrites those requests to the FastAPI backend server-side. This means:
- *   - only port 3000 needs to be exposed externally (e.g. over ZeroTier);
+ *   - only port 3000 needs to be exposed externally (e.g. over a LAN or VPN);
  *     FastAPI on 8090 stays bound to localhost and is never reached by the
  *     remote browser directly;
  *   - no CORS is required (the browser only ever talks to the Next origin).
@@ -20,15 +20,14 @@ const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN ?? "http://127.0.0.1:8090";
 /*
  * Hosts allowed to load Next.js dev resources (/_next/*, HMR, fonts) from a
  * DIFFERENT origin than localhost. Next 16 blocks these by default, so opening
- * the dev server from a phone over ZeroTier/LAN (e.g. http://ZEROTIER_IP:3000)
+ * the dev server from another device (e.g. a phone at http://<this-machine-ip>:3000)
  * silently fails to hydrate -> example chips never load and "Retrieve" does
- * nothing. List the LAN/ZeroTier IPs (and any extra dev hosts) here. Override or
- * extend via ALLOWED_DEV_ORIGINS (comma-separated) without editing code.
+ * nothing. Empty by default. To allow other devices, set ALLOWED_DEV_ORIGINS to a
+ * comma-separated list of the hosts they use to reach this machine, e.g.
+ * ALLOWED_DEV_ORIGINS=my-pc.local (in the frontend's local env file or the shell).
  * NOTE: dev-only; `next start` (production) ignores this.
  */
-const ALLOWED_DEV_ORIGINS = (
-  process.env.ALLOWED_DEV_ORIGINS ?? "ZEROTIER_IP,LAN_IP"
-)
+const ALLOWED_DEV_ORIGINS = (process.env.ALLOWED_DEV_ORIGINS ?? "")
   .split(",")
   .map((h) => h.trim())
   .filter(Boolean);

@@ -280,12 +280,14 @@ async def run_query(
     max_lexical: int = 0,
     k_weaviate: int = 5,
     exclude_competing: bool = True,
+    driver: Any = None,
 ) -> dict[str, Any]:
     """Run the read-only retrieval bundle for ``question`` (no LLM).
 
-    ``retrieve.context_bundle`` is synchronous and opens/closes its own Neo4j
-    driver and Weaviate client, so it is offloaded to a worker thread with
-    ``run_in_threadpool`` to avoid blocking the event loop. The returned bundle
+    ``retrieve.context_bundle`` is synchronous, so it is offloaded to a worker
+    thread with ``run_in_threadpool`` to avoid blocking the event loop. It reuses
+    ``driver`` (the process-wide Neo4j driver from ``app.state``) instead of
+    opening a new one per question, and opens/closes its own Weaviate client. The returned bundle
     is sanitized so no embedding/vector field is ever surfaced.
 
     Parameters
@@ -317,6 +319,7 @@ async def run_query(
         k_weaviate=k_weaviate,
         min_link_score=min_link,
         exclude_competing=exclude_competing,
+        driver=driver,
     )
     return _sanitize_bundle(bundle)
 
@@ -539,6 +542,7 @@ def build_export_text(
     max_lexical: int = 0,
     k_weaviate: int = 5,
     exclude_competing: bool = True,
+    driver: Any = None,
 ) -> str:
     """Build the FULL-text, LLM-ready .txt export for a question (server-side).
 
@@ -557,6 +561,7 @@ def build_export_text(
         k_weaviate=k_weaviate,
         min_link_score=min_link,
         exclude_competing=exclude_competing,
+        driver=driver,
     )
     domain = _sanitize_domain(bundle.get("domain") or {})
     sources = [s for s in (bundle.get("sources") or []) if isinstance(s, dict)]

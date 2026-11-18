@@ -26,8 +26,8 @@ What it does (idempotently — safe to run repeatedly):
 
 Run conventions (always the repo venv, from repo root)::
 
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\build_domain_scott.py
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\build_domain_scott.py --verify-only
+    python first_issue_graphrag/build_domain_scott.py
+    python first_issue_graphrag/build_domain_scott.py --verify-only
 
 Public API::
 

@@ -9,9 +9,17 @@ import { test, expect } from "@playwright/test";
  */
 
 async function tapType(page: import("@playwright/test").Page, type: string) {
-  await page.goto("/explore");
-  await page.waitForFunction(() => Boolean((window as any).__cy), null, { timeout: 15000 });
-  // Give the cose layout a beat so nodes exist + are tappable.
+  await page.goto("/research/explore");
+  // Wait until the graph data has arrived (a remote database can take a few seconds),
+  // then give the cose layout a beat so nodes are tappable.
+  await page.waitForFunction(
+    (t) => {
+      const cy = (window as any).__cy;
+      return Boolean(cy) && cy.nodes(`[type = "${t}"]`).length > 0;
+    },
+    type,
+    { timeout: 30000 },
+  );
   await page.waitForTimeout(1500);
   const tapped = await page.evaluate((t) => {
     const cy = (window as any).__cy;

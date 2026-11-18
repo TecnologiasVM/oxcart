@@ -3,6 +3,7 @@
 Análisis simple de chunks philatelic para evitar problemas de codificación
 """
 
+import os
 import json
 import re
 import sys
@@ -124,5 +125,5 @@ def analyze_chunks_simple(json_file):
     }
 
 if __name__ == "__main__":
-    json_file = r"C:\Users\USER\Desktop\Oxcart RAG\results\parsed_jsons\OXCART75_philatelic.json"
+    json_file = os.path.join("results", "parsed_jsons", "OXCART75_philatelic.json")  # relative to the repo root
     results = analyze_chunks_simple(json_file)

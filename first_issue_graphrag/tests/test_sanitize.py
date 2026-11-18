@@ -10,7 +10,7 @@ counts, (e) carries a list-typed ``clean_meta`` on every chunk, and (f) recovers
 at least one real first-issue year into ``clean_meta.years``.
 
 Run directly (no pytest harness required):
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\tests\\test_sanitize.py
+    python first_issue_graphrag/tests/test_sanitize.py
 Also pytest-compatible.
 
 If OXCART03 source data is unavailable the test SKIPs gracefully (prints SKIP and

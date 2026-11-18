@@ -20,9 +20,9 @@ the ScottStamp/Illustration layer.
 
 Run (always via the repo venv, from the repo root)::
 
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\coverage_scan.py --all
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\coverage_scan.py --sample 80
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\coverage_scan.py --docs OXCART03 OXCART75
+    python first_issue_graphrag/coverage_scan.py --all
+    python first_issue_graphrag/coverage_scan.py --sample 80
+    python first_issue_graphrag/coverage_scan.py --docs OXCART03 OXCART75
 """
 
 from __future__ import annotations

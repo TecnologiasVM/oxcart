@@ -239,7 +239,7 @@ def main():
     
     # Cargar archivos
     dolphin_path = "./results/recognition_json/OXCART22.json"
-    ideal_path = "C:/Users/USER/Downloads/OXCART22_ideal.json"
+    ideal_path = os.environ.get("OXCART_IDEAL_JSON", os.path.join("results", "reference", "OXCART22_ideal.json"))
     
     if not Path(dolphin_path).exists() or not Path(ideal_path).exists():
         print("ERROR: Archivos no encontrados")

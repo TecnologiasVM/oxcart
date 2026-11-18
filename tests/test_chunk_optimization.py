@@ -231,7 +231,7 @@ def test_optimization_pipeline(doc_id: str = "OXCART30"):
     
     # Paths
     original_path = f"./results/recognition_json/{doc_id}.json"
-    landing_path = f"C:/Users/USER/Downloads/{doc_id}_landing.json"
+    landing_path = os.path.join(os.environ.get("OXCART_LANDING_DIR", os.path.join("results", "reference")), f"{doc_id}_landing.json")
     
     # Check if files exist
     if not Path(original_path).exists():

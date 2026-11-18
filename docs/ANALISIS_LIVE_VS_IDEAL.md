@@ -8,7 +8,7 @@ El análisis comparativo entre el **pipeline LIVE** (`create_live_philatelic_dat
 
 ### **Archivos Analizados:**
 - **Base Dolphin**: `results/recognition_json/OXCART22.json` - 274 elementos
-- **Modelo Ideal**: `C:/Users/USER/Downloads/OXCART22_ideal.json` - 178 chunks
+- **Modelo Ideal**: `results/reference/OXCART22_ideal.json` - 178 chunks
 - **Pipeline LIVE**: Resultado procesado - 193 chunks
 
 ### **Métricas de Comparación:**

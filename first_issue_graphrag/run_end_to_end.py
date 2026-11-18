@@ -18,9 +18,9 @@ counts (# Scott nodes, # chunks, # MENTIONS edges, Weaviate overlap) read
 directly from Neo4j/Weaviate, and prints one full sample answer card.
 
 Run from repo root (the package dir is sys.path[0], so bare imports work):
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\run_end_to_end.py
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\run_end_to_end.py --docs OXCART03 OXCART50
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\run_end_to_end.py --skip-sanitize --skip-domain
+    python first_issue_graphrag/run_end_to_end.py
+    python first_issue_graphrag/run_end_to_end.py --docs OXCART03 OXCART50
+    python first_issue_graphrag/run_end_to_end.py --skip-sanitize --skip-domain
 
 Exit code is non-zero if any (non-skipped) step raises; the failing step and
 exception are summarized in the report.

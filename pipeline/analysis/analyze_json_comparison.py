@@ -4,12 +4,13 @@ Análisis Comparativo de Archivos JSON - OXCART22
 
 Script para comparar:
 1. Archivo base Dolphin: results/recognition_json/OXCART22.json
-2. Archivo ideal: C:/Users/USER/Downloads/OXCART22_ideal.json
+2. Archivo ideal: results/reference/OXCART22_ideal.json (o la variable OXCART_IDEAL_JSON)
 
 Objetivo: Evaluar si el procesamiento LIVE se acerca al modelo ideal.
 """
 
 import json
+import os
 import statistics
 from pathlib import Path
 from typing import Dict, Any, List
@@ -201,7 +202,7 @@ def main():
     
     # Rutas de archivos
     dolphin_path = "./results/recognition_json/OXCART22.json"
-    ideal_path = "C:/Users/USER/Downloads/OXCART22_ideal.json"
+    ideal_path = os.environ.get("OXCART_IDEAL_JSON", os.path.join("results", "reference", "OXCART22_ideal.json"))
     
     # Verificar existencia
     if not Path(dolphin_path).exists():

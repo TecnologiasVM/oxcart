@@ -23,7 +23,7 @@ test.describe("Landing page (/)", () => {
   test("renders the headline, a stat number, and links to Explore + Query", async ({
     page,
   }) => {
-    await page.goto("/");
+    await page.goto("/research");
 
     // Headline present + visible + on-topic.
     const h1 = page.locator("h1").first();
@@ -44,17 +44,17 @@ test.describe("Landing page (/)", () => {
     const queryCta = page.getByRole("link", { name: /Run a query/i });
     await expect(exploreCta).toBeVisible();
     await expect(queryCta).toBeVisible();
-    await expect(exploreCta).toHaveAttribute("href", "/explore");
-    await expect(queryCta).toHaveAttribute("href", "/query");
+    await expect(exploreCta).toHaveAttribute("href", "/research/explore");
+    await expect(queryCta).toHaveAttribute("href", "/research/query");
   });
 
   test("CTA buttons navigate to Explore and Query", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/research");
     await page.getByRole("link", { name: /Explore the graph/i }).click();
-    await expect(page).toHaveURL(/\/explore$/);
+    await expect(page).toHaveURL(/\/research\/explore$/);
 
-    await page.goto("/");
+    await page.goto("/research");
     await page.getByRole("link", { name: /Run a query/i }).click();
-    await expect(page).toHaveURL(/\/query$/);
+    await expect(page).toHaveURL(/\/research\/query$/);
   });
 });

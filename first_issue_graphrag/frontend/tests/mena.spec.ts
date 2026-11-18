@@ -15,14 +15,14 @@ import { test, expect } from "@playwright/test";
  */
 test.describe("Mena Catalogue (/mena)", () => {
   test("renders the navigator and the catalogue title", async ({ page }) => {
-    await page.goto("/mena");
+    await page.goto("/research/mena");
     await expect(page.locator("h1")).toContainText(/catalogue/i);
     // Year pane populates once GET /api/mena/surface-mail resolves.
     await expect(page.locator(".mena-row").first()).toBeVisible({ timeout: 30_000 });
   });
 
   test("select a year then an issue shows facts + Scott + a stamp glyph", async ({ page }) => {
-    await page.goto("/mena");
+    await page.goto("/research/mena");
 
     // Pick the 1863 year row (First Issue lives here and has rich data).
     const yearRow = page.locator(".mena-row", { hasText: "1863" }).first();
@@ -56,7 +56,7 @@ test.describe("Mena Catalogue (/mena)", () => {
   });
 
   test("never exposes embedding/vector data", async ({ page }) => {
-    await page.goto("/mena");
+    await page.goto("/research/mena");
     const yearRow = page.locator(".mena-row", { hasText: "1863" }).first();
     await yearRow.waitFor({ state: "visible", timeout: 30_000 });
     await yearRow.click();

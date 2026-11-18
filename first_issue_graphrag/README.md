@@ -118,48 +118,49 @@ validation report**.
 | `EVALUATION.md` | Coverage numbers, ground-truth precision verdict, and the **chunking root-cause** analysis for the remaining false positives. |
 | `data/` | `scott_first_issue.json` (Scott stamp details + illustrations) and `scott_equivalences.json` (Mena↔Scott). |
 | `tests/` | `test_lexicon.py` (already passing — do not modify) and any added regression tests. Test files add the parent dir to `sys.path`. |
-| `requirements.txt` | Documentation/portability list; deps are already in `.venv-clean`. |
+| `requirements.txt` | Pinned runtime dependencies for the scripts in this folder (the API's list is `backend/requirements.txt`). |
+| `servers.py` | Starts, stops and checks the backend and frontend on Linux, macOS and Windows. |
 
 ---
 
 ## Run commands
 
-> **Interpreter:** always the repo venv `".venv-clean\Scripts\python.exe"`, never
-> bare `python`. Run every script **from the repo root** so the script's own
+> **Interpreter:** a Python 3.10+ virtual environment with `backend/requirements.txt`
+> installed and active. Run every script **from the repo root** so the script's own
 > directory is `sys.path[0]` and `from config import ...` / `import lexicon`
 > resolve without any path hacks.
 
 ```powershell
 # 0. Config / environment sanity check (prints a non-secret snapshot)
-".venv-clean\Scripts\python.exe" first_issue_graphrag\config.py
+python first_issue_graphrag/config.py
 
 # 0b. Lexicon smoke test (LLM-free scorer — already passing)
-".venv-clean\Scripts\python.exe" first_issue_graphrag\tests\test_lexicon.py
+python first_issue_graphrag/tests/test_lexicon.py
 
 # 1. Sanitize the curated chunk subset -> results/oxcarts-patch/<DOC>_patched.json
-".venv-clean\Scripts\python.exe" first_issue_graphrag\sanitize_chunks.py
+python first_issue_graphrag/sanitize_chunks.py
 
 # 2. Build the whole graph end-to-end (sanitize -> domain -> lexical -> link -> report)
-".venv-clean\Scripts\python.exe" first_issue_graphrag\run_end_to_end.py
+python first_issue_graphrag/run_end_to_end.py
 
 # 3. Ask a question (combines Neo4j domain + Neo4j lexical + Weaviate read-only)
-".venv-clean\Scripts\python.exe" first_issue_graphrag\retrieve.py --q "Who printed the 1863 half real and what color is it?"
+python first_issue_graphrag/retrieve.py --q "Who printed the 1863 half real and what color is it?"
 
 # 3b. RECOMMENDED for LLM hand-off: graph-first context bundle (auto-saves to results/)
 #     defaults give ALL good lexical passages with FULL text (no truncation)
-".venv-clean\Scripts\python.exe" first_issue_graphrag\examples_runner.py --q "the first issue plate crack and its positions" --stamp 1
+python first_issue_graphrag/examples_runner.py --q "the first issue plate crack and its positions" --stamp 1
 
 # 4. Roll back: remove ONLY our prototype-tagged Neo4j data
-".venv-clean\Scripts\python.exe" first_issue_graphrag\teardown.py --yes
+python first_issue_graphrag/teardown.py --yes
 ```
 
 Individual build steps can also be run on their own (each is idempotent via
 MERGE and takes argparse defaults):
 
 ```powershell
-".venv-clean\Scripts\python.exe" first_issue_graphrag\build_domain_scott.py
-".venv-clean\Scripts\python.exe" first_issue_graphrag\build_lexical_graph.py
-".venv-clean\Scripts\python.exe" first_issue_graphrag\link_lexical_to_domain.py
+python first_issue_graphrag/build_domain_scott.py
+python first_issue_graphrag/build_lexical_graph.py
+python first_issue_graphrag/link_lexical_to_domain.py
 ```
 
 ### Whole-corpus coverage + evaluation (Approach A)
@@ -177,14 +178,14 @@ the safe way to test a lexicon/threshold change. Then do the real run:
 
 ```powershell
 # 0. (optional) dry-run a representative sample first — NO database writes
-".venv-clean\Scripts\python.exe" first_issue_graphrag\coverage_scan.py --dry-run --docs-file first_issue_graphrag\sample40.txt
+python first_issue_graphrag/coverage_scan.py --dry-run --docs-file first_issue_graphrag/sample40.txt
 
 # 1. Build domain layer once (idempotent), then scan the full corpus into Neo4j
-".venv-clean\Scripts\python.exe" first_issue_graphrag\build_domain_scott.py
-".venv-clean\Scripts\python.exe" first_issue_graphrag\coverage_scan.py --all --no-weaviate   # 894 docs; or --sample 80
+python first_issue_graphrag/build_domain_scott.py
+python first_issue_graphrag/coverage_scan.py --all --no-weaviate   # 894 docs; or --sample 80
 
 # 2. Read coverage stats + a ground-truth precision sample (strongest & weakest links)
-".venv-clean\Scripts\python.exe" first_issue_graphrag\evaluate.py --top 15 --weak 15
+python first_issue_graphrag/evaluate.py --top 15 --weak 15
 ```
 
 Current full build: **296 docs / 653 distinct first-issue chunks** (170 docs /
@@ -294,7 +295,7 @@ The prototype is fully reversible because every node and relationship it writes
 is tagged `prototype = "first_issue_graphrag"`.
 
 ```powershell
-".venv-clean\Scripts\python.exe" first_issue_graphrag\teardown.py --yes
+python first_issue_graphrag/teardown.py --yes
 ```
 
 `teardown.py` deletes only prototype-tagged nodes and relationships

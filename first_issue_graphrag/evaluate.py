@@ -11,8 +11,8 @@ READ-ONLY. Connects to Neo4j (and optionally Weaviate) and prints:
   5. Domain join (Issue -> Mena Stamp -> EQUIVALENT_TO -> Scott).
 
 Usage:
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\evaluate.py
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\evaluate.py --top 20 --weak 20 --snippet 400
+    python first_issue_graphrag/evaluate.py
+    python first_issue_graphrag/evaluate.py --top 20 --weak 20 --snippet 400
 """
 
 from __future__ import annotations

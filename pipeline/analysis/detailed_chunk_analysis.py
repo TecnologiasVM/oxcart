@@ -3,6 +3,7 @@
 Análisis detallado de chunks para identificar pérdida de contexto
 """
 
+import os
 import json
 import re
 
@@ -130,7 +131,7 @@ def show_chunk_sequences(json_file):
             print()
 
 if __name__ == "__main__":
-    json_file = r"C:\Users\USER\Desktop\Oxcart RAG\results\parsed_jsons\OXCART75_philatelic.json"
+    json_file = os.path.join("results", "parsed_jsons", "OXCART75_philatelic.json")  # relative to the repo root
     
     results = analyze_context_loss(json_file)
     show_chunk_sequences(json_file)

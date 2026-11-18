@@ -82,21 +82,20 @@ Add to the repo `.env` to override:
 
 ## Running
 
-Always use the project's `.venv-clean` interpreter. From
-`first_issue_graphrag/backend`:
-
-```powershell
-# uvicorn (recommended)
-..\..\.venv-clean\Scripts\python.exe -m uvicorn app.main:app --port 8090
-
-# or run the module entrypoint (no reload)
-..\..\.venv-clean\Scripts\python.exe -m app.main
-```
-
-Bash equivalent:
+With the project's virtual environment active, from `first_issue_graphrag/backend`:
 
 ```bash
-../../.venv-clean/Scripts/python.exe -m uvicorn app.main:app --port 8090
+# uvicorn (recommended); listens on this machine only
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8090
+
+# or run the module entrypoint (no reload; host/port from API_HOST / API_PORT)
+python -m app.main
+```
+
+To start the backend and the frontend together, on any OS:
+
+```bash
+python first_issue_graphrag/servers.py start    # from the repo root; also: status, stop
 ```
 
 Interactive docs: <http://localhost:8090/docs>
@@ -121,10 +120,13 @@ router file by the agents who write them). The intended surface:
 
 ## Dependencies
 
-See `requirements.txt`. All listed packages are already installed in
-`.venv-clean` (FastAPI 0.116.x, Pydantic 2.11.x, uvicorn 0.35.x, `neo4j`,
-`weaviate-client`). Do not install into system Python or the Python 3.13
-`venv/`.
+See `requirements.txt` (pinned: FastAPI 0.116.2, Pydantic 2.11.10, uvicorn 0.35.0,
+`neo4j` 6.4.1, `weaviate-client` 4.18.3). Install it into a Python 3.10+ virtual
+environment:
+
+```bash
+python -m pip install -r first_issue_graphrag/backend/requirements.txt
+```
 
 ## Notes for router authors
 

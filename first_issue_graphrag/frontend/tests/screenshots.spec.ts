@@ -9,9 +9,9 @@ import path from "path";
 const SHOT_DIR = path.join(__dirname, "__screenshots__");
 
 const ROUTES: { name: string; path: string; waitFor?: string }[] = [
-  { name: "home", path: "/", waitFor: "h1" },
-  { name: "explore", path: "/explore", waitFor: ".graph-frame" },
-  { name: "query", path: "/query", waitFor: "button.btn" },
+  { name: "home", path: "/research", waitFor: "h1" },
+  { name: "explore", path: "/research/explore", waitFor: ".graph-frame" },
+  { name: "query", path: "/research/query", waitFor: "button.btn" },
 ];
 
 test.describe("Full-page screenshots", () => {

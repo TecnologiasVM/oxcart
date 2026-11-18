@@ -9,32 +9,32 @@ import { test, expect } from "@playwright/test";
 
 test.describe("navigation", () => {
   test("primary nav reaches all three routes", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/research");
     await expect(page.locator("h1")).toBeVisible();
 
     await page.getByRole("link", { name: /explore/i }).first().click();
-    await expect(page).toHaveURL(/\/explore$/);
+    await expect(page).toHaveURL(/\/research\/explore$/);
     await expect(page.locator("h1, h2").first()).toBeVisible();
 
     await page.getByRole("link", { name: /query/i }).first().click();
-    await expect(page).toHaveURL(/\/query$/);
+    await expect(page).toHaveURL(/\/research\/query$/);
     await expect(page.locator("h1, h2").first()).toBeVisible();
 
-    await page.getByRole("link", { name: /first issue/i }).first().click();
-    await expect(page).toHaveURL(/\/$/);
+    await page.getByRole("link", { name: /overview/i }).first().click();
+    await expect(page).toHaveURL(/\/research$/);
   });
 
   test("nav reaches the Mena Catalogue", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/research");
     await page.getByRole("link", { name: /Mena Catalogue/i }).first().click();
-    await expect(page).toHaveURL(/\/mena$/);
+    await expect(page).toHaveURL(/\/research\/mena$/);
     await expect(page.locator("h1")).toContainText(/catalogue/i);
     // The existing brand/route selectors must still resolve unambiguously.
-    await expect(page.getByRole("link", { name: /first issue/i }).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /overview/i }).first()).toBeVisible();
   });
 
   test("home clarifies the Scott catalogue count", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/research");
     // The Scott-count clarification (1b is a variety) must be present.
     await expect(page.getByText(/Scott catalogues 5 stamps|Scott 1, 1a, 2, 3, 4/i)).toBeVisible({
       timeout: 15000,
@@ -44,9 +44,9 @@ test.describe("navigation", () => {
 
 test.describe("query export", () => {
   test("exports an LLM-ready .txt prompt after a query", async ({ page }) => {
-    await page.goto("/query");
+    await page.goto("/research/query");
     await page.locator("button", { hasText: /varieties/i }).first().click();
-    await expect(page.getByText("Sources", { exact: true })).toBeVisible({ timeout: 20000 });
+    await expect(page.locator("summary", { hasText: /^\s*Sources/ })).toBeVisible({ timeout: 20000 });
 
     const exportBtn = page.getByRole("button", { name: /export/i });
     await expect(exportBtn).toBeVisible();

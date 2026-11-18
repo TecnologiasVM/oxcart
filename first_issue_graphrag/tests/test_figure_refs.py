@@ -2,7 +2,7 @@
 
 The project has no pytest harness — run this file directly with the project venv::
 
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\tests\\test_figure_refs.py
+    python first_issue_graphrag/tests/test_figure_refs.py
 
 It is also pytest-compatible if pytest is installed. The module under test only
 reads ``config.FIGURES_DIR``; the tests point that at a temporary directory of

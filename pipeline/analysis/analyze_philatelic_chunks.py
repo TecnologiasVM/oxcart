@@ -3,6 +3,7 @@
 Análisis de chunks philatelic para identificar patrones problemáticos
 """
 
+import os
 import json
 import re
 from collections import defaultdict
@@ -144,5 +145,5 @@ def analyze_philatelic_chunks(json_file):
     }
 
 if __name__ == "__main__":
-    json_file = r"C:\Users\USER\Desktop\Oxcart RAG\results\parsed_jsons\OXCART75_philatelic.json"
+    json_file = os.path.join("results", "parsed_jsons", "OXCART75_philatelic.json")  # relative to the repo root
     results = analyze_philatelic_chunks(json_file)
