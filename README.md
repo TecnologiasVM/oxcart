@@ -589,6 +589,9 @@ docker-compose up -d --scale worker=4
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+It includes code from [Dolphin](https://github.com/bytedance/Dolphin) (MIT, Copyright 2025 ByteDance Ltd. and/or its
+affiliates). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the files and the original license.
+
 ---
 
 ## 🙏 Acknowledgments
