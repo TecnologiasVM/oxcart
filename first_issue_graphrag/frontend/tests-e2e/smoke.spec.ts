@@ -1,17 +1,17 @@
 import { test, expect } from "@playwright/test";
 
 /*
- * Smoke tests for the shell. The demo is the Research section: the site root
- * redirects to /research and the graph tools live under /research/*. These
- * assert the chrome renders and the core routes are reachable. They do NOT
- * require a live backend — the UI must render its chrome and degrade gracefully
- * when :8090 is down.
+ * Smoke tests for the shell. The site root is the question page (see chat.spec.ts);
+ * the explorer of the First Issue graph lives under /research/*. These assert the
+ * chrome renders and the core routes are reachable. They do NOT require a live
+ * backend — the UI must render its chrome and degrade gracefully when :8090 is down.
  */
 
-test("root redirects to the research overview with the neutral header", async ({ page }) => {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+test("the research overview renders with the neutral header", async ({ page }) => {
+  await page.goto("/research", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/research$/);
   await expect(page.locator("h1").first()).toBeVisible();
+  await expect(page.getByTestId("research-link")).toBeVisible();
   await expect(page.locator("header.masthead")).toContainText("Oxcart");
   await expect(page.getByTestId("demo-tag")).toBeVisible();
   const nav = page.getByRole("navigation", { name: "Research" });

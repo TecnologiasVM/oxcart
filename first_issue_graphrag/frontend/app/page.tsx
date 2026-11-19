@@ -1,9 +1,10 @@
-import { redirect } from "next/navigation";
+import Chat from "./components/Chat";
 
 /*
- * The demo is the Research section (Overview, Explore, Query, Mena Catalogue).
- * The site root sends visitors there.
+ * The site opens directly on the question box: ask about any Costa Rican stamp
+ * issue and read the evidence. The explorer of the First Issue graph stays under
+ * /research for local research use; the hosted site does not ship it.
  */
 export default function Page() {
-  redirect("/research");
+  return <Chat />;
 }
