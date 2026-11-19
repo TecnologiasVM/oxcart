@@ -203,7 +203,7 @@ npx playwright test --config=playwright.shadow.config.ts           # full suite,
 |---|---|
 | `first_issue_graphrag/` | The app: graph build and linker, retrieval, catalogue lookup, FastAPI backend, Next.js frontend. Start with its [README](first_issue_graphrag/README.md); the audit of the First Issue evidence graph is its [EVALUATION.md](first_issue_graphrag/EVALUATION.md). |
 | `eval/` | The retrieval evaluation: measures, search arms, the catalogue question generator, pooling, page judging, scoring. Results and method in [EVALUATION.md](EVALUATION.md). |
-| `scripts/` | `with-key.sh`: runs one command with keys taken from the machine's secret store, without writing them to a file. |
+| `scripts/` | `with-key.sh`: runs one command with keys taken from the machine's secret store, without writing them to a file. `load_cluster.py`: rebuilds the literature collection on a Weaviate Cloud cluster from an export. |
 | `neo4j_utils/` | Loading the Mena catalogue into Neo4j, indexes, search, and a Cypher cookbook. |
 | `pipeline/` | Parsing, chunking, enrichment and indexing of the literature; catalogue parsing. |
 | `notebooks/` | Research notebooks, without outputs, including the earlier Gradio question-answering prototype. |

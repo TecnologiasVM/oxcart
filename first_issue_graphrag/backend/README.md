@@ -156,6 +156,41 @@ Without `OXCART_PUBLIC` nothing changes for local use: the explorer's routes are
 Tests, with fakes in place of the stores: `python -m pytest first_issue_graphrag/backend/tests`.
 To score the test set through a running backend: `python -m eval.ask_arm --label <name>` (see `EVALUATION.md`).
 
+## Deploying the hosted mode
+
+Two parts, both on free plans that cannot bill: the backend as a container, the page as static files.
+
+**Backend.** `backend/Dockerfile`, built from the repository root. The image runs the hosted mode
+(`OXCART_PUBLIC=1` is set in it), listens on `PORT` (8000 without it), runs as a non-root user and writes no
+access log. It holds no key and no data. The host provides these settings, as secrets where it has them:
+
+| Setting | What it is |
+|---|---|
+| `CORS_ORIGINS` | The page's origin, for example `https://example.org` |
+| `WEAVIATE_URL`, `WEAVIATE_API_KEY` | The literature cluster and a **read-only** key |
+| `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`, `NEO4J_DATABASE` | The catalogue graph |
+| `OPENAI_API_KEY` | A key limited to embeddings, with a spend limit. Without it the backend answers in keyword mode |
+| `TURNSTILE_SECRET` | The human check's secret key |
+| `SESSION_SIGNING_KEY` | A long random string; signs the session tokens |
+| `EVAL_ACCESS_KEY` | Optional: a long random string that lets the eval and the page's build in without the human check |
+| `TRUSTED_PROXY_HOPS` | How many of the host's proxies stand in front of the app (default 1). Check it on the host: the visitor limit must follow the caller, and a made-up `X-Forwarded-For` must not change it |
+
+Health check path: `/api/health`. One instance: the limits are counted in the process's memory.
+A service that sleeps when idle wakes on the first request; the page calls `/api/health` as it opens and tells
+the visitor the service is starting.
+
+**Page.** In `frontend/`: `npm ci && npm run build:hosted` writes the static site to `out/` (the question page
+only). At build time:
+
+| Setting | What it is |
+|---|---|
+| `NEXT_PUBLIC_API_BASE` | The backend's address (required) |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | The human check's public site key |
+| `EXAMPLES_EVAL_KEY` | Optional, the backend's `EVAL_ACCESS_KEY`: the build then asks the example questions and stores their evidence in `public/stored-examples.json`, which the page shows while the service is asleep. That file holds excerpts of the literature and is not kept in the repository |
+
+**Literature cluster.** `scripts/load_cluster.py` rebuilds the collection on a Weaviate Cloud cluster from an
+export (passages and their stored vectors). The export is not in this repository.
+
 ## Dependencies
 
 See `requirements.txt` (pinned: FastAPI 0.116.2, Pydantic 2.12.5, uvicorn 0.35.0,

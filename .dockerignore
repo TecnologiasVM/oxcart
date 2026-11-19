@@ -1,0 +1,13 @@
+# The backend image is built from the repository root and copies two folders by name
+# (see first_issue_graphrag/backend/Dockerfile). Everything else stays out of the build context.
+*
+!first_issue_graphrag/
+first_issue_graphrag/*
+!first_issue_graphrag/*.py
+!first_issue_graphrag/backend/
+first_issue_graphrag/backend/*
+!first_issue_graphrag/backend/requirements.txt
+!first_issue_graphrag/backend/app/
+**/__pycache__/
+**/*.pyc
+**/.env*
