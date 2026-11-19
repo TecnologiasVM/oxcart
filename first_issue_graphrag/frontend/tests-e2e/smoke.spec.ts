@@ -1,20 +1,30 @@
 import { test, expect } from "@playwright/test";
 
 /*
- * Smoke tests for the shell. The home route is now the SOCORICO landing; the
- * graph tools live under /research/*. These assert the chrome renders and the
- * core routes are reachable. They do NOT require a live backend — the UI must
- * render its chrome and degrade gracefully when :8090 is down.
+ * Smoke tests for the shell. The demo is the Research section: the site root
+ * redirects to /research and the graph tools live under /research/*. These
+ * assert the chrome renders and the core routes are reachable. They do NOT
+ * require a live backend — the UI must render its chrome and degrade gracefully
+ * when :8090 is down.
  */
 
-test("home renders the SOCORICO landing + primary nav", async ({ page }) => {
+test("root redirects to the research overview with the neutral header", async ({ page }) => {
   await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page).toHaveURL(/\/research$/);
   await expect(page.locator("h1").first()).toBeVisible();
-  const nav = page.getByRole("navigation", { name: "Primary" });
-  await expect(nav).toBeVisible();
-  // SOCORICO mono nav links present (scope to the nav — footer repeats these labels).
-  await expect(nav.getByRole("link", { name: "Auctions" })).toBeVisible();
-  await expect(nav.getByRole("link", { name: "Research" })).toBeVisible();
+  await expect(page.locator("header.masthead")).toContainText("Oxcart");
+  await expect(page.getByTestId("demo-tag")).toBeVisible();
+  const nav = page.getByRole("navigation", { name: "Research" });
+  for (const label of ["Overview", "Explore", "Query", "Mena Catalogue"]) {
+    await expect(nav.getByRole("link", { name: label })).toBeVisible();
+  }
+});
+
+test("the removed society pages are gone", async ({ page }) => {
+  for (const path of ["/auctions", "/membership", "/contact"]) {
+    const response = await page.goto(path, { waitUntil: "domcontentloaded" });
+    expect(response?.status(), path).toBe(404);
+  }
 });
 
 test("research/explore route renders graph chrome", async ({ page }) => {

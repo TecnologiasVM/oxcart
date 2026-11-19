@@ -24,8 +24,6 @@ or directly::
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -66,18 +64,6 @@ if config.FIGURES_DIR.is_dir():
         "/api/figures",
         StaticFiles(directory=str(config.FIGURES_DIR)),
         name="figures",
-    )
-
-# Read-only socorico capture (images + PDFs) for the public site. main.py lives at
-# first_issue_graphrag/backend/app/main.py, so parents[3] is the repo root that
-# contains the gitignored 'socorico' folder. Mounted only when present so the app
-# still boots on a machine without the capture.
-SOCORICO_DIR = Path(__file__).resolve().parents[3] / "socorico"
-if SOCORICO_DIR.is_dir():
-    app.mount(
-        "/socorico-assets",
-        StaticFiles(directory=str(SOCORICO_DIR)),
-        name="socorico-assets",
     )
 
 

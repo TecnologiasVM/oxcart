@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { Newsreader, JetBrains_Mono, Inter } from "next/font/google";
 import "./globals.css";
-import Masthead from "./components/Masthead";
-import SiteFooter from "./components/SiteFooter";
+import AppHeader from "./components/AppHeader";
+import AppFooter from "./components/AppFooter";
 
 /*
- * Fonts (SOCORICO redesign):
+ * Fonts:
  *   serif display headlines -> Newsreader (300, 400; normal + italic)
  *   mono labels/dates       -> JetBrains Mono (400, 500, 600)
  *   body sans               -> Inter (400, 500)
@@ -35,9 +35,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "SOCORICO · The Society for Costa Rica Collectors",
+  title: "Oxcart · Costa Rica philately knowledge graph",
   description:
-    "The Society for Costa Rica Collectors — stamps and postal history of Costa Rica. Auctions, The Oxcart journal since 1960, exhibits, literature, and a knowledge-graph research tool for the 1863 First Issue.",
+    "Research demo: a knowledge-graph explorer for the Costa Rica 1863 First Issue. Catalogue facts and grounded evidence from the philatelic literature. Retrieval only, no generated answers.",
 };
 
 export default function RootLayout({
@@ -51,9 +51,9 @@ export default function RootLayout({
       className={`${inter.variable} ${newsreader.variable} ${jetbrainsMono.variable}`}
     >
       <body>
-        <Masthead />
+        <AppHeader />
         {children}
-        <SiteFooter />
+        <AppFooter />
       </body>
     </html>
   );
