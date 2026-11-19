@@ -46,7 +46,7 @@ only for the First Issue's questions.
 
 ## The test set
 
-151 questions in three parts. Spanish and English.
+151 questions in three parts, in `eval/data/`. Spanish and English.
 
 | Part | Questions | Where the gold comes from |
 |---|---|---|
@@ -60,6 +60,8 @@ only for the First Issue's questions.
 - **Split:** 60% development, 40% held out, fixed by a seed, stratified by part and kind of fact; the two
   languages of one question stay on the same side. Development: 48 catalogue, 26 literature. Held out: 32
   catalogue, 15 literature. Choices were made on development questions.
+- The published literature file holds questions, document ids, pages and grades. It holds no text from the
+  literature and not the judge's wording of the answers.
 
 ### How the literature gold was made
 
@@ -206,7 +208,7 @@ attempt). The graph was then moved to a fresh instance with identical content, a
 
 The eval reads its stores from the app's settings and the environment (`eval/stores.py`). Keys come from the
 machine's secret store through `scripts/with-key.sh`, for the one command only; nothing is written to a file.
-The question files are not in the repository yet; the eval reads them from `eval/data/`.
+The questions are read from `eval/data/`.
 
 ```bash
 # unit tests (no store needed)
