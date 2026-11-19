@@ -118,6 +118,44 @@ router file by the agents who write them). The intended surface:
 | `GET`  | `/api/mena/issue/{issue_id}/graph` | `GraphResponse` — lazy per-issue mini-graph. |
 | `GET`  | `/api/mena/issue/{issue_id}/evidence` | `MenaEvidenceResponse` — lazy Weaviate BM25 passages (`?k=`). |
 
+## The question path and the hosted mode
+
+`POST /api/ask` takes one question and returns the evidence for it, for any issue. No written answer.
+
+1. The backend makes the question's embedding (`text-embedding-3-large`, the question as asked). The embedding
+   key is used for that call only; it is never given to the vector store.
+2. `catalogue_lookup.lookup` finds the issue in the graph: with the embedding through the vector index over
+   issues, without it through the full-text index.
+3. The literature store is searched: `near_vector` with the embedding, `bm25` without it.
+
+The answer carries `issues`, `passages` (five, text clipped to 700 characters), `timings`, and a `mode` block that
+says what produced each part: `embedding` (`ok`, `failed`, `not configured`), `catalogue` (`vector index`,
+`full-text index`, `unavailable`), `literature` (`vector`, `keyword`, `unavailable`). A store that cannot be
+reached costs its own block only; the question fails (503) when neither answers.
+
+With `OXCART_PUBLIC=1` the app runs in **hosted mode**:
+
+| | |
+|---|---|
+| Routes mounted | `GET /api/health`, `GET /api/ask/examples`, `POST /api/session`, `POST /api/ask`. Nothing else: no explorer routes, no export, no figures |
+| Docs | `/docs`, `/redoc` and `/openapi.json` are off |
+| Human check | The page solves a Cloudflare Turnstile challenge and posts its token to `/api/session`; the backend verifies it with Cloudflare and returns a signed token valid for an hour, sent as `X-Oxcart-Session` with each question. If the check cannot be verified, questions are refused with a message |
+| Limits | 10 questions a minute and 100 a day per visitor, 2,000 a day for the service, in memory; a question is at most 300 characters and a request 2 kB |
+| CORS | The origins in `CORS_ORIGINS`, GET and POST, no credentials |
+| Errors | `{"error": code, "message": text}`; no exception text, nothing of the request repeated |
+| Logs | One line per question with the mode, the timings and error classes. No question text, no address |
+
+Settings, all from the environment (`app/settings.py`): `OXCART_PUBLIC`, `CORS_ORIGINS`, `WEAVIATE_URL` and
+`WEAVIATE_API_KEY` (a Weaviate Cloud cluster; without `WEAVIATE_URL` the local instance is used),
+`OPENAI_API_KEY`, `TURNSTILE_SECRET`, `SESSION_SIGNING_KEY`, `EVAL_ACCESS_KEY` (the eval's own way in, a secret
+header; empty means that door does not exist), `TRUSTED_PROXY_HOPS`, and the `ASK_*` bounds.
+
+Without `OXCART_PUBLIC` nothing changes for local use: the explorer's routes are mounted as before, and
+`/api/ask` works without a session.
+
+Tests, with fakes in place of the stores: `python -m pytest first_issue_graphrag/backend/tests`.
+To score the test set through a running backend: `python -m eval.ask_arm --label <name>` (see `EVALUATION.md`).
+
 ## Dependencies
 
 See `requirements.txt` (pinned: FastAPI 0.116.2, Pydantic 2.12.5, uvicorn 0.35.0,

@@ -1,6 +1,7 @@
 # Tests that need no database and no secret, on every pull request and on main.
 #
-# - Python: the eval's unit tests, the catalogue lookup's, the linker's and the figure matcher's.
+# - Python: the eval's unit tests, the catalogue lookup's, the linker's, the figure matcher's, and
+#   the question path's (with fakes in place of the stores).
 # - Frontend: install from the lockfile, build, and the browser smoke test (it starts the dev
 #   server itself and does not need the backend).
 #
@@ -34,10 +35,10 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
-      - name: Install the test runner
-        run: python -m pip install pytest==9.2.0
+      - name: Install the backend's pinned packages and the test runner
+        run: python -m pip install -r first_issue_graphrag/backend/requirements.txt pytest==9.2.0
       - name: Unit tests
-        run: python -m pytest eval/tests first_issue_graphrag/tests
+        run: python -m pytest eval/tests first_issue_graphrag/tests first_issue_graphrag/backend/tests
 
   frontend:
     runs-on: ubuntu-24.04

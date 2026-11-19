@@ -62,3 +62,58 @@ CORS_ORIGINS: list[str] = [
 
 # Service metadata surfaced at the root endpoint.
 SERVICE_NAME: str = "First Issue KG Explorer API"
+
+
+# ---------------------------------------------------------------------------
+# The question path (POST /api/ask) and the hosted mode
+# ---------------------------------------------------------------------------
+def _flag(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, "") or default)
+    except ValueError:
+        return default
+
+
+# Hosted mode: only the question path is mounted, the API docs are off, and a
+# human check is required before questions are accepted.
+PUBLIC: bool = _flag("OXCART_PUBLIC")
+
+# CORS_ORIGINS in the environment replaces the localhost defaults (comma separated).
+if os.getenv("CORS_ORIGINS"):
+    CORS_ORIGINS = [o.strip() for o in os.environ["CORS_ORIGINS"].split(",") if o.strip()]
+
+# Bounds fixed by the server. Nothing a client sends changes them.
+ASK_MAX_QUESTION_CHARS: int = _int("ASK_MAX_QUESTION_CHARS", 300)
+ASK_MAX_BODY_BYTES: int = _int("ASK_MAX_BODY_BYTES", 2048)
+ASK_PASSAGES: int = _int("ASK_PASSAGES", 5)
+ASK_ISSUES: int = _int("ASK_ISSUES", 3)
+ASK_TEXT_LIMIT: int = _int("ASK_TEXT_LIMIT", 700)
+ASK_TIMEOUT_SECONDS: int = _int("ASK_TIMEOUT_SECONDS", 25)
+EMBED_TIMEOUT_SECONDS: int = _int("EMBED_TIMEOUT_SECONDS", 5)
+
+# Limits per visitor and for the whole service (kept in this process's memory).
+ASK_LIMIT_PER_MINUTE: int = _int("ASK_LIMIT_PER_MINUTE", 10)
+ASK_LIMIT_PER_DAY: int = _int("ASK_LIMIT_PER_DAY", 100)
+ASK_LIMIT_GLOBAL_PER_DAY: int = _int("ASK_LIMIT_GLOBAL_PER_DAY", 2000)
+# How many proxies of the host stand in front of this process. The visitor's address is
+# read that many entries from the right of X-Forwarded-For; 0 = use the socket's peer.
+TRUSTED_PROXY_HOPS: int = _int("TRUSTED_PROXY_HOPS", 1)
+
+# The literature store for the question path: a Weaviate Cloud cluster when WEAVIATE_URL
+# is set, the local instance of config.py otherwise. OXCART_VECTOR_NAME names the vector
+# to search when the collection has several.
+WEAVIATE_URL: str = os.getenv("WEAVIATE_URL", "")
+VECTOR_NAME: str = os.getenv("OXCART_VECTOR_NAME", "")
+EMBEDDING_MODEL: str = "text-embedding-3-large"
+
+# Human check (Cloudflare Turnstile) and the session token that follows it.
+TURNSTILE_SECRET: str = os.getenv("TURNSTILE_SECRET", "")
+TURNSTILE_VERIFY_URL: str = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+SESSION_SIGNING_KEY: str = os.getenv("SESSION_SIGNING_KEY", "")
+SESSION_TTL_SECONDS: int = _int("SESSION_TTL_SECONDS", 3600)
+# The eval's own way in: a secret header. Empty = that door does not exist.
+EVAL_ACCESS_KEY: str = os.getenv("EVAL_ACCESS_KEY", "")
