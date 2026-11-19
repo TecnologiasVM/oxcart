@@ -120,9 +120,15 @@ async def lifespan(app: FastAPI):
     """
     driver: "Driver" = config.neo4j_driver()
     app.state.neo4j = driver
+    # The question path's three steps (embedding, catalogue lookup, literature search).
+    # Tests replace them on ``app.state.ask`` after startup.
+    from app import ask_service
+
+    app.state.ask = ask_service.default_deps(lambda: app.state.neo4j)
     try:
         yield
     finally:
+        app.state.ask.close()
         # Sync driver: close() is synchronous (no await).
         app.state.neo4j.close()
         app.state.neo4j = None
