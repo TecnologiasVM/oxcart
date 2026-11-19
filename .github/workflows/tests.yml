@@ -5,6 +5,9 @@
 # - Frontend: install from the lockfile, build, the browser tests (they start the dev server
 #   themselves and mock the backend), and the static build of the hosted site.
 #
+# - Image: build the backend's container and start it with no settings at all. It must answer
+#   its health route and refuse everything else. Nothing is pushed and no secret is used.
+#
 # The tests that need a live Neo4j and Weaviate (backend/test_mena_backend.py and the full
 # browser suite) are not run here. Actions are pinned to a commit.
 #
@@ -67,3 +70,37 @@ jobs:
         run: npm run build:hosted
         env:
           NEXT_PUBLIC_API_BASE: https://backend.invalid
+
+  image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the backend image
+        run: docker build -f first_issue_graphrag/backend/Dockerfile -t oxcart-backend:ci .
+      - name: Start it with no settings and check what it answers
+        run: |
+          docker run -d --name backend -p 127.0.0.1:8000:8000 oxcart-backend:ci
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/api/health || true)
+            [ "$code" = "200" ] && break
+            sleep 1
+          done
+          check() { # check <expected status> <curl arguments...>
+            want="$1"; shift
+            got=$(curl -s -o /dev/null -w '%{http_code}' "$@")
+            echo "$got (expected $want): $*"
+            [ "$got" = "$want" ]
+          }
+          check 200 http://127.0.0.1:8000/api/health
+          check 404 http://127.0.0.1:8000/docs
+          check 404 http://127.0.0.1:8000/openapi.json
+          check 404 http://127.0.0.1:8000/api/overview
+          check 401 -X POST -H 'content-type: application/json' -d '{"question":"q"}' http://127.0.0.1:8000/api/ask
+          check 503 -X POST -H 'content-type: application/json' -d '{"token":"t"}' http://127.0.0.1:8000/api/session
+          test "$(docker exec backend id -u)" != "0"
+      - name: The container's log, if anything failed
+        if: failure()
+        run: docker logs backend | tail -50
