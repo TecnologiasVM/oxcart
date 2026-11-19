@@ -123,8 +123,17 @@ async def lifespan(app: FastAPI):
     # The question path's three steps (embedding, catalogue lookup, literature search).
     # Tests replace them on ``app.state.ask`` after startup.
     from app import ask_service
+    from app.graph_link import GraphLink
 
-    app.state.ask = ask_service.default_deps(lambda: app.state.neo4j)
+    # One link to the graph for the life of the process. It starts connecting now, in the
+    # background, and keeps trying inside its budget: startup and the health route do not wait.
+    app.state.graph = GraphLink(lambda: app.state.neo4j, config.NEO4J_DATABASE,
+                                startup_budget=settings.GRAPH_STARTUP_BUDGET_SECONDS,
+                                question_budget=settings.GRAPH_QUESTION_BUDGET_SECONDS,
+                                every=settings.GRAPH_RETRY_EVERY_SECONDS)
+    if settings.GRAPH_WARM_ON_START:
+        app.state.graph.warm_in_background()
+    app.state.ask = ask_service.default_deps(app.state.graph)
     try:
         yield
     finally:

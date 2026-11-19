@@ -1,6 +1,6 @@
 """The question path's routes.
 
-    GET  /api/health          hosted mode only: a light "I am up" with no store round trip
+    GET  /api/health          hosted mode only: a light "I am up" with no store round trip, and the graph link's state
     GET  /api/ask/examples    questions to try, and the bounds the page should respect
     POST /api/session         a passed human check -> a short-lived signed token
     POST /api/ask             one question -> catalogue issues, literature passages, and the mode that answered
@@ -73,8 +73,11 @@ def access(request: Request) -> Optional[str]:
 
 
 @health_router.get("/health")
-async def health() -> dict:
-    return {"status": "ok"}
+async def health(request: Request) -> dict:
+    """Light: no store round trip. `graph` is what the process already knows about its
+    connection (connecting, connected or unavailable), so a page can show "starting"."""
+    link = getattr(request.app.state, "graph", None)
+    return {"status": "ok", "graph": link.state if link is not None else "unavailable"}
 
 
 @router.get("/ask/examples")

@@ -115,13 +115,19 @@ function clean(answer: AskAnswer): AskAnswer {
   return { ...answer, issues: stripVectors(answer.issues ?? []), passages: stripVectors(answer.passages ?? []) };
 }
 
-/** True when the backend answers. Used to show "starting" while a sleeping service wakes. */
+/**
+ * True when the service is ready for a question: the backend answers and its link to the
+ * graph is no longer "connecting" (connected, or it gave up: the page then says per answer
+ * that the catalogue could not be reached). Used to show "starting" while the service wakes.
+ */
 export async function health(timeoutMs = 8000): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`${API_BASE}/api/health`, { signal: controller.signal });
-    return res.ok;
+    if (!res.ok) return false;
+    const body = (await res.json().catch(() => ({}))) as { graph?: string };
+    return body.graph !== "connecting";
   } catch {
     return false;
   } finally {

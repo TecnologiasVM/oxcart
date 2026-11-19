@@ -117,3 +117,11 @@ SESSION_SIGNING_KEY: str = os.getenv("SESSION_SIGNING_KEY", "")
 SESSION_TTL_SECONDS: int = _int("SESSION_TTL_SECONDS", 3600)
 # The eval's own way in: a secret header. Empty = that door does not exist.
 EVAL_ACCESS_KEY: str = os.getenv("EVAL_ACCESS_KEY", "")
+
+# The graph connection. A hosted graph can refuse a new connection and accept the next one
+# half a second later, so nothing depends on the first try: the process opens the connection
+# as it starts, retrying inside a budget, and a question that finds none retries inside its own.
+GRAPH_WARM_ON_START: bool = os.getenv("GRAPH_WARM_ON_START", "1").strip().lower() not in ("0", "false", "no", "off")
+GRAPH_STARTUP_BUDGET_SECONDS: int = _int("GRAPH_STARTUP_BUDGET_SECONDS", 30)
+GRAPH_QUESTION_BUDGET_SECONDS: int = _int("GRAPH_QUESTION_BUDGET_SECONDS", 8)
+GRAPH_RETRY_EVERY_SECONDS: float = float(os.getenv("GRAPH_RETRY_EVERY_SECONDS", "0.5") or 0.5)
