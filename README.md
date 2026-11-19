@@ -2,7 +2,9 @@
 
 <div align="center">
   <img src="./assets/oxcart_logo.svg" width="260" alt="Oxcart logo">
-  <br><br>
+</div>
+
+<div align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-lightgray" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/Python-3.10%2B-blue" alt="Python 3.10+">
   <img src="https://img.shields.io/badge/Graph-Neo4j-008CC1" alt="Neo4j">
@@ -35,6 +37,18 @@ lists what is planned and not built.
   Overview, Explore (the graph), Query (ask and read the evidence), and the Mena Catalogue by year.
 
 The corpus, the databases and the page images are **not in this repository**; see [Data](#data).
+
+## Stack
+
+| Layer | What the code uses | Where |
+|---|---|---|
+| Graph | Neo4j, queried with Cypher | `neo4j_utils/`, `first_issue_graphrag/` |
+| Search | Weaviate 1.32.4. Keyword search (BM25) by default; `near_text` and `hybrid` search over OpenAI `text-embedding-3-large` vectors (3,072 dimensions) when an OpenAI key is set | `docker-compose.yml`, `pipeline/philatelic_weaviate.py`, `first_issue_graphrag/README.md` |
+| API | FastAPI, Pydantic v2 | `first_issue_graphrag/backend/requirements.txt` |
+| UI | Next.js, React, TypeScript, Cytoscape | `first_issue_graphrag/frontend/package.json` |
+| Tests | Playwright for the UI; Python test scripts for the linker, the backend and the pipeline | `first_issue_graphrag/frontend/tests/`, `first_issue_graphrag/tests/`, `tests/` |
+| Parsing | Dolphin | `third_party/dolphin/` |
+| Earlier prototype and catalogue parsing | LangChain, Gradio | `pipeline/mena_stamp_agent.py`, `notebooks/`, `neo4j_utils/neo4j_gradio_VIS.py` |
 
 ## How it works
 
