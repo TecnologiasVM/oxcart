@@ -165,6 +165,9 @@ pdfs/
 results/
 graph_outputs/
 socorico/
+# The eval's working data (judge inputs, review sheets, exports: they hold literature text) and its environment
+local-data/
+.venv-eval/
 # AI-assistant working files: local to each developer, never committed
 .claude/
 CLAUDE.md
