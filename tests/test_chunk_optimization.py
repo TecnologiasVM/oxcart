@@ -15,6 +15,10 @@ import json
 import statistics
 from pathlib import Path
 from typing import Dict, Any, List
+import os, sys
+# tests/ lives one level below the repo root; the modules under test are in pipeline/
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pipeline"))
+
 from dolphin_transformer import transform_dolphin_to_oxcart_preserving_labels
 from chunk_optimizer import calculate_optimization_metrics
 from dolphin_quality_control import DolphinQualityControl
