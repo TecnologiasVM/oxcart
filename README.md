@@ -33,7 +33,7 @@ lists what is planned and not built.
   [docs/PHILATELIC_LITERATURE.md](docs/PHILATELIC_LITERATURE.md).
 - **A First Issue evidence graph**: 653 passages from 296 documents linked to the 1863 First Issue and to its
   individual stamps by a rule-based linker, with no language model.
-- **An explorer app** (`first_issue_graphrag/`): a FastAPI backend and a Next.js frontend with four views:
+- **An explorer app** (`backend/`, `frontend/`): a FastAPI backend and a Next.js frontend with four views:
   Overview, Explore (the graph), Query (ask and read the evidence), and the Mena Catalogue by year.
 - **A question page and the path behind it** (the site root, `POST /api/ask`): ask about any Costa Rican issue
   in Spanish or English and read the evidence, the catalogue issue and the passages of the literature. The
@@ -41,7 +41,7 @@ lists what is planned and not built.
 - **A test set and a retrieval evaluation** (`eval/`, [EVALUATION.md](EVALUATION.md)): 151 questions in Spanish
   and English, and a measured choice of a 41,126-passage subset of the literature index that answers more of them
   than the full index does. The gold for the literature questions is judged by a model, not yet by a person.
-- **A catalogue lookup for any issue** (`first_issue_graphrag/catalogue_lookup.py`): finds the issue a question
+- **A catalogue lookup for any issue** (`oxcart/catalogue_lookup.py`): finds the issue a question
   is about, in Spanish or English, with no language model. It is a module with tests; the app does not call it yet.
 
 The corpus, the databases and the page images are **not in this repository**; see [Data](#data).
@@ -50,11 +50,11 @@ The corpus, the databases and the page images are **not in this repository**; se
 
 | Layer | What the code uses | Where |
 |---|---|---|
-| Graph | Neo4j, queried with Cypher | `neo4j_utils/`, `first_issue_graphrag/` |
-| Search | Weaviate 1.32.4. Keyword search (BM25) by default; `near_text` and `hybrid` search over OpenAI `text-embedding-3-large` vectors (3,072 dimensions) when an OpenAI key is set | `docker-compose.yml`, `pipeline/philatelic_weaviate.py`, `first_issue_graphrag/README.md` |
-| API | FastAPI, Pydantic v2 | `first_issue_graphrag/backend/requirements.txt` |
-| UI | Next.js, React, TypeScript, Cytoscape | `first_issue_graphrag/frontend/package.json` |
-| Tests | Playwright for the UI; Python test scripts for the linker, the backend and the pipeline | `first_issue_graphrag/frontend/tests/`, `first_issue_graphrag/tests/`, `tests/` |
+| Graph | Neo4j, queried with Cypher | `neo4j_utils/`, `pipeline/first_issue_graph/`, `oxcart/` |
+| Search | Weaviate 1.32.4. Keyword search (BM25) by default; `near_text` and `hybrid` search over OpenAI `text-embedding-3-large` vectors (3,072 dimensions) when an OpenAI key is set | `docker-compose.yml`, `pipeline/philatelic_weaviate.py`, `pipeline/first_issue_graph/README.md` |
+| API | FastAPI, Pydantic v2 | `backend/requirements.txt` |
+| UI | Next.js, React, TypeScript, Cytoscape | `frontend/package.json` |
+| Tests | Playwright for the UI; Python test scripts for the linker, the backend and the pipeline | `frontend/tests/`, `oxcart/tests/`, `pipeline/first_issue_graph/tests/`, `tests/` |
 | Parsing | Dolphin | `third_party/dolphin/` |
 | Earlier prototype and catalogue parsing | LangChain, Gradio | `pipeline/mena_stamp_agent.py`, `notebooks/`, `neo4j_utils/neo4j_gradio_VIS.py` |
 
@@ -77,12 +77,12 @@ Scanned literature (PDF)                       Mena 2018 catalogue
  192,680 chunks · 1,424 documents                      │
         │                                              │
         └────────► First Issue linker ◄────────────────┘
-                   (first_issue_graphrag/lexicon.py, coverage_scan.py)
+                   (pipeline/first_issue_graph/lexicon.py, coverage_scan.py)
                    scores every chunk; links passages to the issue and its stamps
                                  │
                                  ▼
                    Query: graph first, Weaviate as a short backup list
-                   (first_issue_graphrag/retrieve.py → FastAPI → Next.js)
+                   (oxcart/retrieve.py → FastAPI → Next.js)
 ```
 
 ### 2. What makes the retrieval more than a vector search
@@ -102,7 +102,7 @@ Scanned literature (PDF)                       Mena 2018 catalogue
 
 ### 3. What improved the quality of the evidence
 
-Measured in [first_issue_graphrag/EVALUATION.md](first_issue_graphrag/EVALUATION.md):
+Measured in [pipeline/first_issue_graph/EVALUATION.md](pipeline/first_issue_graph/EVALUATION.md):
 
 | Change | Effect |
 |---|---|
@@ -125,10 +125,10 @@ and the fix.
 | Linker regression checks (`tests/test_lexicon.py`) | pass |
 | Backend tests (`backend/test_mena_backend.py`) | 22 passed |
 | Browser tests (Playwright) | 57 passed, 3 skipped (full suite); 4 passed (smoke) |
-| Reference run on a clean Linux machine | source-document counts for the four demo questions match `first_issue_graphrag/EVALUATION.md` (46, 131, 68, 49); the same passages come back in the same order before and after the changes that made the app portable |
+| Reference run on a clean Linux machine | source-document counts for the four demo questions match `pipeline/first_issue_graph/EVALUATION.md` (46, 131, 68, 49); the same passages come back in the same order before and after the changes that made the app portable |
 | Retrieval on literature questions ([EVALUATION.md](EVALUATION.md)) | a page that answers the question is among the first five passages for 36 of the 41 questions in the set, and 36 of all 49 drafted (the 8 left out counted as misses); the app as it was: 12 of 41 and 12 of 49 |
 | Catalogue lookup, held-out questions | the right issue is first for 30 of 32 and in the first three for 32 of 32; the fact asked comes from the same graph that generated the question |
-| Eval and lookup unit tests (`eval/tests`, `first_issue_graphrag/tests/test_catalogue_lookup.py`) | 36 passed |
+| Eval and lookup unit tests (`eval/tests`, `oxcart/tests/test_catalogue_lookup.py`) | 36 passed |
 
 How to read the retrieval numbers: the literature gold was judged by a model (`gpt-6.1-sol`); no person has checked
 the grades. A second model read a blind sample of 45 pages and gave the same grade on 39 and the same "answers the
@@ -171,15 +171,16 @@ cp .env.example .env
 # 2. backend dependencies, in a virtual environment
 python -m venv .venv
 source .venv/bin/activate            # Windows: .venv\Scripts\activate
-python -m pip install -r first_issue_graphrag/backend/requirements.txt
+python -m pip install -r backend/requirements.txt
+python -m pip install -e .           # the shared modules, as the oxcart package
 
 # 3. frontend dependencies
-cd first_issue_graphrag/frontend && npm ci && cd ../..
+cd frontend && npm ci && cd ..
 
 # 4. start both servers, check them, stop them
-python first_issue_graphrag/servers.py start
-python first_issue_graphrag/servers.py status
-python first_issue_graphrag/servers.py stop
+python scripts/servers.py start
+python scripts/servers.py status
+python scripts/servers.py stop
 ```
 
 Open <http://localhost:3000/research>. `GET /api/health` reports whether Neo4j and Weaviate are reachable.
@@ -187,9 +188,9 @@ Open <http://localhost:3000/research>. `GET /api/health` reports whether Neo4j a
 Tests:
 
 ```bash
-python first_issue_graphrag/tests/test_lexicon.py                  # no services needed
-python first_issue_graphrag/tests/test_figure_refs.py              # no services needed
-cd first_issue_graphrag/backend && python test_mena_backend.py     # needs Neo4j (and Weaviate for evidence)
+python pipeline/first_issue_graph/tests/test_lexicon.py            # no services needed
+python oxcart/tests/test_figure_refs.py                            # no services needed
+cd backend && python test_mena_backend.py                          # needs Neo4j (and Weaviate for evidence)
 cd ../frontend && npx playwright install chromium
 npx playwright test                                                # smoke tests, no backend needed
 npx playwright test --config=playwright.shadow.config.ts           # full suite, needs both servers running
@@ -201,11 +202,13 @@ npx playwright test --config=playwright.shadow.config.ts           # full suite,
 
 | Path | What it holds |
 |---|---|
-| `first_issue_graphrag/` | The app: graph build and linker, retrieval, catalogue lookup, FastAPI backend, Next.js frontend. Start with its [README](first_issue_graphrag/README.md); the audit of the First Issue evidence graph is its [EVALUATION.md](first_issue_graphrag/EVALUATION.md). |
+| `backend/` | The API (FastAPI): the question path and the explorer's routes, its tests and its Dockerfile. See its [README](backend/README.md). |
+| `frontend/` | The page (Next.js): the question page and the explorer under `/research`. See its [README](frontend/README.md). |
+| `oxcart/` | The modules the backend and the eval share, as a Python package: settings, the catalogue lookup, retrieval. Installed with `python -m pip install -e .`. |
 | `eval/` | The retrieval evaluation: measures, search arms, the catalogue question generator, pooling, page judging, scoring. Results and method in [EVALUATION.md](EVALUATION.md). |
-| `scripts/` | `with-key.sh`: runs one command with keys taken from the machine's secret store, without writing them to a file. `load_cluster.py`: rebuilds the literature collection on a Weaviate Cloud cluster from an export. |
+| `scripts/` | `with-key.sh`: runs one command with keys taken from the machine's secret store, without writing them to a file. `load_cluster.py`: rebuilds the literature collection on a Weaviate Cloud cluster from an export. `servers.py`: starts, checks and stops the backend and the frontend on this machine. |
 | `neo4j_utils/` | Loading the Mena catalogue into Neo4j, indexes, search, and a Cypher cookbook. |
-| `pipeline/` | Parsing, chunking, enrichment and indexing of the literature; catalogue parsing. |
+| `pipeline/` | Parsing, chunking, enrichment and indexing of the literature; catalogue parsing. `pipeline/first_issue_graph/` holds the First Issue graph build and linker; start with its [README](pipeline/first_issue_graph/README.md); the audit of the First Issue evidence graph is its [EVALUATION.md](pipeline/first_issue_graph/EVALUATION.md). |
 | `notebooks/` | Research notebooks, without outputs, including the earlier Gradio question-answering prototype. |
 | `third_party/dolphin/` | The Dolphin document parser (ByteDance, MIT). |
 | `docs/` | The literature catalogue and working notes. |
@@ -230,7 +233,7 @@ administrative context (`LegalAct`, `Person`, `Printer`, `ProductionOrder`). Typ
 </div>
 
 Queries and the full schema: [neo4j_utils/neo4j_technical_guide_cypher_cookbook.md](neo4j_utils/neo4j_technical_guide_cypher_cookbook.md)
-and [first_issue_graphrag/cypher_queries.md](first_issue_graphrag/cypher_queries.md).
+and [pipeline/first_issue_graph/cypher_queries.md](pipeline/first_issue_graph/cypher_queries.md).
 
 ## Data
 

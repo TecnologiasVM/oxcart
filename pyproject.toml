@@ -1,3 +1,23 @@
+# The shared modules (oxcart/) as an installable package:
+#
+#   python -m pip install -e .
+#
+# No dependency is declared here on purpose: the pinned lists stay where they were,
+# backend/requirements.txt (the API) and pipeline/first_issue_graph/requirements.txt (the
+# graph build scripts). Install one of them first.
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "oxcart"
+version = "0.1.0"
+description = "Oxcart's shared modules: settings, the catalogue lookup and retrieval"
+requires-python = ">=3.10"
+
+[tool.setuptools]
+packages = ["oxcart"]
+
 [tool.black]
 line-length = 120
 include = '\.pyi?$'

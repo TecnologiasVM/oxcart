@@ -3,7 +3,7 @@
 # command's environment only. The key never lands in a file, the shell or the session.
 #
 #   with-key.sh VAR=entry [VAR=entry ...] -- command [args...]
-#   with-key.sh OPENAI_API_KEY=openai-api-key-public -- python first_issue_graphrag/servers.py start
+#   with-key.sh OPENAI_API_KEY=openai-api-key-public -- python scripts/servers.py start
 #
 # An entry is expected to hold a key: 20 characters or more. For a stored setting that is
 # short by nature (a user name, a database name) add ",short" after the entry name:

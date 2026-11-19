@@ -13,14 +13,11 @@ from __future__ import annotations
 import argparse
 import collections
 import json
-import sys
 import time
 from pathlib import Path
 
 from eval import embed, graph_conn, measures, split, stores
-
-sys.path.insert(0, str(stores.REPO / "first_issue_graphrag"))
-import catalogue_lookup  # noqa: E402
+from oxcart import catalogue_lookup
 
 QUESTIONS = stores.data_file("questions_catalogue.jsonl")
 OUT_DIR = stores.REPO / "local-data" / "eval" / "results"

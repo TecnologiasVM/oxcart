@@ -3,7 +3,7 @@
 Which Weaviate is used comes from the environment:
 
     WEAVIATE_URL set          a Weaviate Cloud cluster (with WEAVIATE_API_KEY)
-    otherwise                 the instance in first_issue_graphrag/config.py
+    otherwise                 the instance in oxcart/config.py
                               (WEAVIATE_HOST, WEAVIATE_HTTP_PORT, WEAVIATE_GRPC_PORT, WEAVIATE_API_KEY)
     OXCART_COLLECTION         collection name (default "Oxcart")
     EVAL_VECTOR_NAME          named vector to search (unset = the collection's default vector)
@@ -15,11 +15,9 @@ embedding itself (eval/embed.py) and sends the vector.
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO / "first_issue_graphrag"))
 
 
 def weaviate_target():
@@ -27,7 +25,7 @@ def weaviate_target():
     import weaviate
     from weaviate.classes.init import AdditionalConfig, Auth, Timeout
 
-    import config
+    from oxcart import config
 
     collection = os.getenv("OXCART_COLLECTION") or config.OXCART_COLLECTION
     vector = os.getenv("EVAL_VECTOR_NAME") or None
@@ -59,6 +57,6 @@ def data_file(name: str) -> Path:
 
 def neo4j_session_factory():
     """Return (driver, database). One driver for the whole run; the caller closes it."""
-    import config
+    from oxcart import config
 
     return config.neo4j_driver(), config.NEO4J_DATABASE
