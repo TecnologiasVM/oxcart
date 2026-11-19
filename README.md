@@ -35,6 +35,11 @@ lists what is planned and not built.
   individual stamps by a rule-based linker, with no language model.
 - **An explorer app** (`first_issue_graphrag/`): a FastAPI backend and a Next.js frontend with four views:
   Overview, Explore (the graph), Query (ask and read the evidence), and the Mena Catalogue by year.
+- **A test set and a retrieval evaluation** (`eval/`, [EVALUATION.md](EVALUATION.md)): 151 questions in Spanish
+  and English, and a measured choice of a 41,126-passage subset of the literature index that answers more of them
+  than the full index does. The gold for the literature questions is judged by a model, not yet by a person.
+- **A catalogue lookup for any issue** (`first_issue_graphrag/catalogue_lookup.py`): finds the issue a question
+  is about, in Spanish or English, with no language model. It is a module with tests; the app does not call it yet.
 
 The corpus, the databases and the page images are **not in this repository**; see [Data](#data).
 
@@ -117,10 +122,19 @@ and the fix.
 | Linker regression checks (`tests/test_lexicon.py`) | pass |
 | Backend tests (`backend/test_mena_backend.py`) | 22 passed |
 | Browser tests (Playwright) | 57 passed, 3 skipped (full suite); 4 passed (smoke) |
-| Reference run on a clean Linux machine | source-document counts for the four demo questions match `EVALUATION.md` (46, 131, 68, 49); the same passages come back in the same order before and after the changes that made the app portable |
+| Reference run on a clean Linux machine | source-document counts for the four demo questions match `first_issue_graphrag/EVALUATION.md` (46, 131, 68, 49); the same passages come back in the same order before and after the changes that made the app portable |
+| Retrieval on literature questions ([EVALUATION.md](EVALUATION.md)) | a page that answers the question is among the first five passages for 36 of the 41 questions in the set, and 36 of all 49 drafted (the 8 left out counted as misses); the app as it was: 12 of 41 and 12 of 49 |
+| Catalogue lookup, held-out questions | the right issue is first for 30 of 32 and in the first three for 32 of 32; the fact asked comes from the same graph that generated the question |
+| Eval and lookup unit tests (`eval/tests`, `first_issue_graphrag/tests/test_catalogue_lookup.py`) | 36 passed |
 
-Not done yet: a question set with expected sources, a ranked retrieval score, and any evaluation of written
-answers. They are stages 2 and 4 of the roadmap.
+How to read the retrieval numbers: the literature gold was judged by a model (`gpt-6.1-sol`); no person has checked
+the grades. A second model read a blind sample of 45 pages and gave the same grade on 39 and the same "answers the
+question or not" on 41; both readers are OpenAI models with one rubric. A question entered the set only when
+search had already found a page that answers it, which is why every figure has two denominators.
+[EVALUATION.md](EVALUATION.md) has the method and the limits.
+
+Not done yet: a person's check of the model-judged gold, and any evaluation of written answers (there is no
+answer step yet).
 
 ### 5. What is in place for running it as a service
 
@@ -134,7 +148,8 @@ answers. They are stages 2 and 4 of the roadmap.
   by default. Embedding vectors are stripped from every response.
 - Dependencies are pinned to the versions of the reference run.
 
-Not done yet: hosting, fitting the index to a free hosting tier, caching and rate limits. They are stages 2 and 3.
+Not done yet: hosting, caching and rate limits. A subset of the index that fits a free hosting tier was chosen
+and measured ([EVALUATION.md](EVALUATION.md)); the hosted demo itself is not built.
 
 ## Run it locally
 
@@ -181,7 +196,9 @@ npx playwright test --config=playwright.shadow.config.ts           # full suite,
 
 | Path | What it holds |
 |---|---|
-| `first_issue_graphrag/` | The app: graph build and linker, retrieval, evaluation, FastAPI backend, Next.js frontend. Start with its [README](first_issue_graphrag/README.md) and [EVALUATION.md](first_issue_graphrag/EVALUATION.md). |
+| `first_issue_graphrag/` | The app: graph build and linker, retrieval, catalogue lookup, FastAPI backend, Next.js frontend. Start with its [README](first_issue_graphrag/README.md); the audit of the First Issue evidence graph is its [EVALUATION.md](first_issue_graphrag/EVALUATION.md). |
+| `eval/` | The retrieval evaluation: measures, search arms, the catalogue question generator, pooling, page judging, scoring. Results and method in [EVALUATION.md](EVALUATION.md). |
+| `scripts/` | `with-key.sh`: runs one command with keys taken from the machine's secret store, without writing them to a file. |
 | `neo4j_utils/` | Loading the Mena catalogue into Neo4j, indexes, search, and a Cypher cookbook. |
 | `pipeline/` | Parsing, chunking, enrichment and indexing of the literature; catalogue parsing. |
 | `notebooks/` | Research notebooks, without outputs, including the earlier Gradio question-answering prototype. |
@@ -216,19 +233,26 @@ This repository holds code and documentation. It does not hold the scanned liter
 images, the Weaviate collection or the Neo4j database. Without them the app starts and reports the stores as
 unreachable.
 
+Two facts about the literature index that anything built on it must respect:
+
+- Every stored vector is the `text-embedding-3-large` embedding of the word `Oxcart`, a space, and the passage
+  text: the collection name was prepended when the collection was first vectorized. Questions are embedded as they
+  are, without that prefix, and the evaluation was measured that way.
+- Many passages are stored several times as growing prefixes of one another. Collapsing them (keep the longest
+  copy per document) takes the index from 192,680 to 94,116 passages and improves keyword search; see
+  [EVALUATION.md](EVALUATION.md).
+
 ## Roadmap
 
 Planned, **not built**:
 
-1. **A test set and a retrieval evaluation.** Questions with expected sources, in Spanish and English, across
-   several issues; a score for whether the expected sources come back and at what rank; a study of how small the
-   literature index can be without losing answers.
-2. **A hosted demo**, retrieval only, on free hosting tiers.
-3. **An answer step.** A short written answer that cites the passages it used, declines questions outside its
+1. **A hosted demo**, retrieval only, on free hosting tiers.
+2. **An answer step.** A short written answer that cites the passages it used, declines questions outside its
    sources, and falls back to evidence-only when it cannot answer. Evaluated on the test set before release.
-4. **The answer step as a multi-step flow** (route, retrieve, grade the evidence, retrieve again once, answer),
+3. **The answer step as a multi-step flow** (route, retrieve, grade the evidence, retrieve again once, answer),
    scored against the simpler version on the same evaluation.
-5. **Scope beyond the First Issue**: any Costa Rican stamp question.
+4. **Scope beyond the First Issue in the app**: any Costa Rican stamp question. The catalogue lookup and the
+   evaluated literature search exist as modules; the app still answers from the First Issue only.
 
 ## License
 
