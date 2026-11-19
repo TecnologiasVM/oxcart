@@ -23,9 +23,9 @@ NO LLM calls are made here (owner constraint): all enrichment is regex/lexicon.
 
 Run from the repo root with the project venv::
 
-    python first_issue_graphrag/sanitize_chunks.py
-    python first_issue_graphrag/sanitize_chunks.py --docs OXCART03 OXCART50
-    python first_issue_graphrag/sanitize_chunks.py --all
+    python pipeline/first_issue_graph/sanitize_chunks.py
+    python pipeline/first_issue_graph/sanitize_chunks.py --docs OXCART03 OXCART50
+    python pipeline/first_issue_graph/sanitize_chunks.py --all
 
 Importable API::
 
@@ -40,7 +40,7 @@ import re
 from pathlib import Path
 from typing import Dict, List, Optional
 
-import config
+from oxcart import config
 import lexicon
 
 # --------------------------------------------------------------------------- #

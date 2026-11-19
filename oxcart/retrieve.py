@@ -31,7 +31,7 @@ Public API:
         Returns {"domain": ..., "neo4j_evidence": [...], "weaviate_evidence": [...]}.
 
 CLI:
-    python first_issue_graphrag/retrieve.py \\
+    python -m oxcart.retrieve \\
         --q "Tell me about the half real blue stamp of the Costa Rica first issue" --k 6
 """
 
@@ -41,7 +41,7 @@ import argparse
 import re
 from typing import Any, Dict, List, Optional
 
-from config import (
+from oxcart.config import (
     ISSUE_ID,
     NEO4J_DATABASE,
     OPENAI_API_KEY,

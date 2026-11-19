@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from app import ask_service, main, public_guard, settings
 
-import config
+from oxcart import config
 
 ORIGIN = "https://demo.example"
 LONG = "x" * 2000

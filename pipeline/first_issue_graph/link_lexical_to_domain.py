@@ -26,8 +26,8 @@ Owner constraints honored here:
 
 Run (always via the repo venv, from the repo root)::
 
-    python first_issue_graphrag/link_lexical_to_domain.py
-    python first_issue_graphrag/link_lexical_to_domain.py --docs OXCART03 OXCART50
+    python pipeline/first_issue_graph/link_lexical_to_domain.py
+    python pipeline/first_issue_graph/link_lexical_to_domain.py --docs OXCART03 OXCART50
 
 Importable API::
 
@@ -41,7 +41,7 @@ import argparse
 from typing import Any, Dict, List, Optional, Sequence, Set
 
 import lexicon
-from config import (
+from oxcart.config import (
     FIRST_ISSUE_STAMP_MIN_CONF,
     ISSUE_ID,
     NEO4J_DATABASE,

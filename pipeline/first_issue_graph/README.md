@@ -6,7 +6,9 @@ queries by combining a **domain graph** (Mena + Scott), a **lexical chunk graph*
 (LLM-free chunk → issue/stamp links), and the existing **Weaviate** literature
 corpus.
 
-The prototype lives entirely under `first_issue_graphrag/`. It reads from the
+The prototype's graph build lives under `pipeline/first_issue_graph/`; the modules it
+shares with the app (`config.py`, `retrieve.py`, `examples_runner.py`) are the `oxcart/`
+package at the repository root. It reads from the
 existing Oxcart artifacts (`results/final_jsons`, `results/markdown`) and the
 already-populated Neo4j Mena graph + Weaviate `Oxcart` collection, and writes
 **only** new, namespaced Neo4j data that can be removed cleanly.
@@ -56,7 +58,7 @@ These are hard contracts. The code is built around them; do not relax them.
 ## Architecture
 
 ```
-                          first_issue_graphrag/  (prototype scope)
+                       pipeline/first_issue_graph/  (prototype scope)
  results/final_jsons/                                                       Neo4j  (additive, prototype-tagged)
  ┌───────────────────┐                                                      ┌──────────────────────────────────┐
  │ <DOC>_final.json  │   sanitize_chunks.py     results/oxcarts-patch/      │                                  │
@@ -99,16 +101,16 @@ validation report**.
 
 | File | Role |
 |------|------|
-| `config.py` | **(already written — do not modify)** Paths, `PROTOTYPE_TAG`, `ISSUE_ID`, Neo4j/Weaviate connection factories, lexical-linking tunables, `env_summary()`. |
+| `oxcart/config.py` | **(already written — do not modify)** Paths, `PROTOTYPE_TAG`, `ISSUE_ID`, Neo4j/Weaviate connection factories, lexical-linking tunables, `env_summary()`. |
 | `lexicon.py` | **(already written — do not modify)** LLM-free scorer: `score_chunk()`, `match_stamps()`, year/denomination/color/catalog extractors. The core of the lexical link layer. |
 | `sanitize_chunks.py` | Reads `results/final_jsons/<DOC>_final.json` for the curated `FIRST_ISSUE_DOCS` subset, strips hallucinated metadata/text, drops caption-only chunks, validates against `results/markdown/<DOC>.md`, and writes `results/oxcarts-patch/<DOC>_patched.json`. |
 | `build_domain_scott.py` | Loads `data/scott_first_issue.json` + `data/scott_equivalences.json`; MERGEs `ScottStamp` / `Illustration` nodes; creates `HAS_SCOTT_STAMP`, `DEPICTS`, `VARIETY_OF`, and `EQUIVALENT_TO` (to existing Mena `Stamp`). |
 | `build_lexical_graph.py` | Reads the patched chunk JSONs; MERGEs `Document` + `Chunk` nodes; creates `HAS_CHUNK` and `NEXT` (reading order). |
 | `link_lexical_to_domain.py` | Runs `lexicon.score_chunk()` over each `Chunk`; creates `MENTIONS` (→ `Issue`) and `MENTIONS_STAMP` (→ `Stamp`) edges with confidence/signals/score. |
-| `retrieve.py` | Retrieval API: `answer()` (compact card) **and** `context_bundle()` (the graph-first, quality-gated, per-source-budget bundle — recommended). See **`retrieve.md`**. |
-| `examples_runner.py` | CLI for `context_bundle()` — prints the graph-first context (domain → related → ranked source docs → all good lexical passages → thin Weaviate backup) and **auto-saves a transcript** to `results/`. `--q`/`--stamp`/`--max-lexical`/`--min-link`/`--k-weaviate`/`--width`/`--demo`. |
-| `retrieve.md` | **How to use retrieval + feed an LLM.** Output shapes, worked examples, the generate-step prompt pattern, depth levers, and the graph-first `context_bundle` mode (§9). |
-| `results/` | Per-run context transcripts (`examples_runner.py`) + `--dry-run` reports (gitignored). |
+| `oxcart/retrieve.py` | Retrieval API: `answer()` (compact card) **and** `context_bundle()` (the graph-first, quality-gated, per-source-budget bundle — recommended). See **`retrieve.md`**. |
+| `oxcart/examples_runner.py` | CLI for `context_bundle()` — prints the graph-first context (domain → related → ranked source docs → all good lexical passages → thin Weaviate backup) and **auto-saves a transcript** to `oxcart/results/`. `--q`/`--stamp`/`--max-lexical`/`--min-link`/`--k-weaviate`/`--width`/`--demo`. |
+| `oxcart/retrieve.md` | **How to use retrieval + feed an LLM.** Output shapes, worked examples, the generate-step prompt pattern, depth levers, and the graph-first `context_bundle` mode (§9). |
+| `results/` | `--dry-run` reports (gitignored). The context transcripts of `examples_runner.py` go to `oxcart/results/` (gitignored). |
 | `sample40.txt` | A 36-doc Spanish-heavy validation sample (CRF 01–12 + Filatelia/Timbre/Juventud/Philatelist/AFCR + non-first-issue negative controls) for `--docs-file` dry-runs. |
 | `run_end_to_end.py` | Orchestrates sanitize → domain → lexical → link → validation report. |
 | `teardown.py` | Deletes **only** prototype-tagged Neo4j data (`prototype = PROTOTYPE_TAG`). `--yes` to skip the confirmation prompt. |
@@ -119,48 +121,49 @@ validation report**.
 | `data/` | `scott_first_issue.json` (Scott stamp details + illustrations) and `scott_equivalences.json` (Mena↔Scott). |
 | `tests/` | `test_lexicon.py` (already passing — do not modify) and any added regression tests. Test files add the parent dir to `sys.path`. |
 | `requirements.txt` | Pinned runtime dependencies for the scripts in this folder (the API's list is `backend/requirements.txt`). |
-| `servers.py` | Starts, stops and checks the backend and frontend on Linux, macOS and Windows. |
+| `scripts/servers.py` | Starts, stops and checks the backend and frontend on Linux, macOS and Windows. |
 
 ---
 
 ## Run commands
 
 > **Interpreter:** a Python 3.10+ virtual environment with `backend/requirements.txt`
-> installed and active. Run every script **from the repo root** so the script's own
-> directory is `sys.path[0]` and `from config import ...` / `import lexicon`
-> resolve without any path hacks.
+> installed and active, and the `oxcart` package installed into it
+> (`python -m pip install -e .` in the repo root). Run every script **from the repo
+> root**: the script's own directory is `sys.path[0]`, so `import lexicon` resolves,
+> and `from oxcart.config import ...` resolves through the installed package.
 
 ```powershell
 # 0. Config / environment sanity check (prints a non-secret snapshot)
-python first_issue_graphrag/config.py
+python -m oxcart.config
 
 # 0b. Lexicon smoke test (LLM-free scorer — already passing)
-python first_issue_graphrag/tests/test_lexicon.py
+python pipeline/first_issue_graph/tests/test_lexicon.py
 
 # 1. Sanitize the curated chunk subset -> results/oxcarts-patch/<DOC>_patched.json
-python first_issue_graphrag/sanitize_chunks.py
+python pipeline/first_issue_graph/sanitize_chunks.py
 
 # 2. Build the whole graph end-to-end (sanitize -> domain -> lexical -> link -> report)
-python first_issue_graphrag/run_end_to_end.py
+python pipeline/first_issue_graph/run_end_to_end.py
 
 # 3. Ask a question (combines Neo4j domain + Neo4j lexical + Weaviate read-only)
-python first_issue_graphrag/retrieve.py --q "Who printed the 1863 half real and what color is it?"
+python -m oxcart.retrieve --q "Who printed the 1863 half real and what color is it?"
 
-# 3b. RECOMMENDED for LLM hand-off: graph-first context bundle (auto-saves to results/)
+# 3b. RECOMMENDED for LLM hand-off: graph-first context bundle (auto-saves to oxcart/results/)
 #     defaults give ALL good lexical passages with FULL text (no truncation)
-python first_issue_graphrag/examples_runner.py --q "the first issue plate crack and its positions" --stamp 1
+python -m oxcart.examples_runner --q "the first issue plate crack and its positions" --stamp 1
 
 # 4. Roll back: remove ONLY our prototype-tagged Neo4j data
-python first_issue_graphrag/teardown.py --yes
+python pipeline/first_issue_graph/teardown.py --yes
 ```
 
 Individual build steps can also be run on their own (each is idempotent via
 MERGE and takes argparse defaults):
 
 ```powershell
-python first_issue_graphrag/build_domain_scott.py
-python first_issue_graphrag/build_lexical_graph.py
-python first_issue_graphrag/link_lexical_to_domain.py
+python pipeline/first_issue_graph/build_domain_scott.py
+python pipeline/first_issue_graph/build_lexical_graph.py
+python pipeline/first_issue_graph/link_lexical_to_domain.py
 ```
 
 ### Whole-corpus coverage + evaluation (Approach A)
@@ -178,14 +181,14 @@ the safe way to test a lexicon/threshold change. Then do the real run:
 
 ```powershell
 # 0. (optional) dry-run a representative sample first — NO database writes
-python first_issue_graphrag/coverage_scan.py --dry-run --docs-file first_issue_graphrag/sample40.txt
+python pipeline/first_issue_graph/coverage_scan.py --dry-run --docs-file pipeline/first_issue_graph/sample40.txt
 
 # 1. Build domain layer once (idempotent), then scan the full corpus into Neo4j
-python first_issue_graphrag/build_domain_scott.py
-python first_issue_graphrag/coverage_scan.py --all --no-weaviate   # 894 docs; or --sample 80
+python pipeline/first_issue_graph/build_domain_scott.py
+python pipeline/first_issue_graph/coverage_scan.py --all --no-weaviate   # 894 docs; or --sample 80
 
 # 2. Read coverage stats + a ground-truth precision sample (strongest & weakest links)
-python first_issue_graphrag/evaluate.py --top 15 --weak 15
+python pipeline/first_issue_graph/evaluate.py --top 15 --weak 15
 ```
 
 Current full build: **296 docs / 653 distinct first-issue chunks** (170 docs /
@@ -295,7 +298,7 @@ The prototype is fully reversible because every node and relationship it writes
 is tagged `prototype = "first_issue_graphrag"`.
 
 ```powershell
-python first_issue_graphrag/teardown.py --yes
+python pipeline/first_issue_graph/teardown.py --yes
 ```
 
 `teardown.py` deletes only prototype-tagged nodes and relationships

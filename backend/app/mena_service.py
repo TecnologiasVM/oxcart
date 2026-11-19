@@ -35,13 +35,12 @@ from typing import Any, Optional
 
 from neo4j import Driver, ManagedTransaction
 
-# Importing settings first bootstraps sys.path so ``import config`` resolves.
-from app import settings  # noqa: F401  (side effect: sys.path bootstrap)
+from app import settings  # noqa: F401  (kept so the import order stays as it was)
 from app import graph_service, mena_data
 from app.deps import get_weaviate, sanitize_props
 from app.schemas import GraphResponse
 
-import config
+from oxcart import config
 
 logger = logging.getLogger(__name__)
 

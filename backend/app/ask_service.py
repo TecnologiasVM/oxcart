@@ -25,7 +25,7 @@ from typing import Any, Callable, Optional
 from app import settings
 from app.graph_link import GraphLink, Unavailable  # noqa: F401  (Unavailable is this module's error too)
 
-import config  # prototype module (resolved via app.settings PKG_DIR bootstrap)
+from oxcart import config
 
 log = logging.getLogger("oxcart.ask")
 
@@ -94,7 +94,7 @@ def make_lookup(link: GraphLink) -> Callable[[str, Optional[list]], list]:
     """The catalogue lookup through the process's graph link: a refused connection is tried
     again inside the question's budget (graph_link.py) before the block is unavailable."""
     def lookup(question: str, vector: Optional[list]) -> list:
-        import catalogue_lookup
+        from oxcart import catalogue_lookup
 
         return link.read(lambda session: catalogue_lookup.lookup(session, question, k=settings.ASK_ISSUES, question_vector=vector))
 

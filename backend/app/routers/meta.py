@@ -16,11 +16,11 @@ from fastapi import APIRouter, Depends
 from fastapi.concurrency import run_in_threadpool
 from neo4j import Driver
 
-from app import graph_service, settings  # settings import: sys.path bootstrap
+from app import graph_service, settings
 from app.deps import get_driver, get_weaviate
 from app.schemas import HealthResponse, OverviewResponse
 
-import config
+from oxcart import config
 
 router = APIRouter(tags=["meta"])
 

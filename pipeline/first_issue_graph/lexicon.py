@@ -31,7 +31,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Set
 
-from config import (
+from oxcart.config import (
     FIRST_ISSUE_COMPETING_MIN_CLASSES,
     FIRST_ISSUE_MIN_LINK_SCORE,
     FIRST_ISSUE_MIN_STRONG_CLASSES,

@@ -1,15 +1,11 @@
 """Tests for catalogue_lookup's question reading and query building. No database.
 
-    python -m unittest discover -s first_issue_graphrag/tests -p "test_catalogue_lookup.py"
+    python -m unittest discover -s oxcart/tests -p "test_catalogue_lookup.py"
 """
 
-import sys
 import unittest
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-import catalogue_lookup as cl  # noqa: E402
+from oxcart import catalogue_lookup as cl
 
 
 class FakeSession:

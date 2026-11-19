@@ -5,7 +5,7 @@ retrieval only: does the right passage, or the right catalogue issue, come back.
 here; there is no answer step yet.
 
 The earlier audit of the First Issue evidence graph (coverage and precision of the rule-based linker) is a
-separate document: [first_issue_graphrag/EVALUATION.md](first_issue_graphrag/EVALUATION.md).
+separate document: [pipeline/first_issue_graph/EVALUATION.md](pipeline/first_issue_graph/EVALUATION.md).
 
 ## Read this first
 
@@ -139,7 +139,7 @@ stands now; 22 to 20 when the choice was made, before later pages were judged). 
 
 ### Catalogue lookup
 
-`first_issue_graphrag/catalogue_lookup.py` finds the issue a question is about from catalogue numbers, the year,
+`oxcart/catalogue_lookup.py` finds the issue a question is about from catalogue numbers, the year,
 and either the graph's full-text index or its vector index over issues. No language model.
 
 | | Development (48) | Held out (32) |
@@ -212,7 +212,7 @@ The questions are read from `eval/data/`.
 
 ```bash
 # unit tests (no store needed)
-python -m pytest eval/tests first_issue_graphrag/tests/test_catalogue_lookup.py
+python -m pytest eval/tests oxcart/tests/test_catalogue_lookup.py
 
 # literature questions against a collection: writes local-data/eval/results/run_<label>_<split>.json
 scripts/with-key.sh OPENAI_API_KEY=<entry> WEAVIATE_URL=<entry> WEAVIATE_API_KEY=<entry> -- \

@@ -29,10 +29,9 @@ from typing import TYPE_CHECKING, Any
 
 from fastapi import FastAPI, Request
 
-# Importing settings first mutates sys.path so the prototype modules resolve.
-from app import settings  # noqa: F401  (import for side effect: sys.path)
+from app import settings
 
-import config  # prototype module (resolved via app.settings PKG_DIR bootstrap)
+from oxcart import config
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from neo4j import Driver

@@ -17,13 +17,11 @@ from typing import Any, Callable, Optional
 
 from neo4j import Driver, ManagedTransaction
 
-# Importing settings bootstraps sys.path so ``import config`` resolves to the
-# prototype's config module (first_issue_graphrag/config.py).
-from app import settings  # noqa: F401  (side effect: sys.path bootstrap)
+from app import settings  # noqa: F401  (kept so the import order stays as it was)
 from app.deps import sanitize_props
 from app.schemas import GraphEdge, GraphNode, GraphResponse, NodeDetail
 
-import config
+from oxcart import config
 
 # --------------------------------------------------------------------------- #
 # Constants

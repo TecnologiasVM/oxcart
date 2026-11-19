@@ -2,7 +2,7 @@
 Regression tests for the LLM-free First Issue lexicon (the linking crux).
 
 Run directly (no pytest harness required):
-    python first_issue_graphrag/tests/test_lexicon.py
+    python pipeline/first_issue_graph/tests/test_lexicon.py
 Also pytest-compatible.
 """
 

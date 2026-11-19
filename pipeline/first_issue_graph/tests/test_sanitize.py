@@ -10,7 +10,7 @@ counts, (e) carries a list-typed ``clean_meta`` on every chunk, and (f) recovers
 at least one real first-issue year into ``clean_meta.years``.
 
 Run directly (no pytest harness required):
-    python first_issue_graphrag/tests/test_sanitize.py
+    python pipeline/first_issue_graph/tests/test_sanitize.py
 Also pytest-compatible.
 
 If OXCART03 source data is unavailable the test SKIPs gracefully (prints SKIP and
@@ -62,7 +62,7 @@ def _check(name: str, cond: bool) -> bool:
 def _source_available() -> bool:
     """True only if the real OXCART03 final JSON is present on disk."""
     try:
-        from config import FINAL_JSONS_DIR  # local import keeps skip path cheap
+        from oxcart.config import FINAL_JSONS_DIR  # local import keeps skip path cheap
     except Exception:
         return False
     return (FINAL_JSONS_DIR / f"{DOC_ID}_final.json").is_file()

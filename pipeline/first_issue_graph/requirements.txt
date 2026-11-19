@@ -1,8 +1,9 @@
-# First Issue GraphRAG — runtime dependencies for the graph build, retrieval and
-# evaluation scripts in this folder. The API has its own list in
+# First Issue GraphRAG — runtime dependencies for the graph build and evaluation
+# scripts in this folder and for the oxcart package they import (settings,
+# retrieval). The API has its own list in
 # backend/requirements.txt (a superset of this one).
 #
-#   python -m pip install -r first_issue_graphrag/requirements.txt
+#   python -m pip install -r pipeline/first_issue_graph/requirements.txt
 #
 # Pinned. weaviate-client 4.24.1 can read the hosted collection's settings (4.18.3 cannot);
 # the other pin versions are the reference run's (Linux, 2026-11).

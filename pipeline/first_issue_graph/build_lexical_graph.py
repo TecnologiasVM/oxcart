@@ -20,9 +20,9 @@ Owner constraints honored here:
 
 Run (always via the repo venv, from the repo root)::
 
-    python first_issue_graphrag/build_lexical_graph.py
-    python first_issue_graphrag/build_lexical_graph.py --docs OXCART03 OXCART50
-    python first_issue_graphrag/build_lexical_graph.py --all-patched
+    python pipeline/first_issue_graph/build_lexical_graph.py
+    python pipeline/first_issue_graph/build_lexical_graph.py --docs OXCART03 OXCART50
+    python pipeline/first_issue_graph/build_lexical_graph.py --all-patched
 
 Importable API::
 
@@ -37,7 +37,7 @@ import json
 from typing import Any, Dict, List, Optional, Sequence
 
 import sanitize_chunks
-from config import NEO4J_DATABASE, PROTOTYPE_TAG, PATCH_DIR, neo4j_driver
+from oxcart.config import NEO4J_DATABASE, PROTOTYPE_TAG, PATCH_DIR, neo4j_driver
 
 # --------------------------------------------------------------------------- #
 # Schema DDL (idempotent, Neo4j 5.x syntax)

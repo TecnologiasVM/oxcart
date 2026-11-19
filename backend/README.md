@@ -1,7 +1,7 @@
 # First Issue KG Explorer — Backend
 
 FastAPI service that exposes the **First Issue GraphRAG** prototype
-(`first_issue_graphrag/`) as a read-only HTTP API for the Next.js frontend.
+(the `oxcart/` package) as a read-only HTTP API for the Next.js frontend.
 
 It wraps the prototype's Python API directly — it does **not** reimplement
 retrieval. Specifically it wraps:
@@ -30,10 +30,10 @@ These are non-negotiable and are enforced in code:
 ## Layout
 
 ```
-first_issue_graphrag/backend/
+backend/
 ├── app/
 │   ├── __init__.py
-│   ├── settings.py      # ports, CORS, PKG_DIR + sys.path bootstrap
+│   ├── settings.py      # ports, CORS, the question path's limits and keys
 │   ├── deps.py          # lifespan (Neo4j singleton), get_driver, get_weaviate, sanitize_props
 │   ├── schemas.py       # Pydantic v2 request/response models
 │   ├── main.py          # app factory: lifespan + CORS + routers + root
@@ -82,7 +82,7 @@ Add to the repo `.env` to override:
 
 ## Running
 
-With the project's virtual environment active, from `first_issue_graphrag/backend`:
+With the project's virtual environment active, from `backend`:
 
 ```bash
 # uvicorn (recommended); listens on this machine only
@@ -95,7 +95,7 @@ python -m app.main
 To start the backend and the frontend together, on any OS:
 
 ```bash
-python first_issue_graphrag/servers.py start    # from the repo root; also: status, stop
+python scripts/servers.py start    # from the repo root; also: status, stop
 ```
 
 Interactive docs: <http://localhost:8090/docs>
@@ -153,7 +153,7 @@ header; empty means that door does not exist), `TRUSTED_PROXY_HOPS`, and the `AS
 Without `OXCART_PUBLIC` nothing changes for local use: the explorer's routes are mounted as before, and
 `/api/ask` works without a session.
 
-Tests, with fakes in place of the stores: `python -m pytest first_issue_graphrag/backend/tests`.
+Tests, with fakes in place of the stores: `python -m pytest backend/tests`.
 To score the test set through a running backend: `python -m eval.ask_arm --label <name>` (see `EVALUATION.md`).
 
 ## Deploying the hosted mode
@@ -206,7 +206,8 @@ See `requirements.txt` (pinned: FastAPI 0.116.2, Pydantic 2.12.5, uvicorn 0.35.0
 environment:
 
 ```bash
-python -m pip install -r first_issue_graphrag/backend/requirements.txt
+python -m pip install -r backend/requirements.txt
+python -m pip install -e .          # the shared modules (oxcart/), from the repo root
 ```
 
 ## Notes for router authors

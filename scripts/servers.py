@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """Start, stop and check the app's two servers. Works on Linux, macOS and Windows.
 
-    python first_issue_graphrag/servers.py start          # backend + frontend (dev)
-    python first_issue_graphrag/servers.py start --prod   # frontend as a production build
-    python first_issue_graphrag/servers.py start --lan    # frontend reachable from other devices
-    python first_issue_graphrag/servers.py status
-    python first_issue_graphrag/servers.py stop
+    python scripts/servers.py start          # backend + frontend (dev)
+    python scripts/servers.py start --prod   # frontend as a production build
+    python scripts/servers.py start --lan    # frontend reachable from other devices
+    python scripts/servers.py status
+    python scripts/servers.py stop
 
 Run it with the project's virtual environment active: the backend starts with the
-same interpreter that runs this script. Node.js and npm must be on PATH.
+same interpreter that runs this script, and that environment must have the `oxcart`
+package installed (`python -m pip install -e .` in the repository root). Node.js and
+npm must be on PATH.
 
 * Backend: FastAPI on 127.0.0.1:8090. It is never exposed; the browser reaches it
   through the frontend's /api proxy.
@@ -16,13 +18,14 @@ same interpreter that runs this script. Node.js and npm must be on PATH.
   in dev mode, also set ALLOWED_DEV_ORIGINS (see frontend/.env.example).
 
 Neo4j and Weaviate must already be running; this script does not start them.
-Logs and process ids go to first_issue_graphrag/.run/ (git-ignored).
+Logs and process ids go to .run/ (git-ignored).
 Standard library only.
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import shutil
@@ -34,10 +37,10 @@ import time
 import urllib.request
 from pathlib import Path
 
-APP_DIR = Path(__file__).resolve().parent
-BACKEND_DIR = APP_DIR / "backend"
-FRONTEND_DIR = APP_DIR / "frontend"
-RUN_DIR = APP_DIR / ".run"
+REPO_DIR = Path(__file__).resolve().parent.parent
+BACKEND_DIR = REPO_DIR / "backend"
+FRONTEND_DIR = REPO_DIR / "frontend"
+RUN_DIR = REPO_DIR / ".run"
 BACKEND_PORT = int(os.getenv("API_PORT", "8090"))
 FRONTEND_PORT = 3000
 IS_WINDOWS = os.name == "nt"
@@ -125,7 +128,9 @@ def start(args: argparse.Namespace) -> int:
         if port_open(port):
             sys.exit(f"Port {port} is already in use ({name}). Run `servers.py stop` or free the port.")
     if not (FRONTEND_DIR / "node_modules").is_dir():
-        sys.exit("frontend/node_modules is missing. Run `npm ci` in first_issue_graphrag/frontend first.")
+        sys.exit("frontend/node_modules is missing. Run `npm ci` in frontend first.")
+    if importlib.util.find_spec("oxcart") is None:
+        sys.exit("The oxcart package is not installed in this environment. Run `python -m pip install -e .` in the repository root first.")
 
     env = dict(os.environ)
     spawn("backend", [sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(BACKEND_PORT)],

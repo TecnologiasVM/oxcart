@@ -11,8 +11,8 @@ READ-ONLY. Connects to Neo4j (and optionally Weaviate) and prints:
   5. Domain join (Issue -> Mena Stamp -> EQUIVALENT_TO -> Scott).
 
 Usage:
-    python first_issue_graphrag/evaluate.py
-    python first_issue_graphrag/evaluate.py --top 20 --weak 20 --snippet 400
+    python pipeline/first_issue_graph/evaluate.py
+    python pipeline/first_issue_graph/evaluate.py --top 20 --weak 20 --snippet 400
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ import argparse
 import sys
 import textwrap
 
-from config import ISSUE_ID, PROTOTYPE_TAG, NEO4J_DATABASE, neo4j_driver
+from oxcart.config import ISSUE_ID, PROTOTYPE_TAG, NEO4J_DATABASE, neo4j_driver
 
 # Windows consoles default to cp1252 and choke on ½ / ⁄ etc. in chunk text.
 try:

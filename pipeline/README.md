@@ -21,4 +21,4 @@ python pipeline/run_quality_check.py
 
 Modules import each other by name; running a script this way puts `pipeline/` on the import path. The Dolphin
 parser itself is in `third_party/dolphin/`. Loading the graph into Neo4j is in `neo4j_utils/`, and the First Issue
-graph build is in `first_issue_graphrag/`.
+graph build is in `pipeline/first_issue_graph/`.

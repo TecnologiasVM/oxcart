@@ -2,7 +2,7 @@
  * Shared TypeScript types for the First Issue Knowledge Graph UI.
  *
  * These mirror the read-only, LLM-free payloads produced by the prototype Python
- * layer (first_issue_graphrag/retrieve.py + the backend wrapper on port 8090):
+ * layer (oxcart/retrieve.py + the backend wrapper on port 8090):
  *   - POST /api/query   -> QueryResponse   (wraps retrieve.context_bundle)
  *   - GET  /api/explore -> ExploreResponse (Cytoscape-ready graph payload)
  *   - GET  /api/node    -> NodeDetail      (generic node detail for the panel)

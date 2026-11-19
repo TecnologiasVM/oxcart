@@ -17,7 +17,7 @@ directory listing is scanned once and cached for the process.
 
 Public API::
 
-    from figure_refs import figures_for_query
+    from oxcart.figure_refs import figures_for_query
     figs = figures_for_query(bundle["lexical"], max_figures=10)
     # -> [{"filename","doc_id","page","url","chunk_id","link_score","score"}, ...]
 """
@@ -28,7 +28,7 @@ import re
 from functools import lru_cache
 from typing import Any, Dict, List, Optional, Tuple
 
-import config
+from oxcart import config
 
 # Supported raster extensions Dolphin emits for figure crops.
 _FIGURE_EXT_RE = r"(?:png|jpg|jpeg|webp)"

@@ -1,6 +1,6 @@
 # Backend runtime dependencies for the First Issue KG Explorer API.
 #
-#   python -m pip install -r first_issue_graphrag/backend/requirements.txt
+#   python -m pip install -r backend/requirements.txt
 #
 # Pinned. weaviate-client 4.24.1 can read the hosted collection's settings (4.18.3
 # cannot) and needs pydantic 2.12 or newer. The other pins are the reference run's

@@ -105,14 +105,14 @@ because one backend is unavailable.
 
 ```bash
 # default question
-python first_issue_graphrag/retrieve.py
+python -m oxcart.retrieve
 
 # your own question, more passages per source
-python first_issue_graphrag/retrieve.py --q "What plate varieties exist on the half real?" --k 8
+python -m oxcart.retrieve --q "What plate varieties exist on the half real?" --k 8
 
 # Windows PowerShell: set UTF-8 output first so special glyphs (½) print
 #   $env:PYTHONIOENCODING="utf-8"
-python first_issue_graphrag/retrieve.py --q "Who printed the 1863 issue and in what colors?"
+python -m oxcart.retrieve --q "Who printed the 1863 issue and in what colors?"
 ```
 
 Good example questions (all stay within the First Issue scope):
@@ -125,8 +125,7 @@ Good example questions (all stay within the First Issue scope):
 ### Programmatic (the normal way to use it in an app)
 
 ```python
-import sys; sys.path.insert(0, "first_issue_graphrag")
-from retrieve import answer
+from oxcart.retrieve import answer
 
 ctx = answer("Tell me about the half real blue stamp", k=8)
 domain   = ctx["domain"]              # structured facts
@@ -302,7 +301,7 @@ full quality range — including the honest cases where the corpus does **not**
 contain the answer (so a grounded LLM must decline rather than hallucinate).
 
 > Run them yourself:
-> `python first_issue_graphrag/examples_runner.py --demo`
+> `python -m oxcart.examples_runner --demo`
 > or one at a time: `... examples_runner.py --q "..." --stamp 4`
 
 ---
@@ -457,7 +456,7 @@ in FULL — nothing is truncated — so the saved transcript is complete to past
 an LLM. Pass `--width 900` only if you want short passages for a quick terminal scan.
 
 **Auto-save:** every `examples_runner.py` run writes a timestamped transcript to
-`first_issue_graphrag/results/<slug>_<timestamp>.txt` (gitignored) — open it and
+`oxcart/results/<slug>_<timestamp>.txt` (gitignored) — open it and
 paste into your LLM.
 
 **Recommended usage:**
@@ -466,12 +465,12 @@ paste into your LLM.
 - Pure graph, skip Weaviate entirely → `--k-weaviate 0`.
 
 ```powershell
-python first_issue_graphrag/examples_runner.py --q "the first issue plate crack and its positions" --stamp 1
+python -m oxcart.examples_runner --q "the first issue plate crack and its positions" --stamp 1
 ```
 
 Programmatic:
 ```python
-from retrieve import context_bundle
+from oxcart.retrieve import context_bundle
 b = context_bundle("the first issue plate crack and its positions",
                    stamp="1", max_lexical=15, k_weaviate=5)
 # keys: b["domain"], b["related"], b["sources"], b["lexical"], b["weaviate"], b["counts"]

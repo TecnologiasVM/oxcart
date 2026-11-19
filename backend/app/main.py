@@ -13,14 +13,14 @@ Owner contracts upheld across the whole service:
 * Neo4j queries are read-only.
 * Embedding/vector fields are never exposed -- see ``app.deps.sanitize_props``.
 
-Run (from ``first_issue_graphrag/backend``, with the project virtual environment
+Run (from ``backend``, with the project virtual environment
 active)::
 
     python -m uvicorn app.main:app --host 127.0.0.1 --port 8090
 
 or start backend and frontend together::
 
-    python ../servers.py start
+    python ../scripts/servers.py start
 """
 
 from __future__ import annotations
@@ -34,12 +34,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-# Importing settings first bootstraps sys.path for the prototype modules.
 from app import public_guard, settings
 from app.deps import lifespan
 from app.routers import ask
 
-import config  # prototype module (resolved via app.settings PKG_DIR bootstrap)
+from oxcart import config
 
 log = logging.getLogger("oxcart.ask")
 

@@ -2,7 +2,7 @@
 
 Run directly (loose harness, no pytest):
 
-    cd first_issue_graphrag/backend
+    cd backend
     python test_mena_backend.py
 
 Data-dependent assertions (Scott match counts, stamp rosters) are CONDITIONAL on
@@ -53,7 +53,7 @@ def main() -> None:
     check("_parse_issue_dates passes non-JSON through", ms._parse_issue_dates("nope") == "nope")
 
     print("== mena_service (live Neo4j) ==")
-    import config
+    from oxcart import config
 
     driver = config.neo4j_driver()
     try:

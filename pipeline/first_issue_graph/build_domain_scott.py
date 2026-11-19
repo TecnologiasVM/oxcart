@@ -26,8 +26,8 @@ What it does (idempotently — safe to run repeatedly):
 
 Run conventions (always the repo venv, from repo root)::
 
-    python first_issue_graphrag/build_domain_scott.py
-    python first_issue_graphrag/build_domain_scott.py --verify-only
+    python pipeline/first_issue_graph/build_domain_scott.py
+    python pipeline/first_issue_graph/build_domain_scott.py --verify-only
 
 Public API::
 
@@ -43,7 +43,7 @@ import json
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
-from config import (
+from oxcart.config import (
     ISSUE_ID,
     NEO4J_DATABASE,
     PROTOTYPE_TAG,

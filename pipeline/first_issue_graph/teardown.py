@@ -18,13 +18,14 @@ Safety:
   * ``--drop-indexes`` additionally drops the prototype's fulltext index
     (``chunk_text_fts``) and the prototype unique constraints.
 
-Run from repo root (the package dir is sys.path[0], so bare imports work):
+Run from repo root, with the oxcart package installed (this folder is sys.path[0], so the
+sibling scripts import by name):
     # dry run (default — shows counts, deletes nothing):
-    python first_issue_graphrag/teardown.py
+    python pipeline/first_issue_graph/teardown.py
     # actually delete prototype nodes/edges:
-    python first_issue_graphrag/teardown.py --yes
+    python pipeline/first_issue_graph/teardown.py --yes
     # also drop the prototype index + constraints:
-    python first_issue_graphrag/teardown.py --yes --drop-indexes
+    python pipeline/first_issue_graph/teardown.py --yes --drop-indexes
 
 Public API:
     plan(driver=None) -> dict           # counts that WOULD be deleted (dry run)
@@ -37,7 +38,7 @@ import argparse
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List, Optional
 
-import config
+from oxcart import config
 
 # Labels we own. Every node of these labels created by the prototype carries
 # prototype = PROTOTYPE_TAG; we only ever delete nodes that carry the tag.

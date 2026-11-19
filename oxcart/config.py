@@ -10,15 +10,14 @@ Design constraints (per project owner):
     can be removed cleanly by ``teardown.py`` without touching the existing
     Mena domain graph.
 
-All scripts in this package bootstrap ``sys.path`` to this directory so they can
-``from config import ...`` whether invoked as ``python first_issue_graphrag/x.py``
-or imported as a module.
+This module is part of the ``oxcart`` package: ``from oxcart import config`` or
+``from oxcart.config import ...``. The package is installed into the environment with
+``python -m pip install -e .`` from the repository root.
 """
 
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 
 # --------------------------------------------------------------------------- #
@@ -34,13 +33,10 @@ FIGURES_DIR = MARKDOWN_DIR / "figures"
 FINAL_JSONS_DIR = RESULTS_DIR / "final_jsons"
 PATCH_DIR = RESULTS_DIR / "oxcarts-patch"
 
-DATA_DIR = PKG_DIR / "data"
+# Read by the First Issue graph build (pipeline/first_issue_graph/build_domain_scott.py).
+DATA_DIR = REPO_ROOT / "pipeline" / "first_issue_graph" / "data"
 SCOTT_DETAILS_PATH = DATA_DIR / "scott_first_issue.json"
 SCOTT_EQUIV_PATH = DATA_DIR / "scott_equivalences.json"
-
-# Make ``from config import ...`` / ``from lexicon import ...`` work for any entrypoint.
-if str(PKG_DIR) not in sys.path:
-    sys.path.insert(0, str(PKG_DIR))
 
 # --------------------------------------------------------------------------- #
 # .env loading (repo root)

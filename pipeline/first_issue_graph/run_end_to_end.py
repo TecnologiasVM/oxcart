@@ -17,10 +17,11 @@ The VALIDATION REPORT summarizes per-step counts plus live graph/Weaviate
 counts (# Scott nodes, # chunks, # MENTIONS edges, Weaviate overlap) read
 directly from Neo4j/Weaviate, and prints one full sample answer card.
 
-Run from repo root (the package dir is sys.path[0], so bare imports work):
-    python first_issue_graphrag/run_end_to_end.py
-    python first_issue_graphrag/run_end_to_end.py --docs OXCART03 OXCART50
-    python first_issue_graphrag/run_end_to_end.py --skip-sanitize --skip-domain
+Run from repo root, with the oxcart package installed (this folder is sys.path[0], so the
+sibling scripts import by name):
+    python pipeline/first_issue_graph/run_end_to_end.py
+    python pipeline/first_issue_graph/run_end_to_end.py --docs OXCART03 OXCART50
+    python pipeline/first_issue_graph/run_end_to_end.py --skip-sanitize --skip-domain
 
 Exit code is non-zero if any (non-skipped) step raises; the failing step and
 exception are summarized in the report.
@@ -32,7 +33,7 @@ import argparse
 import traceback
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
-import config
+from oxcart import config
 
 # Default sample questions used to exercise the retriever (step 5).
 SAMPLE_QUESTIONS: List[str] = [
@@ -374,7 +375,7 @@ def run_pipeline(
     answers: List[Any] = []
 
     def _do_retrieve() -> Any:
-        import retrieve
+        from oxcart import retrieve
 
         local_answers: List[Any] = []
         for question in questions:

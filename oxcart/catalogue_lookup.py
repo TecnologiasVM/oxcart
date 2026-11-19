@@ -21,7 +21,7 @@ The embedding is made by the caller, never in this module.
 
 READ-ONLY. Every function takes an open Neo4j session; nothing here opens a driver.
 
-    from catalogue_lookup import lookup
+    from oxcart.catalogue_lookup import lookup
     with driver.session(database=NEO4J_DATABASE, default_access_mode="READ") as session:
         for hit in lookup(session, "Who printed the 1946 San Juan de Dios Hospital issue?"):
             print(hit["issue_id"], hit["score"], hit["card"]["printers"])

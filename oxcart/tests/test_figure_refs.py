@@ -2,7 +2,7 @@
 
 The project has no pytest harness — run this file directly with the project venv::
 
-    python first_issue_graphrag/tests/test_figure_refs.py
+    python oxcart/tests/test_figure_refs.py
 
 It is also pytest-compatible if pytest is installed. The module under test only
 reads ``config.FIGURES_DIR``; the tests point that at a temporary directory of
@@ -11,17 +11,11 @@ dummy ``.png`` files, so they run fully offline.
 
 from __future__ import annotations
 
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-# Bootstrap: add the package dir (parent of tests/) so `import figure_refs`
-# works standalone, exactly as test_sanitize.py does for `import sanitize_chunks`.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
-import config  # noqa: E402
-import figure_refs  # noqa: E402
+from oxcart import config, figure_refs
 
 _FIGURE_NAMES = [
     "OXCART05_page_017_figure_000.png",

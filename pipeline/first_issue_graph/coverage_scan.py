@@ -20,9 +20,9 @@ the ScottStamp/Illustration layer.
 
 Run (always via the repo venv, from the repo root)::
 
-    python first_issue_graphrag/coverage_scan.py --all
-    python first_issue_graphrag/coverage_scan.py --sample 80
-    python first_issue_graphrag/coverage_scan.py --docs OXCART03 OXCART75
+    python pipeline/first_issue_graph/coverage_scan.py --all
+    python pipeline/first_issue_graph/coverage_scan.py --sample 80
+    python pipeline/first_issue_graph/coverage_scan.py --docs OXCART03 OXCART75
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 import lexicon
 import sanitize_chunks
-from config import (
+from oxcart.config import (
     FINAL_JSONS_DIR,
     FIRST_ISSUE_STAMP_MIN_CONF,
     ISSUE_ID,

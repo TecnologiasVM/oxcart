@@ -173,8 +173,8 @@ local-data/
 CLAUDE.md
 .mcp.json
 
-# Logs and process ids written by first_issue_graphrag/servers.py
-first_issue_graphrag/.run/
+# Logs and process ids written by scripts/servers.py
+.run/
 
 # Local experiments / non-project assets (kept on disk, not tracked)
 /CRF 156 FINAL.pdf
@@ -182,8 +182,8 @@ first_issue_graphrag/.run/
 /zelda_secret.wav
 *.wav
 
-# The First Issue frontend's TypeScript source dir is named "lib" and is NOT a
+# The frontend's TypeScript source dir is named "lib" and is NOT a
 # Python build artifact — the generic `lib/` rule above would otherwise drop the
 # entire frontend data/API layer (api.ts, types.ts, format.ts, cytoscape-style.ts,
 # export.ts). Keep it tracked.
-!first_issue_graphrag/frontend/lib/
+!frontend/lib/

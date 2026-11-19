@@ -9,8 +9,8 @@ into an LLM. The GRAPH is the knowledge base and gets predominance:
 Cheap Cypher does the heavy lifting; Weaviate is a small backup tail.
 
 Usage:
-    python first_issue_graphrag/examples_runner.py --demo
-    python first_issue_graphrag/examples_runner.py --q "the first issue plate crack and its positions" --stamp 1
+    python -m oxcart.examples_runner --demo
+    python -m oxcart.examples_runner --q "the first issue plate crack and its positions" --stamp 1
     ... --q "..." --max-lexical 0 --min-link 6 --k-weaviate 5 --width 1200
 
 Knobs:
@@ -34,7 +34,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import retrieve
+from oxcart import retrieve
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")

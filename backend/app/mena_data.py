@@ -30,11 +30,9 @@ import logging
 from pathlib import Path
 from typing import Any, Optional
 
-# Importing settings first bootstraps sys.path so ``import config`` resolves to
-# the prototype's config module (same pattern as graph_service / deps).
-from app import settings  # noqa: F401  (side effect: sys.path bootstrap)
+from app import settings  # noqa: F401  (kept so the import order stays as it was)
 
-import config
+from oxcart import config
 
 logger = logging.getLogger(__name__)
 

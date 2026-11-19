@@ -1,6 +1,5 @@
 """The graph link with a fake driver that refuses N times. No network, no database."""
 
-import sys
 import time
 import types
 
@@ -10,7 +9,7 @@ from fastapi.testclient import TestClient
 from app import ask_service, main, settings
 from app.graph_link import GraphLink, Unavailable
 
-import config
+from oxcart import config
 
 
 class ServiceUnavailable(Exception):
@@ -176,7 +175,7 @@ def test_a_question_gets_its_catalogue_block_after_refusals(app_with, monkeypatc
         session.run("the lookup's query")                           # this is where a refusal surfaces
         return [{"issue_id": "CR-1", "title": "An issue", "score": 1.0, "matched_by": ["text"], "card": {"issue_id": "CR-1"}}]
 
-    monkeypatch.setitem(sys.modules, "catalogue_lookup", types.SimpleNamespace(lookup=lookup))
+    monkeypatch.setattr("oxcart.catalogue_lookup.lookup", lookup)
     client.app.state.ask.search = lambda question, vector: []
     r = client.post("/api/ask", json={"question": "a question"}, headers={"x-oxcart-eval": "e" * 32})
     assert r.status_code == 200
@@ -187,8 +186,7 @@ def test_a_question_gets_its_catalogue_block_after_refusals(app_with, monkeypatc
 def test_a_question_says_the_catalogue_is_unavailable_when_the_graph_keeps_refusing(app_with, monkeypatch):
     driver = FakeDriver([ServiceUnavailable() for _ in range(100000)])
     client = app_with(driver, warm=False)
-    monkeypatch.setitem(sys.modules, "catalogue_lookup",
-                        types.SimpleNamespace(lookup=lambda session, question, **kw: session.run("q")))
+    monkeypatch.setattr("oxcart.catalogue_lookup.lookup", lambda session, question, **kw: session.run("q"))
     client.app.state.ask.search = lambda question, vector: [{"doc_id": "D", "page": 1, "chunk_type": "text", "text": "t", "score": 1.0}]
     r = client.post("/api/ask", json={"question": "a question"}, headers={"x-oxcart-eval": "e" * 32})
     assert r.status_code == 200

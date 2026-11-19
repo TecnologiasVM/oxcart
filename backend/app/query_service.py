@@ -41,15 +41,14 @@ from typing import Any, Optional
 
 from fastapi.concurrency import run_in_threadpool
 
-# Importing settings first bootstraps sys.path for the prototype modules.
-from app import settings  # noqa: F401  (import for side effect: sys.path)
+from app import settings  # noqa: F401  (kept so the import order stays as it was)
 from app.deps import sanitize_props
 from app.schemas import ExampleQuery, GraphEdge, GraphNode, GraphResponse
 
-import config as _proto_config  # prototype config (resolved via app.settings)
-import examples_runner  # prototype module
-import figure_refs  # prototype module (page-figure association)
-import retrieve  # prototype module
+from oxcart import config as _proto_config
+from oxcart import examples_runner
+from oxcart import figure_refs  # page-figure association
+from oxcart import retrieve
 
 # Visualisation budget knobs (kept small; <~60 nodes total).
 _MAX_DOCS = 8
