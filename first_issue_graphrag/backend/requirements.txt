@@ -2,13 +2,15 @@
 #
 #   python -m pip install -r first_issue_graphrag/backend/requirements.txt
 #
-# Pinned to the versions the reference run used (Python 3.10, Linux, 2026-11).
+# Pinned. weaviate-client 4.24.1 can read the hosted collection's settings (4.18.3
+# cannot) and needs pydantic 2.12 or newer. The other pins are the reference run's
+# (Linux, 2026-11). Checked on Python 3.10 and 3.12.
 
 fastapi==0.116.2           # web framework
 uvicorn[standard]==0.35.0  # ASGI server
-pydantic==2.11.10          # v2 schemas
+pydantic==2.12.5           # v2 schemas
 neo4j==6.4.1               # graph driver (read-only usage)
-weaviate-client==4.18.3    # vector/keyword store client (read-only usage)
+weaviate-client==4.24.1    # vector/keyword store client (read-only usage)
 python-dotenv==1.2.4       # loads the repo-root environment file
 httpx==0.28.1              # used by fastapi.testclient (test_mena_backend.py)
 tqdm==4.70.1               # imported by the graph-build modules the API shares

@@ -146,7 +146,9 @@ answer step yet).
   available as a separate export.
 - Only the frontend port needs to be reachable; it proxies `/api` to the backend. Everything binds to `127.0.0.1`
   by default. Embedding vectors are stripped from every response.
-- Dependencies are pinned to the versions of the reference run.
+- Dependencies are pinned.
+- A workflow runs the tests that need no database on every pull request: the Python unit tests, the frontend
+  build and the browser smoke test.
 
 Not done yet: hosting, caching and rate limits. A subset of the index that fits a free hosting tier was chosen
 and measured ([EVALUATION.md](EVALUATION.md)); the hosted demo itself is not built.

@@ -120,8 +120,8 @@ router file by the agents who write them). The intended surface:
 
 ## Dependencies
 
-See `requirements.txt` (pinned: FastAPI 0.116.2, Pydantic 2.11.10, uvicorn 0.35.0,
-`neo4j` 6.4.1, `weaviate-client` 4.18.3). Install it into a Python 3.10+ virtual
+See `requirements.txt` (pinned: FastAPI 0.116.2, Pydantic 2.12.5, uvicorn 0.35.0,
+`neo4j` 6.4.1, `weaviate-client` 4.24.1). Install it into a Python 3.10+ virtual
 environment:
 
 ```bash

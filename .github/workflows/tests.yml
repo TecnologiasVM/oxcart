@@ -1,0 +1,64 @@
+# Tests that need no database and no secret, on every pull request and on main.
+#
+# - Python: the eval's unit tests, the catalogue lookup's, the linker's and the figure matcher's.
+# - Frontend: install from the lockfile, build, and the browser smoke test (it starts the dev
+#   server itself and does not need the backend).
+#
+# The tests that need a live Neo4j and Weaviate (backend/test_mena_backend.py and the full
+# browser suite) are not run here. Actions are pinned to a commit.
+#
+# The runner is named, not "latest": the pinned Playwright (1.60) has no browser build for
+# Ubuntu 26.04, which is what "ubuntu-latest" now gives.
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install the test runner
+        run: python -m pip install pytest==9.2.0
+      - name: Unit tests
+        run: python -m pytest eval/tests first_issue_graphrag/tests
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: first_issue_graphrag/frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: first_issue_graphrag/frontend/package-lock.json
+      - name: Install from the lockfile
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Browser for the smoke test
+        run: npx playwright install --with-deps chromium
+      - name: Smoke test
+        run: npx playwright test
