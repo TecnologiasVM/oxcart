@@ -32,14 +32,22 @@ const ALLOWED_DEV_ORIGINS = (process.env.ALLOWED_DEV_ORIGINS ?? "")
   .map((h) => h.trim())
   .filter(Boolean);
 
-const nextConfig: NextConfig = {
-  allowedDevOrigins: ALLOWED_DEV_ORIGINS,
-  async rewrites() {
-    return [
-      // App Router has no /api route handlers, so this prefix is free to proxy.
-      { source: "/api/:path*", destination: `${BACKEND_ORIGIN}/api/:path*` },
-    ];
-  },
-};
+/*
+ * OXCART_EXPORT=1 builds the site as static files (./out) for a static host. A static
+ * site has no server to proxy /api, so the page calls the backend directly: set
+ * NEXT_PUBLIC_API_BASE to its address at build time. See scripts/build-hosted.mjs.
+ */
+const EXPORT = process.env.OXCART_EXPORT === "1";
+
+const nextConfig: NextConfig = EXPORT
+  ? { output: "export" }
+  : {
+      allowedDevOrigins: ALLOWED_DEV_ORIGINS,
+      async rewrites() {
+        return [
+          { source: "/api/:path*", destination: `${BACKEND_ORIGIN}/api/:path*` },
+        ];
+      },
+    };
 
 export default nextConfig;

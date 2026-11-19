@@ -2,8 +2,8 @@
 #
 # - Python: the eval's unit tests, the catalogue lookup's, the linker's, the figure matcher's, and
 #   the question path's (with fakes in place of the stores).
-# - Frontend: install from the lockfile, build, and the browser smoke test (it starts the dev
-#   server itself and does not need the backend).
+# - Frontend: install from the lockfile, build, the browser tests (they start the dev server
+#   themselves and mock the backend), and the static build of the hosted site.
 #
 # The tests that need a live Neo4j and Weaviate (backend/test_mena_backend.py and the full
 # browser suite) are not run here. Actions are pinned to a commit.
@@ -58,5 +58,9 @@ jobs:
         run: npm run build
       - name: Browser for the smoke test
         run: npx playwright install --with-deps chromium
-      - name: Smoke test
+      - name: Browser tests (the shell and the question page, backend mocked)
         run: npx playwright test
+      - name: Static build of the hosted site
+        run: npm run build:hosted
+        env:
+          NEXT_PUBLIC_API_BASE: https://backend.invalid

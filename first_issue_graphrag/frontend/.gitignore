@@ -33,3 +33,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts.bak
+
+# stored examples: built from the backend's answers, they hold excerpts of the literature
+/public/stored-examples.json

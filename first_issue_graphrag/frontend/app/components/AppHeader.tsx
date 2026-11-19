@@ -7,11 +7,14 @@ import Link from "next/link";
  * in app/research/ResearchNav.tsx. Reuses the .masthead / .brand classes from
  * globals.css so a later redesign only has to touch this file and the CSS.
  */
+/* The hosted site ships the question page only; the explorer is local research tooling. */
+const HOSTED = process.env.NEXT_PUBLIC_HOSTED === "1";
+
 export function AppHeader() {
   return (
     <header className="masthead">
       <div className="masthead__bar">
-        <Link className="brand" href="/research">
+        <Link className="brand" href="/">
           <span className="brand__type">
             <span className="brand__name">Oxcart</span>
             <span className="brand__sub">Costa Rica philately · knowledge graph</span>
@@ -20,6 +23,11 @@ export function AppHeader() {
         <span className="mono mono-muted" style={{ marginLeft: "auto" }} data-testid="demo-tag">
           Demo · retrieval only
         </span>
+        {!HOSTED && (
+          <Link className="mono" href="/research" data-testid="research-link">
+            Research tools
+          </Link>
+        )}
       </div>
     </header>
   );

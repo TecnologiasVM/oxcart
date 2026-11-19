@@ -35,6 +35,9 @@ lists what is planned and not built.
   individual stamps by a rule-based linker, with no language model.
 - **An explorer app** (`first_issue_graphrag/`): a FastAPI backend and a Next.js frontend with four views:
   Overview, Explore (the graph), Query (ask and read the evidence), and the Mena Catalogue by year.
+- **A question page and the path behind it** (the site root, `POST /api/ask`): ask about any Costa Rican issue
+  in Spanish or English and read the evidence, the catalogue issue and the passages of the literature. The
+  conversation stays in the browser; there are no accounts. The hosted demo is not live yet.
 - **A test set and a retrieval evaluation** (`eval/`, [EVALUATION.md](EVALUATION.md)): 151 questions in Spanish
   and English, and a measured choice of a 41,126-passage subset of the literature index that answers more of them
   than the full index does. The gold for the literature questions is judged by a model, not yet by a person.
