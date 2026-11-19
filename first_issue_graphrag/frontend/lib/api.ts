@@ -27,7 +27,7 @@ import type {
  * Base URL for API calls.
  *
  * Default is "" (relative) so the browser calls the SAME origin it loaded from
- * (e.g. http://ZEROTIER_IP:3000/api/...) and Next.js rewrites those to the
+ * (e.g. http://localhost:3000/api/...) and Next.js rewrites those to the
  * FastAPI backend server-side (see next.config.ts). This keeps the backend
  * internal — only port 3000 is exposed, and no CORS is needed.
  *

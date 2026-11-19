@@ -82,6 +82,9 @@ WEAVIATE_HTTP_PORT = int(os.getenv("WEAVIATE_HTTP_PORT", "8085"))
 WEAVIATE_GRPC_PORT = int(os.getenv("WEAVIATE_GRPC_PORT", "50056"))
 OXCART_COLLECTION = os.getenv("OXCART_COLLECTION", "Oxcart")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# Optional. Set when the Weaviate instance has anonymous access disabled
+# (API-key auth). Unset = anonymous, as with the bundled docker-compose.yml.
+WEAVIATE_API_KEY = os.getenv("WEAVIATE_API_KEY")
 
 
 def weaviate_client():
@@ -97,11 +100,17 @@ def weaviate_client():
     headers = {}
     if OPENAI_API_KEY:
         headers["X-OpenAI-Api-Key"] = OPENAI_API_KEY
+    auth = None
+    if WEAVIATE_API_KEY:
+        from weaviate.classes.init import Auth
+
+        auth = Auth.api_key(WEAVIATE_API_KEY)
     return weaviate.connect_to_local(
         host=WEAVIATE_HOST,
         port=WEAVIATE_HTTP_PORT,
         grpc_port=WEAVIATE_GRPC_PORT,
         headers=headers or None,
+        auth_credentials=auth,
     )
 
 

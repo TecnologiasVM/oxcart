@@ -20,9 +20,9 @@ Owner constraints honored here:
 
 Run (always via the repo venv, from the repo root)::
 
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\build_lexical_graph.py
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\build_lexical_graph.py --docs OXCART03 OXCART50
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\build_lexical_graph.py --all-patched
+    python first_issue_graphrag/build_lexical_graph.py
+    python first_issue_graphrag/build_lexical_graph.py --docs OXCART03 OXCART50
+    python first_issue_graphrag/build_lexical_graph.py --all-patched
 
 Importable API::
 

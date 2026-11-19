@@ -31,7 +31,7 @@ Public API:
         Returns {"domain": ..., "neo4j_evidence": [...], "weaviate_evidence": [...]}.
 
 CLI:
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\retrieve.py \\
+    python first_issue_graphrag/retrieve.py \\
         --q "Tell me about the half real blue stamp of the Costa Rica first issue" --k 6
 """
 
@@ -636,6 +636,7 @@ def context_bundle(
     exclude_competing: bool = True,
     include_issue_mentions: bool = True,
     related: bool = True,
+    driver: Any = None,
 ) -> Dict[str, Any]:
     """
     Graph-first context bundle with PER-SOURCE budgets. The GRAPH is the knowledge
@@ -651,23 +652,37 @@ def context_bundle(
       * ``weaviate`` -- least important: only ``k_weaviate`` passages NOT already
                         covered by the graph (set ``k_weaviate=0`` for pure-graph).
 
+    ``driver`` -- an open Neo4j driver to reuse (the API passes its process-wide
+    one). It is NOT closed here. When omitted (CLI use) a driver is opened and
+    closed for this call. Opening a new driver per question costs a full
+    connection handshake each time, which is slow against a remote database.
+
     Returns {"domain","related","sources","lexical","weaviate","counts"}.
     """
     question = (question or "").strip()
     related_panel: Dict[str, Any] = {"stamp_varieties": [], "proofs": [], "plates": []}
+    def _graph_half(drv: Any) -> tuple:
+        card = fetch_domain_card(drv)
+        panel = fetch_domain_related(drv, stamp=stamp) if related else related_panel
+        hits = fetch_lexical_all(
+            drv, question, stamp=stamp, max_lexical=max_lexical,
+            min_link_score=min_link_score, exclude_competing=exclude_competing,
+            include_issue_mentions=include_issue_mentions,
+        )
+        return card, panel, hits
+
     try:
-        with neo4j_driver() as drv:
-            domain = fetch_domain_card(drv)
-            if related:
-                related_panel = fetch_domain_related(drv, stamp=stamp)
-            lexical = fetch_lexical_all(
-                drv, question, stamp=stamp, max_lexical=max_lexical,
-                min_link_score=min_link_score, exclude_competing=exclude_competing,
-                include_issue_mentions=include_issue_mentions,
-            )
+        if driver is not None:
+            domain, related_panel, lexical = _graph_half(driver)
+        else:
+            with neo4j_driver() as drv:
+                domain, related_panel, lexical = _graph_half(drv)
     except Exception as exc:
         print(f"[neo4j] connection unavailable ({type(exc).__name__}): {exc}")
-        domain = {"issue_id": ISSUE_ID, "found": False, "stamps": [], "scott_roster": []}
+        # ``error`` carries the exception class only: the message can hold the
+        # database address. It lets a caller tell "graph unreachable" from "no evidence".
+        domain = {"issue_id": ISSUE_ID, "found": False, "error": type(exc).__name__,
+                  "stamps": [], "scott_roster": []}
         lexical = []
 
     sources = _sources_from_lexical(lexical)

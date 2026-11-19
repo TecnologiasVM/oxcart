@@ -3,7 +3,7 @@
 Run directly (loose harness, no pytest):
 
     cd first_issue_graphrag/backend
-    ../../.venv-clean/Scripts/python.exe test_mena_backend.py
+    python test_mena_backend.py
 
 Data-dependent assertions (Scott match counts, stamp rosters) are CONDITIONAL on
 the match-catalogue files being present; the pure-Python and graph-backed checks

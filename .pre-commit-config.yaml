@@ -1,9 +1,19 @@
+# Local guards, run on `git commit` after a one-time `pip install pre-commit && pre-commit install`.
 repos:
+  # 0. nbstripout - strip notebook outputs before they are committed. Outputs can
+  #    carry corpus text, catalogue data and e-mail addresses from the source
+  #    documents; the notebooks in this repository are kept without outputs.
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.9.2
+    hooks:
+      - id: nbstripout
+
   # 1. isort - 自动排序 Python imports
   - repo: https://github.com/pycqa/isort
     rev: 6.0.1  # 使用固定版本号
     hooks:
       - id: isort
+        files: ^third_party/dolphin/
         name: isort (python)
         args: [--profile=black]  # 与 Black 兼容的配置
         language: python
@@ -13,6 +23,7 @@ repos:
     rev: 25.1.0  # 使用固定版本号
     hooks:
       - id: black
+        files: ^third_party/dolphin/
         language: python
 
   # 3. flake8 - Python 静态检查
@@ -20,6 +31,7 @@ repos:
     rev: 7.2.0
     hooks:
       - id: flake8
+        files: ^third_party/dolphin/
         args: [--max-line-length=120, --ignore=E203]  # 设置行长度为 120
         additional_dependencies: [flake8-bugbear==24.12.12]  # 可选：增强检查
 

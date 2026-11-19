@@ -24,6 +24,7 @@ The backend honours three owner contracts and they are enforced elsewhere:
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -47,8 +48,10 @@ if _PKG_DIR_STR not in sys.path:
 # ---------------------------------------------------------------------------
 # Runtime configuration
 # ---------------------------------------------------------------------------
-API_HOST: str = "0.0.0.0"
-API_PORT: int = 8090
+# Localhost by default: the browser reaches the API through the Next.js /api
+# proxy, so the backend port does not need to be exposed. Override with API_HOST.
+API_HOST: str = os.getenv("API_HOST", "127.0.0.1")
+API_PORT: int = int(os.getenv("API_PORT", "8090"))
 
 # Exact origins for CORS. ``allow_credentials=True`` is incompatible with the
 # ``["*"]`` wildcard, so the frontend dev origin(s) are listed explicitly.

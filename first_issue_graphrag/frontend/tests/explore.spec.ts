@@ -56,7 +56,7 @@ test.describe("Explore page (/explore)", () => {
   test("renders cytoscape canvas, select a node, shows NodeDetailPanel title", async ({
     page,
   }) => {
-    await page.goto("/explore");
+    await page.goto("/research/explore");
     await waitForGraphReady(page);
 
     // The detail panel exists in its empty state ("No selection") before any tap.
@@ -72,7 +72,7 @@ test.describe("Explore page (/explore)", () => {
   });
 
   test("page body never exposes embedding/vector data", async ({ page }) => {
-    await page.goto("/explore");
+    await page.goto("/research/explore");
     await waitForGraphReady(page);
 
     // Populate the detail panel with real node properties, then scan the body.

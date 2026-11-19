@@ -20,35 +20,40 @@ Talks to the First Issue GraphRAG backend at `http://localhost:8090`.
 ## Run
 
 ```bash
-npm install          # already run during scaffold
-npm run dev          # http://localhost:3000  (expects backend on :8090)
+npm ci               # install the locked dependencies
+npm run dev          # http://localhost:3000, this machine only (expects backend on :8090)
+npm run dev:lan      # same, reachable from other devices (set ALLOWED_DEV_ORIGINS)
 npm run build
-npm run start
+npm run start        # production build, this machine only (start:lan for all interfaces)
 ```
 
-Set the backend origin in `.env.local`:
-
-```
-NEXT_PUBLIC_API_BASE=http://localhost:8090
-```
+No env file is needed by default: the browser calls relative `/api/*` and Next.js proxies
+those calls to the backend at `127.0.0.1:8090` (see `next.config.ts`). `.env.example`
+lists the optional overrides.
 
 ## Routes
 
-| Route       | File                          | Purpose                                            |
-| ----------- | ----------------------------- | -------------------------------------------------- |
-| `/`         | `app/page.tsx`                | First Issue overview (health, totals, roster).     |
-| `/explore`  | `app/explore/page.tsx`        | Interactive graph + node detail.                   |
-| `/query`    | `app/query/page.tsx`          | Grounded retrieval evidence + subgraph.            |
+| Route               | File                             | Purpose                                         |
+| ------------------- | -------------------------------- | ----------------------------------------------- |
+| `/`                 | `app/page.tsx`                   | Redirects to `/research`.                       |
+| `/research`         | `app/research/page.tsx`          | First Issue overview (health, totals, roster).  |
+| `/research/explore` | `app/research/explore/page.tsx`  | Interactive graph + node detail.                |
+| `/research/query`   | `app/research/query/page.tsx`    | Grounded retrieval evidence + subgraph.         |
+| `/research/mena`    | `app/research/mena/page.tsx`     | Mena catalogue, Surface Mail issues by year.    |
+
+The header and footer are presentation-only components (`app/components/AppHeader.tsx`,
+`AppFooter.tsx`); data fetching lives in `lib/api.ts` and the view components.
 
 ## Backend contract
 
 Endpoints consumed (see `lib/types.ts` + `lib/api.ts`):
 `GET /api/health`, `/api/overview`, `/api/graph`, `/api/graph/stamp/{cno}`,
-`/api/node?node_id=`, `/api/examples`, and `POST /api/query`.
+`/api/node?node_id=`, `/api/examples`, `/api/mena/*`, and `POST /api/query`.
 
 ## Tests
 
 ```bash
-npx playwright install   # one-time browser download
-npx playwright test      # smoke tests in tests-e2e/ (degrade gracefully w/o backend)
+npx playwright install chromium   # one-time browser download
+npx playwright test               # smoke tests in tests-e2e/ (no backend needed)
+npx playwright test --config=playwright.shadow.config.ts   # full suite in tests/ (needs both servers running)
 ```

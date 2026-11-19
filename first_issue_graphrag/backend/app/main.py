@@ -13,13 +13,14 @@ Owner contracts upheld across the whole service:
 * Neo4j queries are read-only.
 * Embedding/vector fields are never exposed -- see ``app.deps.sanitize_props``.
 
-Run (from ``first_issue_graphrag/backend``)::
+Run (from ``first_issue_graphrag/backend``, with the project virtual environment
+active)::
 
-    ../../.venv-clean/Scripts/python.exe -m uvicorn app.main:app --port 8090
+    python -m uvicorn app.main:app --host 127.0.0.1 --port 8090
 
-or directly::
+or start backend and frontend together::
 
-    ../../.venv-clean/Scripts/python.exe -m app.main
+    python ../servers.py start
 """
 
 from __future__ import annotations
@@ -76,4 +77,4 @@ async def root() -> dict[str, str]:
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8090, reload=False)
+    uvicorn.run("app.main:app", host=settings.API_HOST, port=settings.API_PORT, reload=False)

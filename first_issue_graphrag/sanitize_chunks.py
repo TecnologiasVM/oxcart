@@ -23,9 +23,9 @@ NO LLM calls are made here (owner constraint): all enrichment is regex/lexicon.
 
 Run from the repo root with the project venv::
 
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\sanitize_chunks.py
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\sanitize_chunks.py --docs OXCART03 OXCART50
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\sanitize_chunks.py --all
+    python first_issue_graphrag/sanitize_chunks.py
+    python first_issue_graphrag/sanitize_chunks.py --docs OXCART03 OXCART50
+    python first_issue_graphrag/sanitize_chunks.py --all
 
 Importable API::
 

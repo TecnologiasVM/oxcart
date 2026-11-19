@@ -9,8 +9,8 @@ into an LLM. The GRAPH is the knowledge base and gets predominance:
 Cheap Cypher does the heavy lifting; Weaviate is a small backup tail.
 
 Usage:
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\examples_runner.py --demo
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\examples_runner.py --q "the first issue plate crack and its positions" --stamp 1
+    python first_issue_graphrag/examples_runner.py --demo
+    python first_issue_graphrag/examples_runner.py --q "the first issue plate crack and its positions" --stamp 1
     ... --q "..." --max-lexical 0 --min-link 6 --k-weaviate 5 --width 1200
 
 Knobs:

@@ -13,10 +13,13 @@ All heavy lifting lives in :mod:`app.query_service`; this router stays thin.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Response
+from fastapi import APIRouter, Depends, Response
 from fastapi.concurrency import run_in_threadpool
 
+from neo4j import Driver
+
 from app import query_service
+from app.deps import get_driver
 from app.schemas import ExampleQuery, QueryRequest, QueryResponse
 
 router = APIRouter(tags=["query"])
@@ -29,7 +32,7 @@ async def get_examples() -> list[ExampleQuery]:
 
 
 @router.post("/query", response_model=QueryResponse)
-async def post_query(payload: QueryRequest) -> QueryResponse:
+async def post_query(payload: QueryRequest, driver: Driver = Depends(get_driver)) -> QueryResponse:
     """Run the read-only context bundle for ``payload.question`` (no LLM).
 
     Returns the sanitized ``retrieve.context_bundle`` fields plus a small
@@ -42,6 +45,7 @@ async def post_query(payload: QueryRequest) -> QueryResponse:
         max_lexical=payload.max_lexical,
         k_weaviate=payload.k_weaviate,
         exclude_competing=payload.exclude_competing,
+        driver=driver,
     )
     subgraph = query_service.build_query_subgraph(bundle, stamp=payload.stamp)
     figures = query_service.collect_query_figures(bundle)
@@ -58,7 +62,7 @@ async def post_query(payload: QueryRequest) -> QueryResponse:
 
 
 @router.post("/query/export")
-async def post_query_export(payload: QueryRequest) -> Response:
+async def post_query_export(payload: QueryRequest, driver: Driver = Depends(get_driver)) -> Response:
     """Full-text, LLM-ready ``.txt`` export for ``payload.question`` (file download).
 
     This is the ONLY endpoint that returns full chunk text. It is built
@@ -76,6 +80,7 @@ async def post_query_export(payload: QueryRequest) -> Response:
         max_lexical=payload.max_lexical,
         k_weaviate=payload.k_weaviate,
         exclude_competing=payload.exclude_competing,
+        driver=driver,
     )
     return Response(
         content=text,

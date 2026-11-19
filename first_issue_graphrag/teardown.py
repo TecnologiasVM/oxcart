@@ -20,11 +20,11 @@ Safety:
 
 Run from repo root (the package dir is sys.path[0], so bare imports work):
     # dry run (default — shows counts, deletes nothing):
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\teardown.py
+    python first_issue_graphrag/teardown.py
     # actually delete prototype nodes/edges:
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\teardown.py --yes
+    python first_issue_graphrag/teardown.py --yes
     # also drop the prototype index + constraints:
-    ".venv-clean\\Scripts\\python.exe" first_issue_graphrag\\teardown.py --yes --drop-indexes
+    python first_issue_graphrag/teardown.py --yes --drop-indexes
 
 Public API:
     plan(driver=None) -> dict           # counts that WOULD be deleted (dry run)

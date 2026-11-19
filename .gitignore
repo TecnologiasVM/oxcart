@@ -165,8 +165,13 @@ pdfs/
 results/
 graph_outputs/
 socorico/
-# Claude Code per-user settings (may contain API keys via `env` block)
-.claude/settings.local.json
+# AI-assistant working files: local to each developer, never committed
+.claude/
+CLAUDE.md
+.mcp.json
+
+# Logs and process ids written by first_issue_graphrag/servers.py
+first_issue_graphrag/.run/
 
 # Local experiments / non-project assets (kept on disk, not tracked)
 /CRF 156 FINAL.pdf

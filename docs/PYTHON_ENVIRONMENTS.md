@@ -1,5 +1,10 @@
 # Python Virtual Environments - Oxcart RAG Project
 
+> **Historical note.** This page describes the two Python environments on the original Windows development
+> machine, used for the parsing pipeline and the notebooks. The `requirements-venv-*.txt` snapshots it mentions
+> are no longer in the repository. To run the app, install
+> `first_issue_graphrag/backend/requirements.txt` into any Python 3.10+ environment (see the main README).
+
 ## Overview
 This project now has two Python virtual environments configured with different Python versions.
 
@@ -64,7 +69,7 @@ venv\Scripts\activate
 ### Jupyter Kernel
 - Kernel Name: `venv-py313`
 - Display Name: "Python 3.13 (venv)"
-- Location: `C:\Users\USER\AppData\Roaming\jupyter\kernels\venv-py313`
+- Location: `%APPDATA%\jupyter\kernels\venv-py313`
 
 ### Notable Differences from `.venv-clean`
 **Packages NOT Available:**

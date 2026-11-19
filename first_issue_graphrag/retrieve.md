@@ -103,15 +103,16 @@ because one backend is unavailable.
 
 ### CLI (prints a human-readable answer card)
 
-```powershell
+```bash
 # default question
-".venv-clean\Scripts\python.exe" first_issue_graphrag\retrieve.py
+python first_issue_graphrag/retrieve.py
 
 # your own question, more passages per source
-".venv-clean\Scripts\python.exe" first_issue_graphrag\retrieve.py --q "What plate varieties exist on the half real?" --k 8
+python first_issue_graphrag/retrieve.py --q "What plate varieties exist on the half real?" --k 8
 
-# windows console + special glyphs (½):
-$env:PYTHONIOENCODING="utf-8"; ".venv-clean\Scripts\python.exe" first_issue_graphrag\retrieve.py --q "Who printed the 1863 issue and in what colors?"
+# Windows PowerShell: set UTF-8 output first so special glyphs (½) print
+#   $env:PYTHONIOENCODING="utf-8"
+python first_issue_graphrag/retrieve.py --q "Who printed the 1863 issue and in what colors?"
 ```
 
 Good example questions (all stay within the First Issue scope):
@@ -301,7 +302,7 @@ full quality range — including the honest cases where the corpus does **not**
 contain the answer (so a grounded LLM must decline rather than hallucinate).
 
 > Run them yourself:
-> `".venv-clean\Scripts\python.exe" first_issue_graphrag\examples_runner.py --demo`
+> `python first_issue_graphrag/examples_runner.py --demo`
 > or one at a time: `... examples_runner.py --q "..." --stamp 4`
 
 ---
@@ -465,7 +466,7 @@ paste into your LLM.
 - Pure graph, skip Weaviate entirely → `--k-weaviate 0`.
 
 ```powershell
-.\.venv-clean\Scripts\python.exe first_issue_graphrag\examples_runner.py --q "the first issue plate crack and its positions" --stamp 1
+python first_issue_graphrag/examples_runner.py --q "the first issue plate crack and its positions" --stamp 1
 ```
 
 Programmatic:
