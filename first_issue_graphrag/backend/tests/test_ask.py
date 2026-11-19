@@ -55,6 +55,7 @@ def make_client(monkeypatch, fakes):
     monkeypatch.setattr(settings, "EVAL_ACCESS_KEY", "")
     monkeypatch.setattr(settings, "CORS_ORIGINS", [ORIGIN])
     monkeypatch.setattr(settings, "TRUSTED_PROXY_HOPS", 1)
+    monkeypatch.setattr(settings, "GRAPH_WARM_ON_START", False)     # no graph in these tests: the steps are fakes
     monkeypatch.setattr(config, "OPENAI_API_KEY", "set-for-the-mode-label")
     opened = []
 
@@ -93,7 +94,7 @@ def keys_of(value):
 
 # ---------------------------------------------------------------- what the hosted mode exposes
 def test_hosted_mode_mounts_the_question_path_only(client):
-    assert client.get("/api/health").json() == {"status": "ok"}
+    assert client.get("/api/health").json() == {"status": "ok", "graph": "connecting"}
     assert client.get("/api/ask/examples").status_code == 200
     for path in ("/docs", "/redoc", "/openapi.json", "/api/graph", "/api/node?node_id=chunk:1", "/api/overview",
                  "/api/examples", "/api/mena/surface-mail", "/api/figures/x.png"):

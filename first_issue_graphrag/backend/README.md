@@ -179,6 +179,14 @@ Health check path: `/api/health`. One instance: the limits are counted in the pr
 A service that sleeps when idle wakes on the first request; the page calls `/api/health` as it opens and tells
 the visitor the service is starting.
 
+**The graph connection.** A hosted graph can refuse a new connection and accept the next one half a second
+later. So the process opens its connection as it starts, in the background, retrying every half second for up
+to 30 seconds (`GRAPH_STARTUP_BUDGET_SECONDS`), and keeps one driver for its whole life. `/api/health` does not
+wait for it: it answers at once with `graph` set to `connecting`, `connected` or `unavailable`, and the page
+keeps saying "starting" while it is `connecting`. A question that finds no connection retries for up to 8
+seconds (`GRAPH_QUESTION_BUDGET_SECONDS`) before its catalogue block says "unavailable"; the passages do not wait
+for it. A query error is not retried.
+
 **Page.** In `frontend/`: `npm ci && npm run build:hosted` writes the static site to `out/` (the question page
 only). At build time:
 

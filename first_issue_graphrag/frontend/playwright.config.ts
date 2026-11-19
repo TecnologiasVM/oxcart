@@ -23,7 +23,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev",
+    // In CI the tests run against the site that was just built: the dev server fetches the
+    // fonts from Google as it starts, and a slow answer there made it miss its start timeout.
+    command: process.env.CI ? "npm run start" : "npm run dev",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

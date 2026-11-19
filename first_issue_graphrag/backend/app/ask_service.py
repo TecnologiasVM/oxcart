@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 from app import settings
+from app.graph_link import GraphLink, Unavailable  # noqa: F401  (Unavailable is this module's error too)
 
 import config  # prototype module (resolved via app.settings PKG_DIR bootstrap)
 
@@ -39,10 +40,6 @@ EXAMPLES = [
     {"lang": "es", "question": "¿Qué muestra la emisión de la Isla del Coco de 1936, y por qué se emitió?"},
     {"lang": "en", "question": "What were the first airmail stamps of Costa Rica, and which flights did they serve?"},
 ]
-
-
-class Unavailable(Exception):
-    """A store could not answer. Carries the last error's class name only."""
 
 
 @dataclass
@@ -93,24 +90,13 @@ class Embedder:
 
 
 # --------------------------------------------------------------------------- 2. catalogue
-def make_lookup(get_driver: Callable[[], Any]) -> Callable[[str, Optional[list]], list]:
+def make_lookup(link: GraphLink) -> Callable[[str, Optional[list]], list]:
+    """The catalogue lookup through the process's graph link: a refused connection is tried
+    again inside the question's budget (graph_link.py) before the block is unavailable."""
     def lookup(question: str, vector: Optional[list]) -> list:
         import catalogue_lookup
 
-        last = "unknown"
-        for attempt in (1, 2):
-            try:
-                # Notices off: under Cypher 25 the vector-index procedure answers with a deprecation
-                # notice on every call (it "is replaced by SEARCH"), which would fill the log.
-                with get_driver().session(database=config.NEO4J_DATABASE, default_access_mode="READ",
-                                          notifications_min_severity="OFF") as session:
-                    return catalogue_lookup.lookup(session, question, k=settings.ASK_ISSUES, question_vector=vector)
-            except Exception as exc:
-                last = type(exc).__name__
-                log.warning("catalogue lookup failed (attempt %d): %s", attempt, last)
-                if attempt == 1:
-                    time.sleep(1.0)
-        raise Unavailable(last)
+        return link.read(lambda session: catalogue_lookup.lookup(session, question, k=settings.ASK_ISSUES, question_vector=vector))
 
     return lookup
 
@@ -256,9 +242,9 @@ def answer(question: str, deps: AskDeps) -> dict:
     }
 
 
-def default_deps(get_driver: Callable[[], Any]) -> AskDeps:
+def default_deps(link: GraphLink) -> AskDeps:
     from app import public_guard
 
     literature = Literature()
-    return AskDeps(embed=Embedder(), lookup=make_lookup(get_driver), search=literature.search,
+    return AskDeps(embed=Embedder(), lookup=make_lookup(link), search=literature.search,
                    verify_human=public_guard.verify_turnstile, close=literature.close)

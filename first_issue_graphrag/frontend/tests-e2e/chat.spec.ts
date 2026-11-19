@@ -72,6 +72,8 @@ test("the conversation stays in this browser and can be cleared", async ({ page 
   await page.getByLabel(/Your question|Su pregunta/).fill("First question?");
   await page.getByLabel(/Your question|Su pregunta/).press("Enter");
   await expect(page.getByTestId("turn")).toHaveCount(1);
+  // wait for the evidence: a turn is kept once it has its answer, not while it is pending
+  await expect(page.getByTestId("turn").first().getByTestId("mode-line")).toBeVisible();
   await page.reload();
   await expect(page.getByTestId("turn")).toHaveCount(1);
   await expect(page.getByTestId("turn").first()).toContainText("First question?");
@@ -94,6 +96,16 @@ test("stored examples show real evidence while the service is not answering, mar
   await expect(turn.getByTestId("stored-note")).toContainText("2026-11-19");
   await expect(turn.getByTestId("mode-line")).toHaveAttribute("data-mode", "vector");
   await expect(turn.getByTestId("passage")).toHaveCount(2);
+});
+
+test("the page keeps saying 'starting' while the backend is up but its graph link is still connecting", async ({ page }) => {
+  let graph = "connecting";
+  await mock(page);
+  await page.route("**/api/health", (route) => route.fulfill({ json: { status: "ok", graph } }));
+  await page.goto("/");
+  await expect(page.getByTestId("service-starting")).toBeVisible({ timeout: 15_000 });
+  graph = "connected";
+  await expect(page.getByTestId("service-starting")).toHaveCount(0, { timeout: 20_000 });
 });
 
 test("keyword mode and an unreachable catalogue are said on the page", async ({ page }) => {
