@@ -1,13 +1,19 @@
-"""A passage as a person reads it: the stored text with the marks of its extraction undone.
+"""A passage as a person reads it: the stored text with the marks of its preparation undone.
 
 The literature was read from scans and exports, and what is stored carries marks of that work: line
 breaks written as the two characters backslash and n, references to image files, small formulas in TeX
 where the page had a superscript or a degree sign, tags left by the tool that read the page, Markdown
 emphasis. On a page those marks read as errors.
 
-``tidy`` undoes the marks and nothing else. It adds no word, drops no word of the page and changes no
-order; a line break stays a line break. It works on the text that is shown: the stores, the search and
-the evaluation still see the text as stored.
+The stored text also holds lines that are not the literature's: the chunking step
+(``pipeline/philatelic_chunk_logic.py``) appended metadata it had extracted, one labelled line each
+("Fechas: ...", "Condición: ...", "Colores: ..."), so that the search would find it. They help the search
+and are not shown: under a paragraph they read as part of the page, which they are not.
+``pipeline/first_issue_graph/sanitize_chunks.py`` strips the same lines for the graph.
+
+``tidy`` undoes the marks, leaves those lines out, and does nothing else. It adds no word, drops no word
+of the page and changes no order; a line break stays a line break. It works on the text that is shown:
+the stores, the search and the evaluation still see the text as stored.
 """
 
 from __future__ import annotations
@@ -46,6 +52,11 @@ _HOLDS_TEX = re.compile(r"[\\^{}]|_\{")
 
 # backslash-t written out, unless it starts a TeX command (\text, \times, \theta, \tau, \to, \tilde)
 _WRITTEN_TAB = re.compile(r"\\t(?!(?:ext[a-z]*|imes|heta|au|o|ilde|frac)(?![a-zA-Z]))")
+# the lines the chunking step appended, by the labels it writes (philatelic_chunk_logic.py), and its one
+# fixed sentence; a line is taken only when it starts with the label
+_APPENDED = re.compile(
+    r"(?m)^[ \t]*(?:(?:Catálogos internacionales|Fechas|Valores faciales|Especificaciones técnicas|Condición"
+    r"|Variedades EFO|Significado histórico|Colores|Diseños|Precios):[^\n]*|Período Guanacaste 1885-1891\.[ \t]*)(?:\n|$)")
 _IMAGE = re.compile(r"!\[[^\]\n]*\]\((?:[^()\n]|\([^()\n]*\))*\)")
 _BREAK_TAG = re.compile(r"<br\s*/?>", re.IGNORECASE)
 _TOOL_TAG = re.compile(r"</?(?:underline|smiles|u|sub|sup)>", re.IGNORECASE)
@@ -100,6 +111,7 @@ def tidy(text: str) -> str:
         # backslash-n is a line break here, always: the stored text has it in two fragments of three
         text = _WRITTEN_TAB.sub(" ", text.replace("\\n", "\n"))
     text = _BREAK_TAG.sub("\n", text)
+    text = _APPENDED.sub("", text)
     text = _IMAGE.sub("", text)
     text = _FORMULA.sub(_formula, _BLOCK.sub(_formula, text))
     if "\\" in text:

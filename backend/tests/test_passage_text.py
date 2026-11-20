@@ -60,6 +60,22 @@ def test_tags_of_the_reading_tool_and_markdown_marks_are_dropped_and_their_words
     assert tidy("a\\_b and \\[1\\]") == "a_b and [1]"
 
 
+def test_the_lines_the_chunking_step_appended_are_not_shown():
+    stored = "A sentence of the page.\\nFechas: 1901, 1902. \\nCondición: made up. \\n\\nA second paragraph.\\nColores: blue. "
+    assert tidy(stored) == "A sentence of the page.\n\nA second paragraph."
+    every = ("Catálogos internacionales: A 1. ", "Fechas: 1901. ", "Valores faciales: 5 c. ", "Especificaciones técnicas: perf 12. ",
+             "Condición: made up. ", "Variedades EFO: made up. ", "Período Guanacaste 1885-1891. ", "Significado histórico: made up. ",
+             "Colores: blue. ", "Diseños: made up. ", "Precios: 5. ")
+    assert tidy("The page." + "".join("\\n" + line for line in every)) == "The page."
+    assert tidy("Fechas: 1901. ") == ""                                  # nothing but an appended line: no text to show
+
+
+def test_a_label_inside_a_sentence_stays():
+    assert tidy("The list gives Colores: blue and red, in that order.") == "The list gives Colores: blue and red, in that order."
+    assert tidy("Fechas importantes de la emisión\nde 1901") == "Fechas importantes de la emisión\nde 1901"
+    assert tidy("Color: blue\nDirector: a made-up name") == "Color: blue\nDirector: a made-up name"
+
+
 def test_other_angle_brackets_are_left_as_they_are():
     assert tidy("see <the list> and a < b > c") == "see <the list> and a < b > c"
 
