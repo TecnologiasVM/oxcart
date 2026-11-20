@@ -16,8 +16,12 @@
 Oxcart answers questions about Costa Rican stamps with **evidence**: catalogue facts from a knowledge graph, and the
 passages of the philatelic literature that support them, each with its document and page.
 
-**Status.** What runs today is a **retrieval-only research demo** for one issue, the 1863 First Issue. It returns
-the evidence and does not write an answer. It runs locally; there is no hosted demo yet. The [roadmap](#roadmap)
+**Try it: [oxcart.chat](https://oxcart.chat).** Ask about any Costa Rican issue, in Spanish or English, and read
+the evidence. The demo runs on free hosting tiers and sleeps when nobody uses it; waking it takes about half a
+minute, and the stored examples on the page work meanwhile.
+
+**Status.** What runs today is **retrieval only**: it returns the evidence and does not write an answer. The
+hosted demo is the question page; the explorer app for the 1863 First Issue runs locally. The [roadmap](#roadmap)
 lists what is planned and not built.
 
 <p align="center">
@@ -37,12 +41,12 @@ lists what is planned and not built.
   Overview, Explore (the graph), Query (ask and read the evidence), and the Mena Catalogue by year.
 - **A question page and the path behind it** (the site root, `POST /api/ask`): ask about any Costa Rican issue
   in Spanish or English and read the evidence, the catalogue issue and the passages of the literature. The
-  conversation stays in the browser; there are no accounts. The hosted demo is not live yet.
+  conversation stays in the browser; there are no accounts. This is the page the hosted demo serves.
 - **A test set and a retrieval evaluation** (`eval/`, [EVALUATION.md](EVALUATION.md)): 151 questions in Spanish
   and English, and a measured choice of a 41,126-passage subset of the literature index that answers more of them
   than the full index does. The gold for the literature questions is judged by a model, not yet by a person.
 - **A catalogue lookup for any issue** (`oxcart/catalogue_lookup.py`): finds the issue a question
-  is about, in Spanish or English, with no language model. It is a module with tests; the app does not call it yet.
+  is about, in Spanish or English, with no language model. The question path calls it for every question.
 
 The corpus, the databases and the page images are **not in this repository**; see [Data](#data).
 
@@ -153,8 +157,9 @@ answer step yet).
 - A workflow runs the tests that need no database on every pull request: the Python unit tests, the frontend
   build and the browser smoke test.
 
-Not done yet: hosting, caching and rate limits. A subset of the index that fits a free hosting tier was chosen
-and measured ([EVALUATION.md](EVALUATION.md)); the hosted demo itself is not built.
+The hosted demo serves the question path only: a human check before the first question, limits per visitor and
+for the whole service, and a subset of the index that fits a free hosting tier, chosen and measured in
+[EVALUATION.md](EVALUATION.md). Not done yet: caching.
 
 ## Run it locally
 
@@ -254,13 +259,12 @@ Two facts about the literature index that anything built on it must respect:
 
 Planned, **not built**:
 
-1. **A hosted demo**, retrieval only, on free hosting tiers.
-2. **An answer step.** A short written answer that cites the passages it used, declines questions outside its
+1. **An answer step.** A short written answer that cites the passages it used, declines questions outside its
    sources, and falls back to evidence-only when it cannot answer. Evaluated on the test set before release.
-3. **The answer step as a multi-step flow** (route, retrieve, grade the evidence, retrieve again once, answer),
+2. **The answer step as a multi-step flow** (route, retrieve, grade the evidence, retrieve again once, answer),
    scored against the simpler version on the same evaluation.
-4. **Scope beyond the First Issue in the app**: any Costa Rican stamp question. The catalogue lookup and the
-   evaluated literature search exist as modules; the app still answers from the First Issue only.
+3. **Scope beyond the First Issue in the explorer**: the question page already takes any Costa Rican stamp
+   question; the explorer's graph views still cover the First Issue only.
 
 ## License
 
