@@ -29,6 +29,7 @@ from typing import Any, Callable, Optional
 
 from app import settings
 from app.graph_link import GraphLink, Unavailable  # noqa: F401  (Unavailable is this module's error too)
+from app.passage_text import tidy
 
 from oxcart import config
 
@@ -313,7 +314,7 @@ def answer(question: str, deps: AskDeps) -> dict:
 
     shown = []
     for p in passages or []:
-        text, clipped = clip(p.get("text", ""), settings.ASK_TEXT_LIMIT)
+        text, clipped = clip(tidy(p.get("text", "")), settings.ASK_TEXT_LIMIT)
         shown.append({"doc_id": p.get("doc_id"), "page": p.get("page"), "chunk_type": p.get("chunk_type"),
                       "text": text, "clipped": clipped, "score": p.get("score")})
     timings["total_ms"] = int((time.time() - started) * 1000)
