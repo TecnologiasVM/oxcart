@@ -1,5 +1,9 @@
 """The question path, with fakes in place of the three stores. No network, no database, no key."""
 
+import threading
+import time
+import types
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -57,6 +61,7 @@ def make_client(monkeypatch, fakes):
     monkeypatch.setattr(settings, "TRUSTED_PROXY_HOPS", 1)
     monkeypatch.setattr(settings, "VISITOR_ADDRESS_HEADER", "")
     monkeypatch.setattr(settings, "GRAPH_WARM_ON_START", False)     # no graph in these tests: the steps are fakes
+    monkeypatch.setattr(settings, "ASK_WARM_ON_START", False)       # ... and nothing is opened at startup
     monkeypatch.setattr(config, "OPENAI_API_KEY", "set-for-the-mode-label")
     opened = []
 
@@ -95,7 +100,8 @@ def keys_of(value):
 
 # ---------------------------------------------------------------- what the hosted mode exposes
 def test_hosted_mode_mounts_the_question_path_only(client):
-    assert client.get("/api/health").json() == {"status": "ok", "graph": "connecting"}
+    assert client.get("/api/health").json() == {"status": "ok", "graph": "connecting",
+                                                "literature": "not started", "embedding": "not started"}
     assert client.get("/api/ask/examples").status_code == 200
     for path in ("/docs", "/redoc", "/openapi.json", "/api/graph", "/api/node?node_id=chunk:1", "/api/overview",
                  "/api/examples", "/api/mena/surface-mail", "/api/figures/x.png"):
@@ -399,27 +405,148 @@ def test_the_embedding_is_made_here_from_the_question_as_asked(monkeypatch):
         def json(self):
             return {"data": [{"embedding": [0.5, 0.25]}]}
 
-    def post(url, **kwargs):
+    clients = set()
+
+    def post(self, url, **kwargs):
+        clients.add(id(self))
         calls.append((url, kwargs))
         return Reply()
 
     monkeypatch.setattr(config, "OPENAI_API_KEY", "the-key")
-    monkeypatch.setattr(httpx, "post", post)
+    monkeypatch.setattr(httpx.Client, "post", post)
     embed = ask_service.Embedder()
     assert embed("¿Qué es esto?") == [0.5, 0.25] and embed("¿Qué es esto?") == [0.5, 0.25]
     assert len(calls) == 1                                                         # the second one came from the cache
     url, kwargs = calls[0]
     assert url == "https://api.openai.com/v1/embeddings"
     assert kwargs["json"] == {"model": "text-embedding-3-large", "input": "¿Qué es esto?"}
+    assert kwargs["headers"] == {"Authorization": "Bearer the-key"}
+    assert embed("a second question") == [0.5, 0.25] and len(clients) == 1         # one client: the connection is reused
+    assert embed.state == "connected"
 
-    def failing(url, **kwargs):
+    def failing(self, url, **kwargs):
         calls.append((url, kwargs))
         raise httpx.ConnectError("down")
 
-    monkeypatch.setattr(httpx, "post", failing)
-    assert embed("another question") is None and len(calls) == 3                   # one retry, then give up
+    monkeypatch.setattr(httpx.Client, "post", failing)
+    assert embed("another question") is None and len(calls) == 4                   # one retry, then give up
+    assert embed.state == "unavailable"
     monkeypatch.setattr(config, "OPENAI_API_KEY", None)
-    assert ask_service.Embedder()("no key") is None and len(calls) == 3
+    assert ask_service.Embedder()("no key") is None and len(calls) == 4
+    embed.close()
+
+
+# ---------------------------------------------------------------- what is opened at startup
+def test_the_embedding_connection_is_opened_with_one_tiny_embedding(monkeypatch):
+    import httpx
+
+    calls = []
+
+    class Reply:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"data": [{"embedding": [0.5, 0.25]}]}
+
+    def post(self, url, **kwargs):
+        calls.append(kwargs["json"]["input"])
+        return Reply()
+
+    monkeypatch.setattr(httpx.Client, "post", post)
+    monkeypatch.setattr(config, "OPENAI_API_KEY", None)
+    embed = ask_service.Embedder()
+    assert embed.state == "not started"
+    assert embed.warm() is False and embed.state == "not configured" and calls == []     # no key: nothing is sent
+    monkeypatch.setattr(config, "OPENAI_API_KEY", "the-key")
+    embed.warm_in_background().join(5)
+    assert embed.state == "connected" and calls == ["warm-up"]
+    assert embed("warm-up") == [0.5, 0.25] and len(calls) == 2                           # the warm-up's vector was not kept
+
+    def failing(self, url, **kwargs):
+        calls.append("failed")
+        raise httpx.ConnectError("down")
+
+    monkeypatch.setattr(httpx.Client, "post", failing)
+    assert embed.warm() is False and embed.state == "unavailable" and calls[2:] == ["failed", "failed"]
+    embed.close()
+
+
+class FakeStore:
+    """Stands for a Weaviate client: one collection whose searches return two passages."""
+
+    def __init__(self):
+        found = types.SimpleNamespace(objects=[
+            types.SimpleNamespace(properties={"doc_id": "D", "page_number": n, "chunk_type": "text", "text": "t"},
+                                  metadata=types.SimpleNamespace(distance=0.25, score=1.0)) for n in (1, 2)])
+        query = types.SimpleNamespace(near_vector=lambda **kw: found, bm25=lambda **kw: found)
+        self.collections = types.SimpleNamespace(get=lambda name: types.SimpleNamespace(query=query))
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+
+
+def test_the_literature_client_is_opened_in_the_background_and_a_question_uses_that_one(monkeypatch):
+    gate, opened = threading.Event(), []
+
+    def connect(self):
+        gate.wait(5)
+        opened.append(FakeStore())
+        return opened[-1]
+
+    monkeypatch.setattr(ask_service.Literature, "_connect", connect)
+    literature = ask_service.Literature()
+    assert literature.state == "not started"
+    thread = literature.warm_in_background()
+    assert literature.state == "connecting"                          # said at once, before the client is open
+    gate.set()
+    thread.join(5)
+    assert literature.state == "connected" and len(opened) == 1
+    assert len(literature.search("q", [0.1])) == 2 and len(opened) == 1     # the question did not open a second client
+    literature.close()
+    assert opened[0].closed
+
+
+def test_a_literature_client_that_cannot_be_opened_is_reported_and_recovers(monkeypatch):
+    attempts = []
+
+    def refuse(self):
+        attempts.append(1)
+        raise ConnectionError("an address would be in here")
+
+    monkeypatch.setattr(ask_service.Literature, "_connect", refuse)
+    literature = ask_service.Literature()
+    assert literature.warm() is False and literature.state == "unavailable" and len(attempts) == 2
+    monkeypatch.setattr(ask_service.Literature, "_connect", lambda self: FakeStore())
+    assert len(literature.search("q", None)) == 2 and literature.state == "connected"
+
+
+def test_startup_opens_both_in_the_background_and_health_says_where_they_are(make_client, monkeypatch):
+    gate = threading.Event()
+
+    def connect(self):
+        gate.wait(5)
+        return FakeStore()
+
+    monkeypatch.setattr(ask_service.Literature, "_connect", connect)
+    monkeypatch.setattr(config, "OPENAI_API_KEY", None)
+    monkeypatch.setattr(settings, "ASK_WARM_ON_START", True)
+    opened = []
+    real = ask_service.default_deps
+    monkeypatch.setattr(ask_service, "default_deps", lambda link: opened.append(real(link)) or opened[-1])
+    client = make_client()
+    client.app.state.ask = opened[0]                                 # the real steps, not the fixture's fakes
+    t0 = time.time()
+    body = client.get("/api/health").json()
+    assert body["literature"] == "connecting" and time.time() - t0 < 1.0     # startup and health did not wait
+    gate.set()
+    for _ in range(200):
+        body = client.get("/api/health").json()
+        if body["literature"] == "connected" and body["embedding"] != "connecting":
+            break
+        time.sleep(0.01)
+    assert body == {"status": "ok", "graph": "connecting", "literature": "connected", "embedding": "not configured"}
 
 
 def test_the_vector_store_client_is_never_given_the_openai_key(monkeypatch):
