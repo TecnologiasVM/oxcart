@@ -11,9 +11,13 @@ The stored text also holds lines that are not the literature's: the chunking ste
 and are not shown: under a paragraph they read as part of the page, which they are not.
 ``pipeline/first_issue_graph/sanitize_chunks.py`` strips the same lines for the graph.
 
-``tidy`` undoes the marks, leaves those lines out, and does nothing else. It adds no word, drops no word
-of the page and changes no order; a line break stays a line break. It works on the text that is shown:
-the stores, the search and the evaluation still see the text as stored.
+A few fragments (about one in a thousand) hold a reading loop: where the tool that read the scan lost
+the page it wrote one word, or two or three, over and over ("la la la la ..."), sometimes for the rest of
+the fragment. That run is not the page's text either. Each of its words is shown once, and ``[…]`` stands for the repeats.
+
+``tidy`` undoes the marks, leaves those lines out, cuts a loop short, and does nothing else. It adds no
+word, drops no word of the page and changes no order; a line break stays a line break. It works on the
+text that is shown: the stores, the search and the evaluation still see the text as stored.
 """
 
 from __future__ import annotations
@@ -104,6 +108,54 @@ def _loose_tex(text: str) -> str:
     return _unwrap(_lower(text))
 
 
+# A reading loop: LOOP_WINDOW words in a row that are made of at most LOOP_WORDS different words.
+# Prose never does that; a column of figures can, so only words made of letters count.
+LOOP_WINDOW, LOOP_WORDS, LOOP_MARK = 20, 3, "[…]"
+LOOP_MARK_AFTER = 5            # this many repeats in a row are marked; fewer are dropped without a mark
+_WORD = re.compile(r"\S+")
+
+
+def _cut_loops(text: str) -> str:
+    """Show a reading loop once. Inside the loop each different word is kept the first time it
+    comes, in its order, and a stretch of repeats becomes ``[…]``; so no word disappears, only
+    its repeats. The words before and after the loop are not touched."""
+    tokens = list(_WORD.finditer(text))
+    if len(tokens) < LOOP_WINDOW:
+        return text
+    keys = [m.group(0).strip(".,;:!?()[]\"'«»“”-–—").lower() for m in tokens]
+    lettered = [k.isalpha() for k in keys]
+    inside = [False] * len(tokens)
+    for i in range(len(tokens) - LOOP_WINDOW + 1):
+        if all(lettered[i:i + LOOP_WINDOW]) and len(set(keys[i:i + LOOP_WINDOW])) <= LOOP_WORDS:
+            inside[i:i + LOOP_WINDOW] = [True] * LOOP_WINDOW
+    if not any(inside):
+        return text
+    out, at, i = [], 0, 0
+    while i < len(tokens):
+        if not inside[i]:
+            i += 1
+            continue
+        j = i
+        while j < len(tokens) and inside[j]:
+            j += 1
+        seen, kept, repeats = set(), [], 0
+        for n in range(i, j):
+            if keys[n] in seen:
+                repeats += 1
+                continue
+            if repeats >= LOOP_MARK_AFTER:
+                kept.append(LOOP_MARK)
+            repeats = 0
+            seen.add(keys[n])
+            kept.append(tokens[n].group(0))
+        if repeats >= LOOP_MARK_AFTER:
+            kept.append(LOOP_MARK)
+        out.append(text[at:tokens[i].start()] + " ".join(kept))
+        at = tokens[j - 1].end()
+        i = j
+    return "".join(out) + text[at:]
+
+
 def tidy(text: str) -> str:
     """The stored text without the marks of its extraction. Never raises on odd input."""
     text = text or ""
@@ -120,6 +172,7 @@ def tidy(text: str) -> str:
     text = _BOLD.sub(r"\1", text)
     text = _HEADING.sub("", text)
     text = _MARKDOWN_ESCAPE.sub(r"\1", text)
+    text = _cut_loops(text)
     text = re.sub(r"[ \t\r\f\v]+", " ", text)
     text = re.sub(r" ?\n ?", "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text)

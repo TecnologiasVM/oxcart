@@ -76,6 +76,34 @@ def test_a_label_inside_a_sentence_stays():
     assert tidy("Color: blue\nDirector: a made-up name") == "Color: blue\nDirector: a made-up name"
 
 
+def test_a_reading_loop_is_shown_once_and_the_words_around_it_stay():
+    assert tidy("The office opened in " + "la " * 200) == "The office opened in la […]"
+    assert tidy("A first sentence. Then " + "para " * 60 + "and the text goes on here.") == "A first sentence. Then para […] and the text goes on here."
+    assert tidy("Before " + "de la casa " * 40 + "after it.") == "Before de la casa […] after it."
+    irregular = "Start of it " + "de la la quorl de la quorl " * 20 + "end of it."      # the loop changes its step
+    assert tidy(irregular) == "Start of it de la quorl […] end of it."
+    two = "One " + "la " * 40 + "middle words that are real " + "para " * 40 + "end."
+    assert tidy(two) == "One la […] middle words that are real para […] end."
+
+
+def test_no_word_of_a_loop_disappears_only_its_repeats():
+    column = "Rates: " + "letters " * 25 + "prints " * 25 + "parcels " * 25 + "as listed."       # a table's column, flattened
+    assert tidy(column) == "Rates: letters […] prints […] parcels […] as listed."
+    chain = "x " + "".join(f"{word} " * 30 for word in ("alpha", "beta", "gamma", "delta", "epsilon"))
+    shown = tidy(chain)
+    assert all(word in shown.split() for word in ("x", "alpha", "beta", "gamma", "delta", "epsilon"))
+    assert shown == "x alpha […] beta […] gamma […] delta […] epsilon […]"
+
+
+def test_what_only_looks_like_a_loop_is_left_alone():
+    for real in ("ja ja ja ja ja ja ja ja, said the letter",                              # a short run
+                 "5 c. " * 40 + "blue",                                                   # a column of figures
+                 "0 " * 60,
+                 "id. " * 12 + "and the rest of the list",                                # ditto marks, a dozen
+                 "la emisión de la serie de la casa de la moneda de la ciudad de la costa de la isla de la paz"):
+        assert tidy(real) == " ".join(real.split())
+
+
 def test_other_angle_brackets_are_left_as_they_are():
     assert tidy("see <the list> and a < b > c") == "see <the list> and a < b > c"
 
