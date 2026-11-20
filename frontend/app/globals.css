@@ -2186,6 +2186,17 @@ button {
 .chat__examples {
   margin-top: var(--space-8);
 }
+.chat__examples-toggle {
+  display: block;
+  padding: var(--space-2) 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.chat__examples-toggle:hover {
+  color: var(--color-ink);
+}
 .chat__example-list {
   display: flex;
   flex-direction: column;
@@ -2214,6 +2225,39 @@ button {
 .chat__turn {
   border-top: 1px solid var(--color-ink);
   padding: var(--space-5) 0 var(--space-6);
+}
+/* a question that is being searched: a thin moving line under it */
+.chat__progress {
+  position: relative;
+  height: 2px;
+  margin: var(--space-3) 0 var(--space-2);
+  overflow: hidden;
+  background: var(--color-hairline-strong);
+}
+.chat__progress::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 30%;
+  background: var(--color-cobalt);
+  animation: chat-progress 1.2s ease-in-out infinite;
+}
+@keyframes chat-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(334%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat__progress::after {
+    width: 100%;
+    opacity: 0.5;
+    animation: none;
+  }
 }
 .chat__turn-head {
   display: flex;
@@ -2262,6 +2306,9 @@ button {
 .chat .evi-card__text {
   font-size: 16px;
   white-space: pre-wrap;
+  /* the server already clips a passage here; a second cap would cut a line in half */
+  max-height: none;
+  overflow-y: visible;
 }
 .chat__privacy {
   margin-top: var(--space-10);
