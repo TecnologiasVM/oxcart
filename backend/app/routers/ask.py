@@ -70,11 +70,10 @@ def access(request: Request) -> tuple[Optional[str], Optional[str]]:
     In hosted mode a visitor needs a valid session token."""
     if public_guard.eval_key_matches(request.headers.get(public_guard.EVAL_HEADER, "")):
         return None, None
-    token = request.headers.get(public_guard.SESSION_HEADER, "")
-    valid = public_guard.session_is_valid(token, settings.SESSION_SIGNING_KEY)
-    if request.app.state.public and not valid:
+    payload = public_guard.session_payload(request.headers.get(public_guard.SESSION_HEADER, ""), settings.SESSION_SIGNING_KEY)
+    if request.app.state.public and payload is None:
         raise ApiError(401, "session_required", "Please complete the human check to ask a question.")
-    return _visitor(request), public_guard.token_key(token) if valid else None
+    return _visitor(request), public_guard.token_key(payload) if payload is not None else None
 
 
 @health_router.get("/health")

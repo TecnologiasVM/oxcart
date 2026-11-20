@@ -55,19 +55,31 @@ def issue_session(key: str, ttl: int, now: Optional[float] = None) -> str:
     return f"{_b64(payload)}.{_b64(signature)}"
 
 
-def session_is_valid(token: str, key: str, now: Optional[float] = None) -> bool:
+def session_payload(token: str, key: str, now: Optional[float] = None) -> Optional[bytes]:
+    """The signed payload of a token that is valid now, or None.
+
+    The payload is what identifies a token. Its text does not: the decoder accepts more
+    than one spelling of the same bytes (padding, characters it skips, the unused bits of
+    the last character), so one token can be written in several ways that all verify.
+    """
     if not key or not token or token.count(".") != 1 or len(token) > 300:
-        return False
+        return None
     try:
         payload_part, signature_part = token.split(".")
         payload, signature = _unb64(payload_part), _unb64(signature_part)
         expected = hmac.new(key.encode("utf-8"), payload, hashlib.sha256).digest()
         if not hmac.compare_digest(signature, expected):
-            return False
+            return None
         version, expires, _nonce = payload.decode("ascii").split(":")
-        return version == "v1" and int(expires) > (now if now is not None else time.time())
+        if version == "v1" and int(expires) > (now if now is not None else time.time()):
+            return payload
+        return None
     except Exception:
-        return False
+        return None
+
+
+def session_is_valid(token: str, key: str, now: Optional[float] = None) -> bool:
+    return session_payload(token, key, now) is not None
 
 
 def eval_key_matches(given: str) -> bool:
@@ -127,10 +139,11 @@ def visitor_key(forwarded_for: Optional[str], peer: Optional[str], named: Option
     return hashlib.sha256(_SALT + address.encode("utf-8", "replace")).hexdigest()[:24]
 
 
-def token_key(token: str) -> str:
-    """A salted hash of a session token, to count the questions asked with it. The prefix
-    keeps it apart from every visitor key."""
-    return "token:" + hashlib.sha256(_SALT + b"token:" + token.encode("utf-8", "replace")).hexdigest()[:24]
+def token_key(payload: bytes) -> str:
+    """A salted hash of a session token's signed payload (session_payload), to count the
+    questions asked with it: every spelling of one token gives one key. The prefix keeps
+    it apart from every visitor key."""
+    return "token:" + hashlib.sha256(_SALT + b"token:" + payload).hexdigest()[:24]
 
 
 # --------------------------------------------------------------------------- limits
@@ -139,7 +152,8 @@ class Limiter:
 
     A question can be counted under two keys, the visitor's address and its session token:
     it passes only when both are under the limits, and it is then counted under both. A
-    refused question is counted under neither.
+    refused question is counted under neither, and leaves nothing behind: a key gets an
+    entry only when a question is counted under it.
     """
 
     MAX_VISITORS = 50_000
@@ -164,17 +178,17 @@ class Limiter:
             if g_count >= self.global_per_day:
                 return False, "service_daily_limit", until_tomorrow
             keys = [key for key in (visitor, token) if key is not None] if visitor is not None else []
-            for key in keys:                                 # first every key is asked, then every key is counted
-                window = self._minute.setdefault(key, collections.deque())
+            for key in keys:                                 # first every key is asked: this pass creates nothing
+                window = self._minute.get(key)
                 while window and window[0] <= t - 60:
                     window.popleft()
-                if len(window) >= self.per_minute:
+                if window and len(window) >= self.per_minute:
                     return False, "visitor_minute_limit", int(window[0] + 60 - t) + 1
                 v_day, v_count = self._day.get(key, (day, 0))
                 if v_day == day and v_count >= self.per_day:
                     return False, "visitor_daily_limit", until_tomorrow
-            for key in keys:
-                self._minute[key].append(t)
+            for key in keys:                                 # ... then every key is counted
+                self._minute.setdefault(key, collections.deque()).append(t)
                 v_day, v_count = self._day.get(key, (day, 0))
                 self._day[key] = (day, v_count + 1 if v_day == day else 1)
             if len(self._day) > self.MAX_VISITORS:           # bound the memory: forget everyone but today's counts

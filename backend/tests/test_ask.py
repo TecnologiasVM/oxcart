@@ -1,5 +1,6 @@
 """The question path, with fakes in place of the three stores. No network, no database, no key."""
 
+import string
 import threading
 import time
 import types
@@ -327,6 +328,57 @@ def test_a_new_token_does_not_buy_a_new_allowance_for_the_same_address(client):
     assert [ask_from(f"203.0.113.{n}", fresh).status_code for n in (7, 8, 9)] == [200, 200, 429]   # ... and that refusal did not count against the token
 
 
+def other_spellings(token):
+    """The same token written in other ways that still decode to the same bytes."""
+    alphabet = string.ascii_uppercase + string.ascii_lowercase + string.digits + "-_"     # url-safe base64, in order
+    payload, signature = token.split(".")
+    flipped = signature[:-1] + alphabet[alphabet.index(signature[-1]) ^ 1]      # an unused bit of the last character
+    return [payload + "=." + signature, token + "~~", payload + "." + flipped]
+
+
+def test_one_token_has_one_count_however_it_is_written():
+    key = "k" * 40
+    token = public_guard.issue_session(key, 3600)
+    payload = public_guard.session_payload(token, key)
+    assert payload is not None and public_guard.session_is_valid(token, key)
+    variants = other_spellings(token)
+    assert len(set(variants + [token])) == 4                                    # four different strings
+    for variant in variants:
+        seen = public_guard.session_payload(variant, key)
+        assert seen is None or public_guard.token_key(seen) == public_guard.token_key(payload), variant[-6:]
+    another = public_guard.session_payload(public_guard.issue_session(key, 3600), key)
+    assert public_guard.token_key(another) != public_guard.token_key(payload)   # a different token has its own count
+
+
+def test_a_token_at_its_limit_stays_there_in_every_spelling_and_from_any_address(client):
+    client.app.state.limiter = public_guard.Limiter(per_minute=2, per_day=100, global_per_day=1000)
+    token = session_of(client)["x-oxcart-session"]
+
+    def ask_with(session, forwarded):
+        return client.post("/api/ask", json={"question": "q"}, headers={"x-oxcart-session": session, "x-forwarded-for": forwarded})
+
+    assert ask_with(token, "203.0.113.1").status_code == 200 and ask_with(token, "203.0.113.2").status_code == 200
+    codes = [ask_with(variant, f"203.0.113.{10 + n}").status_code for n, variant in enumerate(other_spellings(token))]
+    assert all(code in (429, 401) for code in codes), codes                     # counted as the same token, or not a token at all
+
+
+def test_refused_questions_leave_nothing_behind():
+    clock = [1_000_000.0]
+    limiter = public_guard.Limiter(per_minute=2, per_day=100, global_per_day=100_000, now=lambda: clock[0])
+    assert limiter.check("a", "token:1")[0] and limiter.check("b", "token:1")[0]
+    before = (len(limiter._minute), len(limiter._day))
+    assert before == (3, 3)
+    for n in range(500):                                                        # the token is at its limit: every new address is refused
+        assert limiter.check(f"new-address-{n}", "token:1") == (False, "visitor_minute_limit", 61)
+    assert (len(limiter._minute), len(limiter._day)) == before
+    assert limiter.check("a", "token:2")[0]                                     # "a" reaches its own limit; "token:2" is counted once
+    for n in range(500):                                                        # ... and a new token each time does not get it through
+        assert limiter.check("a", f"token:new-{n}")[0] is False
+    assert (len(limiter._minute), len(limiter._day)) == (4, 4)
+    clock[0] += 30
+    assert limiter.check("new-address", "token:1")[2] == 31                     # the wait is still told from the oldest question
+
+
 def test_limiter_counts_two_keys_together_or_not_at_all():
     clock = [1_000_000.0]
     limiter = public_guard.Limiter(per_minute=100, per_day=2, global_per_day=100, now=lambda: clock[0])
@@ -359,9 +411,9 @@ def test_visitor_key_prefers_the_named_value_and_falls_back_without_it(monkeypat
     for absent in (None, "", "   "):
         assert public_guard.visitor_key("192.0.2.1", "192.0.2.9", absent) == public_guard.visitor_key("192.0.2.1", "192.0.2.9")
     assert "203.0.113.5" not in named
-    token = public_guard.token_key("a.session-token")
-    assert token.startswith("token:") and "a.session-token" not in token
-    assert token == public_guard.token_key("a.session-token") != public_guard.token_key("another.session-token")
+    token = public_guard.token_key(b"v1:1900000000:a-nonce")
+    assert token.startswith("token:") and "a-nonce" not in token
+    assert token == public_guard.token_key(b"v1:1900000000:a-nonce") != public_guard.token_key(b"v1:1900000000:another")
 
 
 def test_visitor_key_reads_from_the_right(monkeypatch):
