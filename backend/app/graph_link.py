@@ -5,7 +5,8 @@ A hosted graph can refuse a new connection and accept the next one half a second
 
 * **At startup** the process opens a connection in the background, retrying inside a time
   budget. Startup itself does not wait: the health route answers at once and says whether
-  the graph is `connecting`, `connected` or `unavailable`.
+  the graph is `connecting`, `connected` or `unavailable`. `unavailable` is the verdict of
+  every warm-up that did not open a connection, whatever the reason.
 * **One driver for the life of the process.** Once a connection is open the driver's pool
   keeps it; calls on an open connection are not the ones that fail.
 * **A question that finds no connection** retries inside its own, shorter budget before
@@ -97,6 +98,9 @@ class GraphLink:
             self.read(lambda session: session.run("RETURN 1 AS ok").consume(), budget=self._startup_budget)
             return True
         except Unavailable:
+            # Also when the failure was one that is not retried (a refused password): the first
+            # connection did not open, and "connecting" would be said for ever.
+            self._set("unavailable")
             return False
 
     def warm_in_background(self) -> threading.Thread:
