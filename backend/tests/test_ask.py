@@ -55,6 +55,7 @@ def make_client(monkeypatch, fakes):
     monkeypatch.setattr(settings, "EVAL_ACCESS_KEY", "")
     monkeypatch.setattr(settings, "CORS_ORIGINS", [ORIGIN])
     monkeypatch.setattr(settings, "TRUSTED_PROXY_HOPS", 1)
+    monkeypatch.setattr(settings, "VISITOR_ADDRESS_HEADER", "")
     monkeypatch.setattr(settings, "GRAPH_WARM_ON_START", False)     # no graph in these tests: the steps are fakes
     monkeypatch.setattr(config, "OPENAI_API_KEY", "set-for-the-mode-label")
     opened = []
@@ -199,6 +200,13 @@ def test_the_eval_skips_the_visitor_limit_but_not_the_service_limit(client, monk
     assert codes == [200, 200, 200, 429]
 
 
+def test_the_eval_skips_the_token_count_too(client, monkeypatch):
+    monkeypatch.setattr(settings, "EVAL_ACCESS_KEY", "s" * 32)
+    client.app.state.limiter = public_guard.Limiter(per_minute=1, per_day=1, global_per_day=10)
+    headers = {**session_of(client), "x-oxcart-eval": "s" * 32}          # the same session token every time
+    assert [client.post("/api/ask", json={"question": "q"}, headers=headers).status_code for _ in range(3)] == [200, 200, 200]
+
+
 # ---------------------------------------------------------------- the answer and its modes
 def test_the_answer_says_which_mode_produced_each_block(client, fakes):
     r = client.post("/api/ask", json={"question": "  a   question "}, headers=session_of(client))
@@ -256,7 +264,74 @@ def test_the_visitor_limit_counts_by_the_address_the_proxy_reports(client):
     assert ask_from("192.0.2.99, 203.0.113.9").status_code == 200          # what the client put on the left changes nothing
     r = ask_from("198.51.100.1, 203.0.113.9")
     assert r.status_code == 429 and r.json()["error"] == "visitor_minute_limit" and int(r.headers["retry-after"]) > 0
-    assert ask_from("203.0.113.10").status_code == 200                    # another visitor
+    headers = session_of(client)                                          # another visitor comes with its own token
+    assert ask_from("203.0.113.10").status_code == 200
+
+
+def test_the_named_header_is_the_visitor_when_the_setting_names_it(client, monkeypatch):
+    monkeypatch.setattr(settings, "VISITOR_ADDRESS_HEADER", "cf-connecting-ip")
+    client.app.state.limiter = public_guard.Limiter(per_minute=2, per_day=100, global_per_day=1000)
+
+    def ask_from(named, forwarded):
+        headers = {"x-forwarded-for": forwarded, **({"cf-connecting-ip": named} if named else {})}
+        return client.post("/api/ask", json={"question": "q"}, headers={**headers, **session_of(client)})   # a new token each time
+
+    assert ask_from("203.0.113.9", "192.0.2.1").status_code == 200
+    assert ask_from("203.0.113.9", "192.0.2.2, 192.0.2.3").status_code == 200     # a made-up X-Forwarded-For changes nothing
+    r = ask_from("203.0.113.9", "192.0.2.4")
+    assert r.status_code == 429 and r.json()["error"] == "visitor_minute_limit"
+    assert ask_from("203.0.113.10", "192.0.2.4").status_code == 200              # another visitor has its own count
+    # a request without the header falls back to the X-Forwarded-For rule
+    assert [ask_from(None, "192.0.2.50").status_code for _ in range(3)] == [200, 200, 429]
+    assert ask_from(None, "192.0.2.51").status_code == 200
+
+
+def test_without_the_setting_a_named_header_from_a_client_changes_nothing(client):
+    client.app.state.limiter = public_guard.Limiter(per_minute=2, per_day=100, global_per_day=1000)
+    codes = [client.post("/api/ask", json={"question": "q"},
+                         headers={"x-forwarded-for": "203.0.113.9", "cf-connecting-ip": f"198.51.100.{n}", **session_of(client)}).status_code
+             for n in range(3)]
+    assert codes == [200, 200, 429]
+
+
+def test_a_session_token_is_counted_whatever_address_it_comes_from(client):
+    client.app.state.limiter = public_guard.Limiter(per_minute=2, per_day=100, global_per_day=1000)
+    token = session_of(client)
+
+    def ask_from(forwarded, headers):
+        return client.post("/api/ask", json={"question": "q"}, headers={**headers, "x-forwarded-for": forwarded})
+
+    assert ask_from("203.0.113.1", token).status_code == 200
+    assert ask_from("203.0.113.2", token).status_code == 200
+    r = ask_from("203.0.113.3", token)                                    # a third address, the same token
+    assert r.status_code == 429 and r.json()["error"] == "visitor_minute_limit" and int(r.headers["retry-after"]) > 0
+    assert ask_from("203.0.113.3", session_of(client)).status_code == 200  # the refusal did not count against that address
+
+
+def test_a_new_token_does_not_buy_a_new_allowance_for_the_same_address(client):
+    client.app.state.limiter = public_guard.Limiter(per_minute=2, per_day=100, global_per_day=1000)
+
+    def ask_from(forwarded, headers):
+        return client.post("/api/ask", json={"question": "q"}, headers={**headers, "x-forwarded-for": forwarded})
+
+    assert ask_from("203.0.113.1", session_of(client)).status_code == 200
+    assert ask_from("203.0.113.1", session_of(client)).status_code == 200
+    fresh = session_of(client)
+    assert ask_from("203.0.113.1", fresh).status_code == 429               # the address is at its limit
+    assert [ask_from(f"203.0.113.{n}", fresh).status_code for n in (7, 8, 9)] == [200, 200, 429]   # ... and that refusal did not count against the token
+
+
+def test_limiter_counts_two_keys_together_or_not_at_all():
+    clock = [1_000_000.0]
+    limiter = public_guard.Limiter(per_minute=100, per_day=2, global_per_day=100, now=lambda: clock[0])
+    assert limiter.check("a", "token:1")[0] and limiter.check("b", "token:1")[0]
+    assert limiter.check("c", "token:1") == (False, "visitor_daily_limit", limiter.check("c", "token:1")[2])   # the token is at its day's limit
+    assert limiter.check("c")[0] and limiter.check("c")[0] and not limiter.check("c")[0]                      # "c" was not charged for the refusals
+    assert limiter.check("a", "token:2")[0] and not limiter.check("a", "token:3")[0]                          # "a" reaches its own limit
+    assert [limiter.check("d", "token:3")[0] for _ in range(3)] == [True, True, False]                        # token 3 was not charged either
+    assert limiter.check(None, "token:1")[0]                                                                   # the eval: neither key is asked
+    clock[0] += 86400
+    assert limiter.check("a", "token:1")[0]
 
 
 def test_limiter_day_and_service_limits_reset_the_next_day():
@@ -268,6 +343,19 @@ def test_limiter_day_and_service_limits_reset_the_next_day():
     assert limiter.check("c")[1] == "service_daily_limit"
     clock[0] += 86400
     assert limiter.check("a")[0] is True and limiter.check("c")[0] is True
+
+
+def test_visitor_key_prefers_the_named_value_and_falls_back_without_it(monkeypatch):
+    monkeypatch.setattr(settings, "TRUSTED_PROXY_HOPS", 1)
+    named = public_guard.visitor_key("192.0.2.1", "192.0.2.9", "203.0.113.5")
+    assert named == public_guard.visitor_key("198.51.100.77, 192.0.2.44", "192.0.2.10", " 203.0.113.5 ")
+    assert named != public_guard.visitor_key("192.0.2.1", "192.0.2.9", "203.0.113.6")
+    for absent in (None, "", "   "):
+        assert public_guard.visitor_key("192.0.2.1", "192.0.2.9", absent) == public_guard.visitor_key("192.0.2.1", "192.0.2.9")
+    assert "203.0.113.5" not in named
+    token = public_guard.token_key("a.session-token")
+    assert token.startswith("token:") and "a.session-token" not in token
+    assert token == public_guard.token_key("a.session-token") != public_guard.token_key("another.session-token")
 
 
 def test_visitor_key_reads_from_the_right(monkeypatch):

@@ -89,6 +89,12 @@ ASK_LIMIT_GLOBAL_PER_DAY: int = _int("ASK_LIMIT_GLOBAL_PER_DAY", 2000)
 # How many proxies of the host stand in front of this process. The visitor's address is
 # read that many entries from the right of X-Forwarded-For; 0 = use the socket's peer.
 TRUSTED_PROXY_HOPS: int = _int("TRUSTED_PROXY_HOPS", 1)
+# The header in which the host's edge reports the visitor's address (CF-Connecting-IP where
+# Cloudflare stands in front). When this names a header and a request carries it, the visitor
+# is that value; empty, or a request without the header: the X-Forwarded-For rule above.
+# Name only a header the edge overwrites on every request, and check it on the host: a
+# made-up value sent by a client must not change the count.
+VISITOR_ADDRESS_HEADER: str = os.getenv("VISITOR_ADDRESS_HEADER", "").strip().lower()
 
 # The literature store for the question path: a Weaviate Cloud cluster when WEAVIATE_URL
 # is set, the local instance of config.py otherwise. OXCART_VECTOR_NAME names the vector

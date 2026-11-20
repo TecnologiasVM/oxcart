@@ -8,7 +8,9 @@ Three things, none of which needs a database:
   until this time": it carries no identity and nothing is stored about the visitor.
 * **Limits.** Questions per minute and per day for one visitor, and per day for the whole
   service, counted in this process's memory. A visitor is the address the host's proxy
-  reports, kept only as a salted hash that dies with the process.
+  reports, kept only as a salted hash that dies with the process. The session token is
+  counted too, with the same numbers: a question passes only when both the address and
+  the token are under the limits, so changing address does not buy a new allowance.
 * **The eval's way in.** A secret header, compared in constant time. With no secret
   configured that door does not exist. It skips the human check and the per-visitor
   limits, never the service's daily limit.
@@ -103,20 +105,42 @@ def verify_turnstile(token: str) -> str:
 _SALT = os.urandom(16)
 
 
-def visitor_key(forwarded_for: Optional[str], peer: Optional[str]) -> str:
-    """A salted hash of the visitor's address. The address itself is not kept."""
+def visitor_key(forwarded_for: Optional[str], peer: Optional[str], named: Optional[str] = None) -> str:
+    """A salted hash of the visitor's address. The address itself is not kept.
+
+    ``named`` is what the request carries in the header the host's edge sets with the
+    visitor's address (settings.VISITOR_ADDRESS_HEADER); the caller passes it only when
+    that setting names a header. With it, the visitor is that value. Without it (setting
+    empty, or a request that does not carry the header) the rule is the older one: the
+    entry TRUSTED_PROXY_HOPS from the right of X-Forwarded-For, or the socket's peer.
+    """
     address = peer or "unknown"
-    hops = settings.TRUSTED_PROXY_HOPS
-    if hops > 0 and forwarded_for:
-        entries = [e.strip() for e in forwarded_for.split(",") if e.strip()]
-        if len(entries) >= hops:
-            address = entries[-hops]      # counted from the right: the left side is whatever the client sent
+    named = (named or "").strip()
+    if named:
+        address = named
+    else:
+        hops = settings.TRUSTED_PROXY_HOPS
+        if hops > 0 and forwarded_for:
+            entries = [e.strip() for e in forwarded_for.split(",") if e.strip()]
+            if len(entries) >= hops:
+                address = entries[-hops]      # counted from the right: the left side is whatever the client sent
     return hashlib.sha256(_SALT + address.encode("utf-8", "replace")).hexdigest()[:24]
+
+
+def token_key(token: str) -> str:
+    """A salted hash of a session token, to count the questions asked with it. The prefix
+    keeps it apart from every visitor key."""
+    return "token:" + hashlib.sha256(_SALT + b"token:" + token.encode("utf-8", "replace")).hexdigest()[:24]
 
 
 # --------------------------------------------------------------------------- limits
 class Limiter:
-    """Per-visitor minute and day limits and a service-wide day limit, in memory."""
+    """Per-visitor minute and day limits and a service-wide day limit, in memory.
+
+    A question can be counted under two keys, the visitor's address and its session token:
+    it passes only when both are under the limits, and it is then counted under both. A
+    refused question is counted under neither.
+    """
 
     MAX_VISITORS = 50_000
 
@@ -127,8 +151,9 @@ class Limiter:
         self._day: dict[str, tuple[int, int]] = {}
         self._global: tuple[int, int] = (0, 0)
 
-    def check(self, visitor: Optional[str]) -> tuple[bool, str, int]:
-        """(allowed, reason, seconds to wait). ``visitor=None`` is the eval: service limit only."""
+    def check(self, visitor: Optional[str], token: Optional[str] = None) -> tuple[bool, str, int]:
+        """(allowed, reason, seconds to wait). ``visitor=None`` is the eval: service limit only.
+        ``token`` is the key of the session token the question came with, when there is one."""
         t = self.now()
         day = int(t // 86400)
         until_tomorrow = int((day + 1) * 86400 - t) + 1
@@ -138,21 +163,22 @@ class Limiter:
                 g_day, g_count = day, 0
             if g_count >= self.global_per_day:
                 return False, "service_daily_limit", until_tomorrow
-            if visitor is not None:
-                window = self._minute.setdefault(visitor, collections.deque())
+            keys = [key for key in (visitor, token) if key is not None] if visitor is not None else []
+            for key in keys:                                 # first every key is asked, then every key is counted
+                window = self._minute.setdefault(key, collections.deque())
                 while window and window[0] <= t - 60:
                     window.popleft()
                 if len(window) >= self.per_minute:
                     return False, "visitor_minute_limit", int(window[0] + 60 - t) + 1
-                v_day, v_count = self._day.get(visitor, (day, 0))
-                if v_day != day:
-                    v_day, v_count = day, 0
-                if v_count >= self.per_day:
+                v_day, v_count = self._day.get(key, (day, 0))
+                if v_day == day and v_count >= self.per_day:
                     return False, "visitor_daily_limit", until_tomorrow
-                window.append(t)
-                self._day[visitor] = (v_day, v_count + 1)
-                if len(self._day) > self.MAX_VISITORS:       # bound the memory: forget everyone but today's counts
-                    self._day = {k: v for k, v in self._day.items() if v[0] == day}
-                    self._minute = {k: w for k, w in self._minute.items() if w and w[-1] > t - 60}
+            for key in keys:
+                self._minute[key].append(t)
+                v_day, v_count = self._day.get(key, (day, 0))
+                self._day[key] = (day, v_count + 1 if v_day == day else 1)
+            if len(self._day) > self.MAX_VISITORS:           # bound the memory: forget everyone but today's counts
+                self._day = {k: v for k, v in self._day.items() if v[0] == day}
+                self._minute = {k: w for k, w in self._minute.items() if w and w[-1] > t - 60}
             self._global = (g_day, g_count + 1)
             return True, "", 0

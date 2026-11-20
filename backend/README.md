@@ -140,7 +140,7 @@ With `OXCART_PUBLIC=1` the app runs in **hosted mode**:
 | Routes mounted | `GET /api/health`, `GET /api/ask/examples`, `POST /api/session`, `POST /api/ask`. Nothing else: no explorer routes, no export, no figures |
 | Docs | `/docs`, `/redoc` and `/openapi.json` are off |
 | Human check | The page solves a Cloudflare Turnstile challenge and posts its token to `/api/session`; the backend verifies it with Cloudflare and returns a signed token valid for an hour, sent as `X-Oxcart-Session` with each question. If the check cannot be verified, questions are refused with a message |
-| Limits | 10 questions a minute and 100 a day per visitor, 2,000 a day for the service, in memory; a question is at most 300 characters and a request 2 kB |
+| Limits | 10 questions a minute and 100 a day per visitor, 2,000 a day for the service, in memory; a question is at most 300 characters and a request 2 kB. A visitor is counted twice, by address and by session token, and a question passes only when both are under the limits |
 | CORS | The origins in `CORS_ORIGINS`, GET and POST, no credentials |
 | Errors | `{"error": code, "message": text}`; no exception text, nothing of the request repeated |
 | Logs | One line per question with the mode, the timings and error classes. No question text, no address |
@@ -148,7 +148,7 @@ With `OXCART_PUBLIC=1` the app runs in **hosted mode**:
 Settings, all from the environment (`app/settings.py`): `OXCART_PUBLIC`, `CORS_ORIGINS`, `WEAVIATE_URL` and
 `WEAVIATE_API_KEY` (a Weaviate Cloud cluster; without `WEAVIATE_URL` the local instance is used),
 `OPENAI_API_KEY`, `TURNSTILE_SECRET`, `SESSION_SIGNING_KEY`, `EVAL_ACCESS_KEY` (the eval's own way in, a secret
-header; empty means that door does not exist), `TRUSTED_PROXY_HOPS`, and the `ASK_*` bounds.
+header; empty means that door does not exist), `TRUSTED_PROXY_HOPS`, `VISITOR_ADDRESS_HEADER`, and the `ASK_*` bounds.
 
 Without `OXCART_PUBLIC` nothing changes for local use: the explorer's routes are mounted as before, and
 `/api/ask` works without a session.
@@ -174,6 +174,7 @@ access log. It holds no key and no data. The host provides these settings, as se
 | `SESSION_SIGNING_KEY` | A long random string; signs the session tokens |
 | `EVAL_ACCESS_KEY` | Optional: a long random string that lets the eval and the page's build in without the human check |
 | `TRUSTED_PROXY_HOPS` | How many of the host's proxies stand in front of the app (default 1). Check it on the host: the visitor limit must follow the caller, and a made-up `X-Forwarded-For` must not change it |
+| `VISITOR_ADDRESS_HEADER` | Optional: the header in which the host's edge reports the visitor's address, for example `CF-Connecting-IP` where Cloudflare stands in front. With it the visitor limit follows that header; a request without it falls back to `TRUSTED_PROXY_HOPS`. Use it where no entry of `X-Forwarded-For` is the visitor, and check it the same way: a made-up value from a client must not change the count, and two real addresses must be counted apart |
 
 Health check path: `/api/health`. One instance: the limits are counted in the process's memory.
 A service that sleeps when idle wakes on the first request; the page calls `/api/health` as it opens and tells

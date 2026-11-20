@@ -57,19 +57,23 @@ async def body_limit(request: Request) -> None:
 
 
 def _visitor(request: Request) -> str:
+    named = request.headers.get(settings.VISITOR_ADDRESS_HEADER) if settings.VISITOR_ADDRESS_HEADER else None
     return public_guard.visitor_key(request.headers.get("x-forwarded-for"),
-                                    request.client.host if request.client else None)
+                                    request.client.host if request.client else None, named)
 
 
-def access(request: Request) -> Optional[str]:
-    """Who is asking: None for the eval's secret header, otherwise the visitor's key.
+def access(request: Request) -> tuple[Optional[str], Optional[str]]:
+    """Who is asking, as the keys the limits count: (None, None) for the eval's secret
+    header, otherwise the visitor's key and the key of its session token (None when the
+    request has no valid token, which only local mode lets through).
     In hosted mode a visitor needs a valid session token."""
     if public_guard.eval_key_matches(request.headers.get(public_guard.EVAL_HEADER, "")):
-        return None
-    if request.app.state.public and not public_guard.session_is_valid(
-            request.headers.get(public_guard.SESSION_HEADER, ""), settings.SESSION_SIGNING_KEY):
+        return None, None
+    token = request.headers.get(public_guard.SESSION_HEADER, "")
+    valid = public_guard.session_is_valid(token, settings.SESSION_SIGNING_KEY)
+    if request.app.state.public and not valid:
         raise ApiError(401, "session_required", "Please complete the human check to ask a question.")
-    return _visitor(request)
+    return _visitor(request), public_guard.token_key(token) if valid else None
 
 
 @health_router.get("/health")
@@ -109,8 +113,8 @@ async def ask(payload: AskRequest, request: Request) -> dict:
     question = " ".join(payload.question.split())
     if not question:
         raise ApiError(422, "invalid_request", "Write a question first.")
-    visitor = access(request)
-    allowed, reason, wait = request.app.state.limiter.check(visitor)
+    visitor, token = access(request)
+    allowed, reason, wait = request.app.state.limiter.check(visitor, token)
     if not allowed:
         raise ApiError(429, reason, MESSAGES[reason], wait)
     try:
