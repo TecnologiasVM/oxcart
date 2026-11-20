@@ -189,6 +189,77 @@ test("a refusal is shown in words a visitor can read, and is not kept", async ({
   await expect(page.getByTestId("turn")).toHaveCount(0);
 });
 
+test("the list of questions to try folds away once there is a question, so its evidence is in view", async ({ page }) => {
+  const many = Array.from({ length: 8 }, (_, i) => ({ lang: "en", question: `Example question number ${i + 1}?` }));
+  await mock(page);
+  await page.route("**/api/ask/examples", (route) => route.fulfill({ json: { examples: many, max_question_chars: 300 } }));
+  await page.goto("/");
+  const toggle = page.getByTestId("examples-toggle");
+  const examples = page.getByRole("button", { name: /Example question number/ });
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(examples).toHaveCount(8);
+  await page.getByLabel(/Your question|Su pregunta/).fill("A typed question?");
+  await page.getByLabel(/Your question|Su pregunta/).press("Enter");
+  const turn = page.getByTestId("turn").first();
+  await expect(turn.getByTestId("mode-line")).toBeVisible();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(toggle).toContainText("(8)");
+  await expect(examples).toHaveCount(0);
+  await expect(turn.locator(".chat__question")).toBeInViewport();     // not below a list any more
+  await toggle.click();                                               // the visitor can open it again
+  await expect(examples).toHaveCount(8);
+  await examples.first().click();                                     // a new question folds it again
+  await expect(page.getByTestId("turn")).toHaveCount(2);
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await page.reload();                                                // a conversation found on opening: folded
+  await expect(page.getByTestId("turn")).toHaveCount(2);
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await page.getByTestId("clear").click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(examples).toHaveCount(8);
+});
+
+test("a question that is being searched shows it in view at once, on a small screen too", async ({ page }) => {
+  let answer: () => void = () => {};
+  const held = new Promise<void>((resolve) => (answer = resolve));
+  const many = Array.from({ length: 8 }, (_, i) => ({ lang: "en", question: `Example question number ${i + 1}?` }));
+  await page.setViewportSize({ width: 390, height: 700 });
+  await mock(page);
+  await page.route("**/api/ask/examples", (route) => route.fulfill({ json: { examples: many, max_question_chars: 300 } }));
+  await page.route("**/api/ask", async (route) => {
+    await held;
+    await route.fulfill({ json: ANSWER });
+  });
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: /Example question number/ })).toHaveCount(8);
+  await page.getByLabel(/Your question|Su pregunta/).fill("A typed question?");
+  await page.getByLabel(/Your question|Su pregunta/).press("Enter");
+  const turn = page.getByTestId("turn").first();
+  await expect(turn.getByTestId("searching-bar")).toBeInViewport();
+  await expect(turn).toContainText(/Searching…|Buscando…/);
+  answer();
+  await expect(turn.getByTestId("mode-line")).toBeVisible();
+  await expect(turn.getByTestId("searching-bar")).toHaveCount(0);
+});
+
+test("a passage keeps its line breaks, and one that is only a figure says so", async ({ page }) => {
+  const passages = [
+    { doc_id: "A TEST DOCUMENT", page: 12, chunk_type: "text", text: "A first line.\nA second line.", clipped: false, score: 0.9 },
+    { doc_id: "ANOTHER DOCUMENT", page: 3, chunk_type: "text", text: "", clipped: false, score: 0.8 },
+  ];
+  await mock(page, { ask: { ...ANSWER, passages } });
+  await page.goto("/");
+  await page.getByLabel(/Your question|Su pregunta/).fill("A typed question?");
+  await page.getByLabel(/Your question|Su pregunta/).press("Enter");
+  const shown = page.getByTestId("turn").first().getByTestId("passage");
+  await expect(shown).toHaveCount(2);
+  await expect(shown.nth(0).locator(".evi-card__text")).toHaveCSS("white-space", "pre-wrap");
+  await expect(shown.nth(0).locator(".evi-card__text")).toHaveCSS("max-height", "none");   // clipped by the server, not cut by the card
+  expect(await shown.nth(0).locator(".evi-card__text").innerText()).toBe("A first line.\nA second line.");
+  await expect(shown.nth(1).getByTestId("passage-no-text")).toHaveText(/figure on the page|figura de la página/);
+  await expect(shown.nth(1).locator(".evi-card__text")).toHaveCount(0);
+});
+
 test("the page speaks Spanish and English", async ({ page }) => {
   await mock(page);
   await page.goto("/");

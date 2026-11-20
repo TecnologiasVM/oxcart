@@ -99,11 +99,17 @@ export default function Chat() {
   const [examples, setExamples] = useState<Example[]>([]);
   const [session, setSession] = useState<string | null>(null);
   const [checkNote, setCheckNote] = useState<string | null>(null);
+  // the list of questions to try: open while there is no conversation, folded once there is one,
+  // so a new question's evidence is not below a list; the visitor's own click wins until the next question
+  const [examplesChoice, setExamplesChoice] = useState<boolean | null>(null);
+  const newestTurn = useRef<HTMLElement | null>(null);
+  const seenTurn = useRef<string | null | undefined>(null);
   const widgetRef = useRef<HTMLDivElement | null>(null);
   const widgetId = useRef<string | null>(null);
   const waiting = useRef<((session: string | null) => void) | null>(null);
   const t: Labels = LABELS[lang];
   const needsCheck = Boolean(TURNSTILE_SITE_KEY);
+  const examplesOpen = examplesChoice ?? turns.length === 0;
 
   // --- what this browser remembers
   useEffect(() => {
@@ -122,6 +128,17 @@ export default function Chat() {
       document.documentElement.lang = lang;
     }
   }, [lang, loaded]);
+
+  // --- a new question is brought into view (the conversation found when the page opens is not)
+  const newestId = turns[0]?.id;
+  useEffect(() => {
+    if (!loaded) return;
+    if (seenTurn.current !== null && newestId && newestId !== seenTurn.current) {
+      const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      newestTurn.current?.scrollIntoView({ behavior: calm ? "auto" : "smooth", block: "nearest" });
+    }
+    seenTurn.current = newestId;
+  }, [newestId, loaded]);
 
   // --- the examples that ship with the page, and the live list when there are none
   useEffect(() => {
@@ -238,6 +255,7 @@ export default function Chat() {
       const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       setBusy(true);
       setQuestion("");
+      setExamplesChoice(null);
       setTurns((prev) => [{ id, question: q, at: new Date().toISOString(), pending: true }, ...prev]);
       const finish = (patch: Partial<Turn>) =>
         setTurns((prev) => prev.map((turn) => (turn.id === id ? { ...turn, pending: false, ...patch } : turn)));
@@ -269,11 +287,13 @@ export default function Chat() {
     [busy, needsCheck, sessionForAsk],
   );
 
-  const showStored = (example: StoredExample) =>
+  const showStored = (example: StoredExample) => {
+    setExamplesChoice(null);
     setTurns((prev) => [
       { id: `stored-${Date.now()}`, question: example.question, at: new Date().toISOString(), answer: example.answer, stored: true, storedDate },
       ...prev,
     ]);
+  };
 
   const pick = (example: Example) => {
     const saved = stored.find((s) => s.question === example.question);
@@ -283,6 +303,7 @@ export default function Chat() {
 
   const clear = () => {
     setTurns([]);
+    setExamplesChoice(null);
     try {
       window.localStorage.removeItem(HISTORY_KEY);
     } catch {
@@ -355,26 +376,39 @@ export default function Chat() {
 
       {examples.length > 0 && (
         <section className="chat__examples" aria-label={t.examples}>
-          <span className="mono muted">{t.examples}</span>
-          <div className="chat__example-list">
-            {examples.map((example) => (
-              <button key={example.question} type="button" className="chat__example" onClick={() => pick(example)} disabled={busy}>
-                {example.question}
-                {stored.some((s) => s.question === example.question) && <span className="chip chat__stored-chip">{t.stored}</span>}
-              </button>
-            ))}
-          </div>
+          <button
+            type="button"
+            className="chat__examples-toggle mono muted"
+            aria-expanded={examplesOpen}
+            aria-controls="chat-example-list"
+            onClick={() => setExamplesChoice(!examplesOpen)}
+            data-testid="examples-toggle"
+          >
+            <span aria-hidden="true">{examplesOpen ? "▾" : "▸"}</span> {t.examples}
+            {!examplesOpen && <span> ({examples.length})</span>}
+          </button>
+          {examplesOpen && (
+            <div id="chat-example-list" className="chat__example-list">
+              {examples.map((example) => (
+                <button key={example.question} type="button" className="chat__example" onClick={() => pick(example)} disabled={busy}>
+                  {example.question}
+                  {stored.some((s) => s.question === example.question) && <span className="chip chat__stored-chip">{t.stored}</span>}
+                </button>
+              ))}
+            </div>
+          )}
         </section>
       )}
 
       <section className="chat__turns" aria-live="polite">
-        {turns.map((turn) => (
-          <article key={turn.id} className="chat__turn" data-testid="turn">
+        {turns.map((turn, i) => (
+          <article key={turn.id} className="chat__turn" data-testid="turn" ref={i === 0 ? newestTurn : undefined}>
             <header className="chat__turn-head">
               <span className="mono muted">{t.you}</span>
               {turn.stored && <span className="chip chip--amber" data-testid="stored-tag">{t.stored}</span>}
             </header>
             <p className="chat__question">{turn.question}</p>
+            {turn.pending && <div className="chat__progress" aria-hidden="true" data-testid="searching-bar" />}
             {turn.pending && <Waiting service={service} t={t} from={WAIT_LINES_AFTER_SECONDS} searching />}
             {turn.error && (
               <p className="chat__notice chat__notice--warn" role="alert" data-testid="turn-error">
@@ -494,7 +528,7 @@ function Evidence({ answer, t, storedNote }: { answer: AskAnswer; t: Labels; sto
               <span className="mono muted">{t.page} {p.page ?? "?"}</span>
               {p.clipped && <span className="chip">{t.clipped}</span>}
             </div>
-            <p className="evi-card__text">{p.text}</p>
+            {p.text ? <p className="evi-card__text">{p.text}</p> : <p className="body-sm muted" data-testid="passage-no-text">{t.noText}</p>}
           </div>
         ))
       )}
