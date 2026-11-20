@@ -89,7 +89,8 @@ test("the conversation stays in this browser and can be cleared", async ({ page 
 test("stored examples show real evidence while the service is not answering, marked as stored", async ({ page }) => {
   await mock(page, { health: 0, stored: STORED });
   await page.goto("/");
-  await expect(page.getByTestId("service-starting")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("service-starting")).toContainText(/Waking the service…|Despertando el servicio…/, { timeout: 15_000 });
+  await expect(page.getByTestId("service-starting")).toContainText(/stored examples below work meanwhile|funcionan los ejemplos guardados/);
   await page.getByRole("button", { name: /A stored example question\?/ }).click();
   const turn = page.getByTestId("turn").first();
   await expect(turn.getByTestId("stored-tag")).toBeVisible();
@@ -98,14 +99,70 @@ test("stored examples show real evidence while the service is not answering, mar
   await expect(turn.getByTestId("passage")).toHaveCount(2);
 });
 
-test("the page keeps saying 'starting' while the backend is up but its graph link is still connecting", async ({ page }) => {
-  let graph = "connecting";
+test("the page keeps saying 'starting' while the backend is up but one of its connections is still opening", async ({ page }) => {
+  const state = { graph: "connecting", literature: "connecting", embedding: "connecting" };
   await mock(page);
-  await page.route("**/api/health", (route) => route.fulfill({ json: { status: "ok", graph } }));
+  await page.route("**/api/health", (route) => route.fulfill({ json: { status: "ok", ...state } }));
   await page.goto("/");
-  await expect(page.getByTestId("service-starting")).toBeVisible({ timeout: 15_000 });
-  graph = "connected";
-  await expect(page.getByTestId("service-starting")).toHaveCount(0, { timeout: 20_000 });
+  const notice = page.getByTestId("service-starting");
+  await expect(notice).toContainText(/Connecting to the catalogue and the literature|Conectando con el catálogo y la literatura/, { timeout: 15_000 });
+  await expect(notice.getByTestId("waiting-seconds")).toHaveText(/^\d+ s$/);
+  await expect(notice).not.toContainText(/stored examples|ejemplos guardados/);   // this page was built without any
+  state.graph = "connected";
+  state.embedding = "not configured";
+  await page.waitForTimeout(2500);
+  await expect(notice).toBeVisible();                                // the literature client is still opening
+  state.literature = "connected";
+  await expect(notice).toHaveCount(0, { timeout: 20_000 });
+});
+
+test("a question asked while the service wakes shows short lines that follow one another, with a count of seconds", async ({ page }) => {
+  let phase: "asleep" | "connecting" | "ready" = "asleep";
+  let answer: () => void = () => {};
+  const asked = new Promise<void>((resolve) => (answer = resolve));
+  await mock(page);
+  await page.route("**/api/health", (route) =>
+    phase === "asleep"
+      ? route.abort()
+      : route.fulfill({ json: { status: "ok", graph: "connected", literature: phase === "ready" ? "connected" : "connecting", embedding: "connected" } }));
+  await page.route("**/api/ask", async (route) => {
+    await asked;                                                      // the question waits, as it does while the service wakes
+    await route.fulfill({ json: ANSWER });
+  });
+  await page.goto("/");
+  await page.getByLabel(/Your question|Su pregunta/).fill("When was it placed on sale?");
+  await page.getByLabel(/Your question|Su pregunta/).press("Enter");
+  const turn = page.getByTestId("turn").first();
+  await expect(turn).toContainText(/Searching…|Buscando…/);            // the first seconds: nothing but "Searching"
+  await expect(page.getByTestId("service-starting")).toHaveCount(0);   // said once, in the turn, not also above the box
+  const waiting = turn.getByTestId("waiting");
+  await expect(waiting).toContainText(/Waking the service…|Despertando el servicio…/, { timeout: 10_000 });
+  await expect(waiting).toContainText(/takes about half a minute|tarda cerca de medio minuto/);
+  const first = Number((await waiting.getByTestId("waiting-seconds").innerText()).replace(/\D/g, ""));
+  expect(first).toBeGreaterThanOrEqual(3);
+  await expect.poll(async () => Number((await waiting.getByTestId("waiting-seconds").innerText()).replace(/\D/g, "")), { timeout: 10_000 })
+    .toBeGreaterThan(first);                                          // the count runs
+  phase = "connecting";
+  await expect(waiting).toContainText(/The service is awake\.|El servicio está despierto\./, { timeout: 15_000 });
+  await expect(waiting).toContainText(/Connecting to the catalogue and the literature…|Conectando con el catálogo y la literatura…/);
+  await expect(waiting).not.toContainText(/Waking the service…|Despertando el servicio…/);
+  phase = "ready";
+  await expect(waiting).toContainText(/Catalogue and literature connected\.|Catálogo y literatura conectados\./, { timeout: 15_000 });
+  await expect(waiting).toContainText(/Searching…|Buscando…/);
+  await expect(waiting).not.toContainText(/half a minute|medio minuto/);
+  answer();
+  await expect(turn.getByTestId("mode-line")).toBeVisible();
+  await expect(turn.getByTestId("waiting")).toHaveCount(0);
+  await expect(turn.getByTestId("passage")).toHaveCount(2);
+});
+
+test("a question answered at once shows no waiting lines", async ({ page }) => {
+  await mock(page);
+  await page.goto("/");
+  await page.getByLabel(/Your question|Su pregunta/).fill("A question?");
+  await page.getByLabel(/Your question|Su pregunta/).press("Enter");
+  await expect(page.getByTestId("turn").first().getByTestId("mode-line")).toBeVisible();
+  await expect(page.getByTestId("waiting")).toHaveCount(0);
 });
 
 test("keyword mode and an unreachable catalogue are said on the page", async ({ page }) => {

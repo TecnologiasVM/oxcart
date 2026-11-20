@@ -2167,6 +2167,22 @@ button {
 .chat__notice--warn {
   border-left-color: var(--color-amber);
 }
+.chat__wait p,
+.chat__notice p {
+  margin: 0;
+}
+.chat__wait {
+  margin: var(--space-3) 0;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.chat__notice .chat__wait {
+  margin: 0;
+}
+.chat__wait-hint {
+  color: var(--color-ink-muted);
+  font-size: 14px;
+}
 .chat__examples {
   margin-top: var(--space-8);
 }

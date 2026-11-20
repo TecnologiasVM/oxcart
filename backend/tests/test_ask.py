@@ -1,5 +1,10 @@
 """The question path, with fakes in place of the three stores. No network, no database, no key."""
 
+import string
+import threading
+import time
+import types
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -57,6 +62,7 @@ def make_client(monkeypatch, fakes):
     monkeypatch.setattr(settings, "TRUSTED_PROXY_HOPS", 1)
     monkeypatch.setattr(settings, "VISITOR_ADDRESS_HEADER", "")
     monkeypatch.setattr(settings, "GRAPH_WARM_ON_START", False)     # no graph in these tests: the steps are fakes
+    monkeypatch.setattr(settings, "ASK_WARM_ON_START", False)       # ... and nothing is opened at startup
     monkeypatch.setattr(config, "OPENAI_API_KEY", "set-for-the-mode-label")
     opened = []
 
@@ -95,7 +101,8 @@ def keys_of(value):
 
 # ---------------------------------------------------------------- what the hosted mode exposes
 def test_hosted_mode_mounts_the_question_path_only(client):
-    assert client.get("/api/health").json() == {"status": "ok", "graph": "connecting"}
+    assert client.get("/api/health").json() == {"status": "ok", "graph": "connecting",
+                                                "literature": "not started", "embedding": "not started"}
     assert client.get("/api/ask/examples").status_code == 200
     for path in ("/docs", "/redoc", "/openapi.json", "/api/graph", "/api/node?node_id=chunk:1", "/api/overview",
                  "/api/examples", "/api/mena/surface-mail", "/api/figures/x.png"):
@@ -321,6 +328,57 @@ def test_a_new_token_does_not_buy_a_new_allowance_for_the_same_address(client):
     assert [ask_from(f"203.0.113.{n}", fresh).status_code for n in (7, 8, 9)] == [200, 200, 429]   # ... and that refusal did not count against the token
 
 
+def other_spellings(token):
+    """The same token written in other ways that still decode to the same bytes."""
+    alphabet = string.ascii_uppercase + string.ascii_lowercase + string.digits + "-_"     # url-safe base64, in order
+    payload, signature = token.split(".")
+    flipped = signature[:-1] + alphabet[alphabet.index(signature[-1]) ^ 1]      # an unused bit of the last character
+    return [payload + "=." + signature, token + "~~", payload + "." + flipped]
+
+
+def test_one_token_has_one_count_however_it_is_written():
+    key = "k" * 40
+    token = public_guard.issue_session(key, 3600)
+    payload = public_guard.session_payload(token, key)
+    assert payload is not None and public_guard.session_is_valid(token, key)
+    variants = other_spellings(token)
+    assert len(set(variants + [token])) == 4                                    # four different strings
+    for variant in variants:
+        seen = public_guard.session_payload(variant, key)
+        assert seen is None or public_guard.token_key(seen) == public_guard.token_key(payload), variant[-6:]
+    another = public_guard.session_payload(public_guard.issue_session(key, 3600), key)
+    assert public_guard.token_key(another) != public_guard.token_key(payload)   # a different token has its own count
+
+
+def test_a_token_at_its_limit_stays_there_in_every_spelling_and_from_any_address(client):
+    client.app.state.limiter = public_guard.Limiter(per_minute=2, per_day=100, global_per_day=1000)
+    token = session_of(client)["x-oxcart-session"]
+
+    def ask_with(session, forwarded):
+        return client.post("/api/ask", json={"question": "q"}, headers={"x-oxcart-session": session, "x-forwarded-for": forwarded})
+
+    assert ask_with(token, "203.0.113.1").status_code == 200 and ask_with(token, "203.0.113.2").status_code == 200
+    codes = [ask_with(variant, f"203.0.113.{10 + n}").status_code for n, variant in enumerate(other_spellings(token))]
+    assert all(code in (429, 401) for code in codes), codes                     # counted as the same token, or not a token at all
+
+
+def test_refused_questions_leave_nothing_behind():
+    clock = [1_000_000.0]
+    limiter = public_guard.Limiter(per_minute=2, per_day=100, global_per_day=100_000, now=lambda: clock[0])
+    assert limiter.check("a", "token:1")[0] and limiter.check("b", "token:1")[0]
+    before = (len(limiter._minute), len(limiter._day))
+    assert before == (3, 3)
+    for n in range(500):                                                        # the token is at its limit: every new address is refused
+        assert limiter.check(f"new-address-{n}", "token:1") == (False, "visitor_minute_limit", 61)
+    assert (len(limiter._minute), len(limiter._day)) == before
+    assert limiter.check("a", "token:2")[0]                                     # "a" reaches its own limit; "token:2" is counted once
+    for n in range(500):                                                        # ... and a new token each time does not get it through
+        assert limiter.check("a", f"token:new-{n}")[0] is False
+    assert (len(limiter._minute), len(limiter._day)) == (4, 4)
+    clock[0] += 30
+    assert limiter.check("new-address", "token:1")[2] == 31                     # the wait is still told from the oldest question
+
+
 def test_limiter_counts_two_keys_together_or_not_at_all():
     clock = [1_000_000.0]
     limiter = public_guard.Limiter(per_minute=100, per_day=2, global_per_day=100, now=lambda: clock[0])
@@ -353,9 +411,9 @@ def test_visitor_key_prefers_the_named_value_and_falls_back_without_it(monkeypat
     for absent in (None, "", "   "):
         assert public_guard.visitor_key("192.0.2.1", "192.0.2.9", absent) == public_guard.visitor_key("192.0.2.1", "192.0.2.9")
     assert "203.0.113.5" not in named
-    token = public_guard.token_key("a.session-token")
-    assert token.startswith("token:") and "a.session-token" not in token
-    assert token == public_guard.token_key("a.session-token") != public_guard.token_key("another.session-token")
+    token = public_guard.token_key(b"v1:1900000000:a-nonce")
+    assert token.startswith("token:") and "a-nonce" not in token
+    assert token == public_guard.token_key(b"v1:1900000000:a-nonce") != public_guard.token_key(b"v1:1900000000:another")
 
 
 def test_visitor_key_reads_from_the_right(monkeypatch):
@@ -399,27 +457,148 @@ def test_the_embedding_is_made_here_from_the_question_as_asked(monkeypatch):
         def json(self):
             return {"data": [{"embedding": [0.5, 0.25]}]}
 
-    def post(url, **kwargs):
+    clients = set()
+
+    def post(self, url, **kwargs):
+        clients.add(id(self))
         calls.append((url, kwargs))
         return Reply()
 
     monkeypatch.setattr(config, "OPENAI_API_KEY", "the-key")
-    monkeypatch.setattr(httpx, "post", post)
+    monkeypatch.setattr(httpx.Client, "post", post)
     embed = ask_service.Embedder()
     assert embed("¿Qué es esto?") == [0.5, 0.25] and embed("¿Qué es esto?") == [0.5, 0.25]
     assert len(calls) == 1                                                         # the second one came from the cache
     url, kwargs = calls[0]
     assert url == "https://api.openai.com/v1/embeddings"
     assert kwargs["json"] == {"model": "text-embedding-3-large", "input": "¿Qué es esto?"}
+    assert kwargs["headers"] == {"Authorization": "Bearer the-key"}
+    assert embed("a second question") == [0.5, 0.25] and len(clients) == 1         # one client: the connection is reused
+    assert embed.state == "connected"
 
-    def failing(url, **kwargs):
+    def failing(self, url, **kwargs):
         calls.append((url, kwargs))
         raise httpx.ConnectError("down")
 
-    monkeypatch.setattr(httpx, "post", failing)
-    assert embed("another question") is None and len(calls) == 3                   # one retry, then give up
+    monkeypatch.setattr(httpx.Client, "post", failing)
+    assert embed("another question") is None and len(calls) == 4                   # one retry, then give up
+    assert embed.state == "unavailable"
     monkeypatch.setattr(config, "OPENAI_API_KEY", None)
-    assert ask_service.Embedder()("no key") is None and len(calls) == 3
+    assert ask_service.Embedder()("no key") is None and len(calls) == 4
+    embed.close()
+
+
+# ---------------------------------------------------------------- what is opened at startup
+def test_the_embedding_connection_is_opened_with_one_tiny_embedding(monkeypatch):
+    import httpx
+
+    calls = []
+
+    class Reply:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"data": [{"embedding": [0.5, 0.25]}]}
+
+    def post(self, url, **kwargs):
+        calls.append(kwargs["json"]["input"])
+        return Reply()
+
+    monkeypatch.setattr(httpx.Client, "post", post)
+    monkeypatch.setattr(config, "OPENAI_API_KEY", None)
+    embed = ask_service.Embedder()
+    assert embed.state == "not started"
+    assert embed.warm() is False and embed.state == "not configured" and calls == []     # no key: nothing is sent
+    monkeypatch.setattr(config, "OPENAI_API_KEY", "the-key")
+    embed.warm_in_background().join(5)
+    assert embed.state == "connected" and calls == ["warm-up"]
+    assert embed("warm-up") == [0.5, 0.25] and len(calls) == 2                           # the warm-up's vector was not kept
+
+    def failing(self, url, **kwargs):
+        calls.append("failed")
+        raise httpx.ConnectError("down")
+
+    monkeypatch.setattr(httpx.Client, "post", failing)
+    assert embed.warm() is False and embed.state == "unavailable" and calls[2:] == ["failed", "failed"]
+    embed.close()
+
+
+class FakeStore:
+    """Stands for a Weaviate client: one collection whose searches return two passages."""
+
+    def __init__(self):
+        found = types.SimpleNamespace(objects=[
+            types.SimpleNamespace(properties={"doc_id": "D", "page_number": n, "chunk_type": "text", "text": "t"},
+                                  metadata=types.SimpleNamespace(distance=0.25, score=1.0)) for n in (1, 2)])
+        query = types.SimpleNamespace(near_vector=lambda **kw: found, bm25=lambda **kw: found)
+        self.collections = types.SimpleNamespace(get=lambda name: types.SimpleNamespace(query=query))
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+
+
+def test_the_literature_client_is_opened_in_the_background_and_a_question_uses_that_one(monkeypatch):
+    gate, opened = threading.Event(), []
+
+    def connect(self):
+        gate.wait(5)
+        opened.append(FakeStore())
+        return opened[-1]
+
+    monkeypatch.setattr(ask_service.Literature, "_connect", connect)
+    literature = ask_service.Literature()
+    assert literature.state == "not started"
+    thread = literature.warm_in_background()
+    assert literature.state == "connecting"                          # said at once, before the client is open
+    gate.set()
+    thread.join(5)
+    assert literature.state == "connected" and len(opened) == 1
+    assert len(literature.search("q", [0.1])) == 2 and len(opened) == 1     # the question did not open a second client
+    literature.close()
+    assert opened[0].closed
+
+
+def test_a_literature_client_that_cannot_be_opened_is_reported_and_recovers(monkeypatch):
+    attempts = []
+
+    def refuse(self):
+        attempts.append(1)
+        raise ConnectionError("an address would be in here")
+
+    monkeypatch.setattr(ask_service.Literature, "_connect", refuse)
+    literature = ask_service.Literature()
+    assert literature.warm() is False and literature.state == "unavailable" and len(attempts) == 2
+    monkeypatch.setattr(ask_service.Literature, "_connect", lambda self: FakeStore())
+    assert len(literature.search("q", None)) == 2 and literature.state == "connected"
+
+
+def test_startup_opens_both_in_the_background_and_health_says_where_they_are(make_client, monkeypatch):
+    gate = threading.Event()
+
+    def connect(self):
+        gate.wait(5)
+        return FakeStore()
+
+    monkeypatch.setattr(ask_service.Literature, "_connect", connect)
+    monkeypatch.setattr(config, "OPENAI_API_KEY", None)
+    monkeypatch.setattr(settings, "ASK_WARM_ON_START", True)
+    opened = []
+    real = ask_service.default_deps
+    monkeypatch.setattr(ask_service, "default_deps", lambda link: opened.append(real(link)) or opened[-1])
+    client = make_client()
+    client.app.state.ask = opened[0]                                 # the real steps, not the fixture's fakes
+    t0 = time.time()
+    body = client.get("/api/health").json()
+    assert body["literature"] == "connecting" and time.time() - t0 < 1.0     # startup and health did not wait
+    gate.set()
+    for _ in range(200):
+        body = client.get("/api/health").json()
+        if body["literature"] == "connected" and body["embedding"] != "connecting":
+            break
+        time.sleep(0.01)
+    assert body == {"status": "ok", "graph": "connecting", "literature": "connected", "embedding": "not configured"}
 
 
 def test_the_vector_store_client_is_never_given_the_openai_key(monkeypatch):

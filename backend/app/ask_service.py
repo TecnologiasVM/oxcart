@@ -8,6 +8,11 @@ Steps 2 and 3 run side by side. Each can fail on its own; the answer says which 
 produced each block (`mode`), and a block that could not be produced says "unavailable"
 instead of failing the whole question. How each mode scored is in EVALUATION.md.
 
+The first question after a start used to pay for opening the literature client and the
+first connection to the embedding service. Both are now opened as the process starts, in
+the background, as the graph link is (graph_link.py); the health route reports where each
+one is.
+
 The three steps are plain callables kept on ``AskDeps`` so tests replace them with fakes.
 Logs carry error CLASS names only: never a question, a key, an address or a store's message.
 """
@@ -49,18 +54,88 @@ class AskDeps:
     search: Callable[[str, Optional[list]], list]
     verify_human: Callable[[str], str]
     close: Callable[[], None] = lambda: None
+    warm: Callable[[], None] = lambda: None          # start opening, in the background, what the first question needs
+    states: Callable[[], dict] = lambda: {"literature": "not started", "embedding": "not started"}   # for the health route
+
+
+class WarmedInBackground:
+    """A step that can open its connection before the first question asks for it.
+
+    ``state`` is what the health route reports: ``not started`` (nothing was opened yet),
+    ``connecting``, ``connected`` or ``unavailable``. A later question that succeeds or
+    fails updates it.
+    """
+
+    state = "not started"
+
+    def warm(self) -> bool:
+        raise NotImplementedError
+
+    def warm_in_background(self) -> threading.Thread:
+        self.state = "connecting"            # set here, not in the thread: the health route may be asked first
+        thread = threading.Thread(target=self.warm, name=f"{type(self).__name__.lower()}-warm-up", daemon=True)
+        thread.start()
+        return thread
 
 
 # --------------------------------------------------------------------------- 1. embedding
-class Embedder:
-    """The question's embedding, with a small cache. Returns None when it cannot be made."""
+class Embedder(WarmedInBackground):
+    """The question's embedding, with a small cache. Returns None when it cannot be made.
+
+    One HTTP client for the process, so a question can reuse a connection that is already
+    open instead of opening its own. An idle connection is kept for a minute.
+    """
 
     URL = "https://api.openai.com/v1/embeddings"
+    KEEP_ALIVE_SECONDS = 60.0
+    WARM_UP_TEXT = "warm-up"                 # the one tiny embedding made at startup; its vector is not kept
 
     def __init__(self, cache_size: int = 256):
         self._cache: "collections.OrderedDict[str, list]" = collections.OrderedDict()
         self._size = cache_size
         self._lock = threading.Lock()
+        self._client = None
+
+    def _http(self):
+        with self._lock:
+            if self._client is None:
+                import httpx
+
+                self._client = httpx.Client(timeout=settings.EMBED_TIMEOUT_SECONDS,
+                                            limits=httpx.Limits(keepalive_expiry=self.KEEP_ALIVE_SECONDS))
+            return self._client
+
+    def _request(self, key: str, text: str) -> list:
+        response = self._http().post(self.URL, headers={"Authorization": f"Bearer {key}"},
+                                     json={"model": settings.EMBEDDING_MODEL, "input": text})
+        response.raise_for_status()
+        return response.json()["data"][0]["embedding"]
+
+    def warm(self) -> bool:
+        """Open the connection with one tiny embedding. Meant for a thread."""
+        key = config.OPENAI_API_KEY
+        if not key:
+            self.state = "not configured"
+            return False
+        for attempt in (1, 2):
+            try:
+                self._request(key, self.WARM_UP_TEXT)
+                self.state = "connected"
+                log.info("embedding connected after %d attempt(s)", attempt)
+                return True
+            except Exception as exc:
+                log.warning("embedding warm-up failed (attempt %d): %s", attempt, type(exc).__name__)
+        self.state = "unavailable"
+        return False
+
+    def close(self) -> None:
+        with self._lock:
+            client, self._client = self._client, None
+        if client is not None:
+            try:
+                client.close()
+            except Exception:
+                pass
 
     def __call__(self, question: str) -> Optional[list]:
         key = config.OPENAI_API_KEY
@@ -70,22 +145,18 @@ class Embedder:
             if question in self._cache:
                 self._cache.move_to_end(question)
                 return self._cache[question]
-        import httpx
-
         for _attempt in (1, 2):
             try:
-                response = httpx.post(self.URL, timeout=settings.EMBED_TIMEOUT_SECONDS,
-                                      headers={"Authorization": f"Bearer {key}"},
-                                      json={"model": settings.EMBEDDING_MODEL, "input": question})
-                response.raise_for_status()
-                vector = response.json()["data"][0]["embedding"]
+                vector = self._request(key, question)
                 with self._lock:
                     self._cache[question] = vector
                     while len(self._cache) > self._size:
                         self._cache.popitem(last=False)
+                self.state = "connected"
                 return vector
             except Exception as exc:
                 log.warning("embedding failed: %s", type(exc).__name__)
+        self.state = "unavailable"
         return None
 
 
@@ -102,12 +173,27 @@ def make_lookup(link: GraphLink) -> Callable[[str, Optional[list]], list]:
 
 
 # --------------------------------------------------------------------------- 3. literature
-class Literature:
+class Literature(WarmedInBackground):
     """One Weaviate client for the process. The OpenAI key is never given to it."""
 
     def __init__(self) -> None:
         self._client = None
         self._lock = threading.Lock()
+
+    def warm(self) -> bool:
+        """Open the client: that, not the search, is what the first question waited for.
+        Two tries, as a search has. A question that arrives meanwhile waits for this same
+        client instead of opening a second one. Meant for a thread."""
+        for attempt in (1, 2):
+            try:
+                self._get()
+                self.state = "connected"
+                log.info("literature connected after %d attempt(s)", attempt)
+                return True
+            except Exception as exc:
+                log.warning("literature warm-up failed (attempt %d): %s", attempt, type(exc).__name__)
+        self.state = "unavailable"
+        return False
 
     def _connect(self):
         import weaviate
@@ -160,11 +246,13 @@ class Literature:
                                      "chunk_type": p.get("chunk_type"),
                                      "text": p.get("text_original") or p.get("text") or "",
                                      "score": round(float(score), 4) if score is not None else None})
+                self.state = "connected"
                 return passages
             except Exception as exc:
                 last = type(exc).__name__
                 log.warning("literature search failed (attempt %d): %s", attempt, last)
                 self.close()        # a broken connection is not kept
+        self.state = "unavailable"
         raise Unavailable(last)
 
 
@@ -245,6 +333,16 @@ def answer(question: str, deps: AskDeps) -> dict:
 def default_deps(link: GraphLink) -> AskDeps:
     from app import public_guard
 
-    literature = Literature()
-    return AskDeps(embed=Embedder(), lookup=make_lookup(link), search=literature.search,
-                   verify_human=public_guard.verify_turnstile, close=literature.close)
+    embedder, literature = Embedder(), Literature()
+
+    def warm() -> None:
+        literature.warm_in_background()
+        embedder.warm_in_background()
+
+    def close() -> None:
+        literature.close()
+        embedder.close()
+
+    return AskDeps(embed=embedder, lookup=make_lookup(link), search=literature.search,
+                   verify_human=public_guard.verify_turnstile, close=close, warm=warm,
+                   states=lambda: {"literature": literature.state, "embedding": embedder.state})

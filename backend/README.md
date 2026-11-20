@@ -178,7 +178,8 @@ access log. It holds no key and no data. The host provides these settings, as se
 
 Health check path: `/api/health`. One instance: the limits are counted in the process's memory.
 A service that sleeps when idle wakes on the first request; the page calls `/api/health` as it opens and tells
-the visitor the service is starting.
+the visitor what is happening in short lines that follow one another (waking the service, connecting to the
+catalogue and the literature, searching), with a count of seconds.
 
 **The graph connection.** A hosted graph can refuse a new connection and accept the next one half a second
 later. So the process opens its connection as it starts, in the background, retrying every half second for up
@@ -187,6 +188,14 @@ wait for it: it answers at once with `graph` set to `connecting`, `connected` or
 keeps saying "starting" while it is `connecting`. A question that finds no connection retries for up to 8
 seconds (`GRAPH_QUESTION_BUDGET_SECONDS`) before its catalogue block says "unavailable"; the passages do not wait
 for it. A query error is not retried.
+
+**The literature client and the embedding's connection.** Opening the Weaviate client and the first connection
+to the embedding service is what the first question after a start used to wait for. Both are opened as the
+process starts, in the background too (`ASK_WARM_ON_START`, on by default); the embedding's connection is opened
+with one tiny embedding per start, and later questions reuse it while it is kept open. `/api/health` reports
+them beside the graph: `literature` and `embedding` are `connecting`, `connected` or `unavailable` (`not started`
+when nothing was opened at startup; `embedding` is `not configured` without a key). The page says "connecting"
+while any of the three is `connecting`.
 
 **Page.** In `frontend/`: `npm ci && npm run build:hosted` writes the static site to `out/` (the question page
 only). At build time:

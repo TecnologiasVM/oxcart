@@ -118,3 +118,8 @@ GRAPH_WARM_ON_START: bool = os.getenv("GRAPH_WARM_ON_START", "1").strip().lower(
 GRAPH_STARTUP_BUDGET_SECONDS: int = _int("GRAPH_STARTUP_BUDGET_SECONDS", 30)
 GRAPH_QUESTION_BUDGET_SECONDS: int = _int("GRAPH_QUESTION_BUDGET_SECONDS", 8)
 GRAPH_RETRY_EVERY_SECONDS: float = float(os.getenv("GRAPH_RETRY_EVERY_SECONDS", "0.5") or 0.5)
+
+# The literature client and the embedding's connection are opened as the process starts too, in the
+# background, so the first question does not wait for them. Opening the embedding's connection makes
+# one tiny embedding per start.
+ASK_WARM_ON_START: bool = os.getenv("ASK_WARM_ON_START", "1").strip().lower() not in ("0", "false", "no", "off")

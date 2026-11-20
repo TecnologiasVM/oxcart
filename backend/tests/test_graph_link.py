@@ -120,6 +120,7 @@ def app_with(monkeypatch):
 
     def build(driver, warm=True, every=0.01, startup=2):
         monkeypatch.setattr(settings, "GRAPH_WARM_ON_START", warm)
+        monkeypatch.setattr(settings, "ASK_WARM_ON_START", False)     # these tests are about the graph link only
         monkeypatch.setattr(settings, "GRAPH_RETRY_EVERY_SECONDS", every)
         monkeypatch.setattr(settings, "GRAPH_STARTUP_BUDGET_SECONDS", startup)
         monkeypatch.setattr(settings, "GRAPH_QUESTION_BUDGET_SECONDS", 1)
@@ -149,13 +150,13 @@ def test_health_answers_at_once_and_says_where_the_graph_link_is(app_with):
     client = app_with(Slow(), startup=5)
     t0 = time.time()
     body = client.get("/api/health").json()
-    assert body == {"status": "ok", "graph": "connecting"} and time.time() - t0 < 1.0   # it did not wait for the graph
+    assert body["status"] == "ok" and body["graph"] == "connecting" and time.time() - t0 < 1.0   # it did not wait for the graph
     gate["open"] = True
     for _ in range(200):
         if client.get("/api/health").json()["graph"] == "connected":
             break
         time.sleep(0.01)
-    assert client.get("/api/health").json() == {"status": "ok", "graph": "connected"}
+    assert client.get("/api/health").json()["graph"] == "connected"
 
 
 def test_health_says_unavailable_when_startup_could_not_connect(app_with):
@@ -164,7 +165,7 @@ def test_health_says_unavailable_when_startup_could_not_connect(app_with):
         if client.get("/api/health").json()["graph"] != "connecting":
             break
         time.sleep(0.01)
-    assert client.get("/api/health").json() == {"status": "ok", "graph": "unavailable"}
+    assert client.get("/api/health").json()["graph"] == "unavailable"
 
 
 def test_a_question_gets_its_catalogue_block_after_refusals(app_with, monkeypatch):

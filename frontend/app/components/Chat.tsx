@@ -12,13 +12,16 @@
  * - Before the first question a human check (Cloudflare Turnstile) runs once; the
  *   backend answers it with a short-lived token that is sent with each question.
  * - Every answer says which mode produced it (search by meaning, or keyword mode).
+ * - The service sleeps when nobody uses it. While it wakes, the page says so in short
+ *   lines that follow one another (waking, connecting, searching) with a count of
+ *   seconds, so a long first wait does not look like a fault.
  *
  * Retrieval only: the page shows evidence, it does not write an answer.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ask, AskError, health, liveExamples, MAX_QUESTION_CHARS, openSession, storedExamples, TURNSTILE_SITE_KEY } from "@/lib/ask";
-import type { AskAnswer, Example, StoredExample } from "@/lib/ask";
+import { ask, AskError, liveExamples, MAX_QUESTION_CHARS, openSession, serviceState, storedExamples, TURNSTILE_SITE_KEY } from "@/lib/ask";
+import type { AskAnswer, Example, ServiceState, StoredExample } from "@/lib/ask";
 import { LABELS } from "@/lib/i18n";
 import type { Labels, Lang } from "@/lib/i18n";
 
@@ -26,6 +29,8 @@ const HISTORY_KEY = "oxcart-chat-v1";
 const LANG_KEY = "oxcart-lang";
 const SESSION_KEY = "oxcart-session";
 const MAX_TURNS = 30;
+const POLL_EVERY_MS = 2000;
+const WAIT_LINES_AFTER_SECONDS = 3; // a question that is answered sooner shows "Searching…" and nothing else
 
 type Turn = {
   id: string;
@@ -38,7 +43,10 @@ type Turn = {
   pending?: boolean;
 };
 
-type Service = "checking" | "starting" | "ready" | "unreachable";
+type Service = "checking" | "waking" | "connecting" | "ready" | "unreachable";
+
+const fromState = (state: ServiceState): Service => (state === "ready" ? "ready" : state === "connecting" ? "connecting" : "waking");
+const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 declare global {
   interface Window {
@@ -129,13 +137,13 @@ export default function Chat() {
   useEffect(() => {
     let stop = false;
     (async () => {
-      const first = await health(4000);
-      if (stop) return;
-      if (first) return setService("ready");
-      setService("starting");
-      for (let i = 0; i < 45 && !stop; i++) {
-        if (await health(8000)) return setService("ready");
-        await new Promise((r) => setTimeout(r, 4000));
+      let state = await serviceState(4000);
+      for (let i = 0; i < 60 && !stop; i++) {
+        setService(fromState(state));
+        if (state === "ready") return;
+        await pause(POLL_EVERY_MS);
+        if (stop) return;
+        state = await serviceState(8000);
       }
       if (!stop) setService("unreachable");
     })();
@@ -143,6 +151,25 @@ export default function Chat() {
       stop = true;
     };
   }, []);
+
+  // --- while a question waits, keep looking at where the service is: a page left open
+  //     finds it asleep again, and the waiting lines must say what is true now
+  useEffect(() => {
+    if (!busy) return;
+    let stop = false;
+    const timer = setTimeout(async () => {
+      while (!stop) {
+        const state = await serviceState(8000);
+        if (stop) return;
+        setService(fromState(state));
+        await pause(POLL_EVERY_MS);
+      }
+    }, WAIT_LINES_AFTER_SECONDS * 1000);
+    return () => {
+      stop = true;
+      clearTimeout(timer);
+    };
+  }, [busy]);
 
   // --- the human check: once per session
   const onToken = useCallback(async (token: string) => {
@@ -231,6 +258,9 @@ export default function Chat() {
         finish({ answer });
       } catch (e) {
         const err = e instanceof AskError ? e : new AskError("unreachable", "", 0);
+        // a refusal came from a service that is up; no answer at all, from one that is not
+        // (a human check that did not finish says nothing about the service)
+        if (err.code !== "session_required") setService(err.status > 0 ? "ready" : "unreachable");
         finish({ error: { code: err.code, message: err.message } });
       } finally {
         setBusy(false);
@@ -272,7 +302,12 @@ export default function Chat() {
       </div>
       <p className="chat__lede">{t.lede}</p>
 
-      {service === "starting" && <p className="chat__notice" role="status" data-testid="service-starting">{t.starting}</p>}
+      {(service === "waking" || service === "connecting") && !busy && (
+        <div className="chat__notice" role="status" data-testid="service-starting">
+          <Waiting service={service} t={t} from={0} />
+          {stored.length > 0 && <p className="chat__wait-hint">{t.waitExamples}</p>}
+        </div>
+      )}
       {service === "unreachable" && <p className="chat__notice chat__notice--warn" role="status" data-testid="service-unreachable">{t.unreachable}</p>}
 
       <form
@@ -340,7 +375,7 @@ export default function Chat() {
               {turn.stored && <span className="chip chip--amber" data-testid="stored-tag">{t.stored}</span>}
             </header>
             <p className="chat__question">{turn.question}</p>
-            {turn.pending && <p className="body-sm muted" role="status">{t.asking}</p>}
+            {turn.pending && <Waiting service={service} t={t} from={WAIT_LINES_AFTER_SECONDS} searching />}
             {turn.error && (
               <p className="chat__notice chat__notice--warn" role="alert" data-testid="turn-error">
                 {t.errors[turn.error.code] ?? turn.error.message ?? t.errors.unreachable}
@@ -353,6 +388,49 @@ export default function Chat() {
 
       <p className="body-sm muted chat__privacy">{t.privacy}</p>
     </main>
+  );
+}
+
+/*
+ * What the visitor reads while waiting: short lines that follow one another, the last
+ * one with a running count of seconds.
+ *
+ *   Waking the service… 7 s            (no answer from the service yet)
+ *   ✓ The service is awake.
+ *   Connecting to the catalogue and the literature… 19 s
+ *   ✓ Catalogue and literature connected.
+ *   Searching… 22 s                    (only when a question is waiting)
+ *
+ * The lines follow what the health route says, not a timer. `from` is how many seconds
+ * pass before the lines appear: a question that is answered at once shows "Searching…".
+ */
+function Waiting({ service, t, from, searching = false }: { service: Service; t: Labels; from: number; searching?: boolean }) {
+  const stage = service === "ready" ? 2 : service === "connecting" ? 1 : 0;
+  const [seconds, setSeconds] = useState(0);
+  const [first, setFirst] = useState(stage); // the earliest stage seen in this wait
+  if (stage < first) setFirst(stage);
+  useEffect(() => {
+    const started = Date.now();
+    const id = setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (seconds < from) return <p className="body-sm muted" role="status">{t.asking}</p>;
+
+  const done = [t.waitAwake, t.waitConnected].slice(Math.min(first, stage), stage);
+  const now = stage === 0 ? t.waitWaking : stage === 1 ? t.waitConnecting : searching ? t.asking : null;
+  return (
+    <div className="chat__wait" data-testid="waiting">
+      {done.map((line) => (
+        <p key={line} className="muted">✓ {line}</p>
+      ))}
+      {now && (
+        <p role="status">
+          {now} <span className="mono muted" aria-hidden="true" data-testid="waiting-seconds">{t.seconds(seconds)}</span>
+        </p>
+      )}
+      {stage < 2 && <p className="chat__wait-hint">{t.waitHint}</p>}
+    </div>
   );
 }
 

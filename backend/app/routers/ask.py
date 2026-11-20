@@ -1,6 +1,7 @@
 """The question path's routes.
 
-    GET  /api/health          hosted mode only: a light "I am up" with no store round trip, and the graph link's state
+    GET  /api/health          hosted mode only: a light "I am up" with no store round trip, and where the graph
+                              link, the literature client and the embedding's connection are
     GET  /api/ask/examples    questions to try, and the bounds the page should respect
     POST /api/session         a passed human check -> a short-lived signed token
     POST /api/ask             one question -> catalogue issues, literature passages, and the mode that answered
@@ -69,19 +70,23 @@ def access(request: Request) -> tuple[Optional[str], Optional[str]]:
     In hosted mode a visitor needs a valid session token."""
     if public_guard.eval_key_matches(request.headers.get(public_guard.EVAL_HEADER, "")):
         return None, None
-    token = request.headers.get(public_guard.SESSION_HEADER, "")
-    valid = public_guard.session_is_valid(token, settings.SESSION_SIGNING_KEY)
-    if request.app.state.public and not valid:
+    payload = public_guard.session_payload(request.headers.get(public_guard.SESSION_HEADER, ""), settings.SESSION_SIGNING_KEY)
+    if request.app.state.public and payload is None:
         raise ApiError(401, "session_required", "Please complete the human check to ask a question.")
-    return _visitor(request), public_guard.token_key(token) if valid else None
+    return _visitor(request), public_guard.token_key(payload) if payload is not None else None
 
 
 @health_router.get("/health")
 async def health(request: Request) -> dict:
-    """Light: no store round trip. `graph` is what the process already knows about its
-    connection (connecting, connected or unavailable), so a page can show "starting"."""
+    """Light: no store round trip. `graph`, `literature` and `embedding` are what the
+    process already knows about each connection (connecting, connected or unavailable;
+    not started when it was not opened at startup; the embedding also not configured),
+    so a page can show "starting" while any of them is still connecting."""
     link = getattr(request.app.state, "graph", None)
-    return {"status": "ok", "graph": link.state if link is not None else "unavailable"}
+    deps = getattr(request.app.state, "ask", None)
+    states = deps.states() if deps is not None else {}
+    return {"status": "ok", "graph": link.state if link is not None else "unavailable",
+            "literature": states.get("literature", "not started"), "embedding": states.get("embedding", "not started")}
 
 
 @router.get("/ask/examples")
