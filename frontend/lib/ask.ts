@@ -116,20 +116,28 @@ function clean(answer: AskAnswer): AskAnswer {
 }
 
 /**
- * True when the service is ready for a question: the backend answers and its link to the
- * graph is no longer "connecting" (connected, or it gave up: the page then says per answer
- * that the catalogue could not be reached). Used to show "starting" while the service wakes.
+ * Where the service is, from its health route:
+ *
+ * - "no answer": nothing came back in time. The service is asleep and waking, or gone.
+ * - "connecting": the backend answers, and is still opening its link to the graph, its
+ *   literature client or its connection for embeddings.
+ * - "ready": none of the three is "connecting" (each is connected, or gave up: the page
+ *   then says per answer what could not be reached).
+ *
+ * Used to tell the visitor what is happening while the service wakes.
  */
-export async function health(timeoutMs = 8000): Promise<boolean> {
+export type ServiceState = "no answer" | "connecting" | "ready";
+
+export async function serviceState(timeoutMs = 8000): Promise<ServiceState> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`${API_BASE}/api/health`, { signal: controller.signal });
-    if (!res.ok) return false;
-    const body = (await res.json().catch(() => ({}))) as { graph?: string };
-    return body.graph !== "connecting";
+    if (!res.ok) return "no answer";
+    const body = (await res.json().catch(() => ({}))) as { graph?: string; literature?: string; embedding?: string };
+    return [body.graph, body.literature, body.embedding].includes("connecting") ? "connecting" : "ready";
   } catch {
-    return false;
+    return "no answer";
   } finally {
     clearTimeout(timer);
   }
