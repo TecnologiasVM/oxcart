@@ -24,6 +24,10 @@ class CypherSyntaxError(Exception):
     """A query error: retrying it would give the same error."""
 
 
+class AuthError(Exception):
+    """Same class NAME as the driver's error for a refused user or password. Not retried."""
+
+
 class FakeDriver:
     """Each use of a session raises the next error in ``refusals``; after that it answers."""
 
@@ -84,6 +88,19 @@ def test_startup_gives_up_when_its_budget_is_spent_and_says_so():
     assert link.warm() is False
     assert link.state == "unavailable"
     assert 55 <= link.attempts <= 61 and clock.now <= 30.0        # every half second, never past the budget
+
+
+def test_startup_says_unavailable_at_once_when_the_password_is_refused():
+    driver, clock = FakeDriver([AuthError() for _ in range(1000)]), Clock()
+    link = link_for(driver, clock, startup=30.0)
+    assert link.warm() is False
+    assert link.state == "unavailable"                             # not "connecting" for ever
+    assert link.attempts == 1 and clock.slept == []                # a refused password is not tried again
+    with pytest.raises(Unavailable) as error:
+        link.read(lambda session: session.run("RETURN 1"))         # a question fails at once too, and says the same
+    assert str(error.value) == "AuthError" and link.attempts == 2 and link.state == "unavailable"
+    driver.refusals.clear()
+    assert link.read(lambda session: session.run("q") and "back") == "back" and link.state == "connected"
 
 
 def test_a_question_retries_inside_its_own_budget():
@@ -166,6 +183,15 @@ def test_health_says_unavailable_when_startup_could_not_connect(app_with):
             break
         time.sleep(0.01)
     assert client.get("/api/health").json()["graph"] == "unavailable"
+
+
+def test_health_says_unavailable_when_the_password_is_refused_at_startup(app_with):
+    client = app_with(FakeDriver([AuthError() for _ in range(100000)]), startup=30)
+    for _ in range(200):
+        if client.get("/api/health").json()["graph"] != "connecting":
+            break
+        time.sleep(0.01)
+    assert client.get("/api/health").json()["graph"] == "unavailable"   # a page waiting for "connecting" to end is let go
 
 
 def test_a_question_gets_its_catalogue_block_after_refusals(app_with, monkeypatch):
