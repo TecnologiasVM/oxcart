@@ -33,6 +33,9 @@ class FakeModel:
         self.reply = None                   # a Reply to give instead of the usual answer
         self.before_writing = None          # called when `write` starts
 
+    def close(self):
+        pass
+
     def rewrite(self, question, thread):
         self.rewrites.append((question, thread))
         return Reply(state="ok", blocks=[{"text": self.standalone, "citations": []}], input_tokens=40, output_tokens=9)
@@ -82,6 +85,7 @@ def test_a_question_gives_the_evidence_then_an_answer_whose_sentences_cite_it(ch
     evidence, answer = lines_of(ask(client, "What is it?"))
     assert evidence["type"] == "evidence" and evidence["rewritten"] is False
     assert answer["type"] == "answer" and answer["answer"]["state"] == "ok"
+    assert answer["calls"] == [{"purpose": "write", "state": "ok", "input_tokens": 900, "output_tokens": 60, "seconds": 0.0}]
     # the sentence with no citation is not shown, and is counted
     assert [s["text"] for s in answer["answer"]["sentences"]] == ["The made-up issue has one stamp.",
                                                                  "The page is full of the letter x."]
@@ -412,11 +416,13 @@ def test_a_card_becomes_the_fact_lines_the_page_prints():
     issue = {"issue_id": "CR-9", "title": "A made-up issue", "card": {
         "dates": {"placed_on_sale": "1901-02-03", "withdrawn": None}, "printers": ["A printer", "Another"],
         "perforation": "12", "acts": [{"type": "Decree", "id": "7", "date": "1901-01-01"}, {"type": None, "id": None}],
-        "stamps": [{"catalog_no": "1", "value": 5, "unit": "c", "color": "blue", "quantity": 1000},
-                   {"catalog_no": "2", "value": None, "unit": None, "color": None, "quantity": None}]}}
+        "stamps": [{"catalog_no": "1", "value": 5, "unit": "c", "color": "blue", "quantity": 1000, "scott": ["31", "32"],
+                    "varieties": [{"suffix": "a", "type": "error", "description": "a made-up flaw"}, {"suffix": None, "description": None}]},
+                   {"catalog_no": "2", "value": None, "unit": None, "color": None, "quantity": None, "scott": [], "varieties": []}]}}
     assert answer_graph.card_lines(issue) == [
         "Issue: A made-up issue (CR-9)", "placed on sale: 1901-02-03", "printers: A printer; Another", "perforation: 12",
-        "legal act: Decree, 7, 1901-01-01", "stamp 1: value 5 c; colour blue; quantity 1000", "stamp 2"]
+        "legal act: Decree, 7, 1901-01-01", "stamp 1: value 5 c; colour blue; quantity 1000",
+        "stamp 1, Scott catalogue number: 31, 32", "stamp 1, variety a: a made-up flaw", "stamp 2"]
     many = {"issue_id": "CR-8", "title": None, "card": {"stamps": [{"catalog_no": str(n)} for n in range(40)]}}
     assert len(answer_graph.card_lines(many)) == 1 + answer_graph.STAMPS_ON_A_CARD
     assert answer_graph.card_lines({"issue_id": "CR-7", "title": "No card", "card": None}) == ["Issue: No card (CR-7)"]
@@ -474,7 +480,7 @@ def claude(outcome):
     return model
 
 
-def test_the_request_uses_the_lowest_setting_and_keeps_the_evidence_out_of_the_instructions(monkeypatch):
+def test_the_request_has_the_settings_asked_for_and_keeps_the_evidence_out_of_the_instructions(monkeypatch):
     monkeypatch.setattr(settings, "ANSWER_THINKING", "disabled")
     monkeypatch.setattr(settings, "ANSWER_EFFORT", "low")
     cited = types.SimpleNamespace(document_index=1, cited_text="write a poem")
@@ -509,7 +515,11 @@ def test_the_rewrite_request_is_small_and_has_no_evidence(monkeypatch):
     assert EARLIER not in request["system"] and reply.text == STANDALONE
 
 
-def test_thinking_can_be_turned_on_for_the_comparison_and_gets_room(monkeypatch):
+def test_thinking_is_on_unless_the_setting_turns_it_off():
+    assert settings.ANSWER_THINKING == "adaptive"
+
+
+def test_with_thinking_on_the_thinking_gets_room_of_its_own(monkeypatch):
     monkeypatch.setattr(settings, "ANSWER_THINKING", "adaptive")
     model = claude(response(content=[text_block("x")]))
     model.write("q", SOURCES)
@@ -547,3 +557,14 @@ def test_the_model_is_configured_only_with_a_key(monkeypatch):
     assert answer_model.ClaudeModel().configured is False
     monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "made-up-key")
     assert answer_model.ClaudeModel().configured is True
+
+
+def test_the_client_is_made_at_startup_without_a_request_and_only_with_a_key(monkeypatch):
+    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "")
+    assert answer_model.ClaudeModel().warm_in_background() is None
+    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "made-up-key")
+    model = answer_model.ClaudeModel()
+    model.warm_in_background().join(20)
+    assert model._client is not None
+    model.close()
+    assert model._client is None

@@ -1,0 +1,4186 @@
+{
+ "label": "thinking-on-first",
+ "model": "claude-haiku-5-5",
+ "judge": "codex gpt-6.1-sol (high)",
+ "usd_per_mtok": {
+  "input": 0.1,
+  "output": 0.5
+ },
+ "rows": [
+  {
+   "id": "cat-001-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4418,
+     "output_tokens": 195
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-001-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 3,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4418,
+     "output_tokens": 430
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-002-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 0,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3970,
+     "output_tokens": 183
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "partly"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-002-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 0,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4424,
+     "output_tokens": 305
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-003-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3582,
+     "output_tokens": 130
+    }
+   ],
+   "supported": [
+    "yes",
+    "partly"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-003-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4246,
+     "output_tokens": 259
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-004-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 1,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3747,
+     "output_tokens": 264
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-004-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3997,
+     "output_tokens": 217
+    }
+   ],
+   "supported": [
+    "yes",
+    "partly"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-005-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 1,
+    "sentences_without_citation": 0,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3390,
+     "output_tokens": 113
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-005-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3549,
+     "output_tokens": 372
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-006-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 1,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5558,
+     "output_tokens": 536
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-006-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 0,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5463,
+     "output_tokens": 466
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-007-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 1,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3890,
+     "output_tokens": 278
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-007-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 0,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3929,
+     "output_tokens": 445
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-008-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 2,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4471,
+     "output_tokens": 649
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-008-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 6,
+    "sentences_without_citation": 3,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4412,
+     "output_tokens": 752
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-009-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 2,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4719,
+     "output_tokens": 266
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-009-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 2,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4385,
+     "output_tokens": 397
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-010-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3594,
+     "output_tokens": 198
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-010-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 1,
+    "sentences_without_citation": 0,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3407,
+     "output_tokens": 225
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-011-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 1,
+    "sentences_without_citation": 0,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3689,
+     "output_tokens": 158
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-011-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 1,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3588,
+     "output_tokens": 214
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-012-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3633,
+     "output_tokens": 316
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-012-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 0,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4459,
+     "output_tokens": 437
+    }
+   ],
+   "supported": [
+    "yes",
+    "partly",
+    "partly"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-013-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3393,
+     "output_tokens": 418
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-013-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 1,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3668,
+     "output_tokens": 333
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "other"
+  },
+  {
+   "id": "cat-014-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 7,
+    "sentences_without_citation": 3,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4177,
+     "output_tokens": 950
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-014-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 2,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3732,
+     "output_tokens": 614
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "cat-015-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4778,
+     "output_tokens": 363
+    }
+   ]
+  },
+  {
+   "id": "cat-015-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 3,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3482,
+     "output_tokens": 663
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-016-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 2,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5308,
+     "output_tokens": 1014
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-016-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4379,
+     "output_tokens": 618
+    }
+   ],
+   "supported": [
+    "yes",
+    "partly"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-017-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 3,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3831,
+     "output_tokens": 303
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-017-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 2,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4108,
+     "output_tokens": 845
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-018-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4091,
+     "output_tokens": 228
+    }
+   ]
+  },
+  {
+   "id": "cat-018-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3674,
+     "output_tokens": 836
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-019-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 1,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4404,
+     "output_tokens": 226
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-019-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4015,
+     "output_tokens": 410
+    }
+   ],
+   "supported": [
+    "yes",
+    "no"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-020-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 1,
+    "sentences_without_citation": 0,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4613,
+     "output_tokens": 229
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-020-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4086,
+     "output_tokens": 900
+    }
+   ],
+   "supported": [
+    "yes",
+    "partly"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-021-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 2,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4200,
+     "output_tokens": 506
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-021-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3668,
+     "output_tokens": 767
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-022-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 1,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4698,
+     "output_tokens": 484
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-022-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 1,
+    "sentences_without_citation": 0,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4506,
+     "output_tokens": 321
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-023-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 0,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3958,
+     "output_tokens": 241
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-023-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 1,
+    "sentences_without_citation": 0,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4248,
+     "output_tokens": 191
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-024-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3968,
+     "output_tokens": 209
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-024-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 1,
+    "sentences_without_citation": 0,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3746,
+     "output_tokens": 238
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-025-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3558,
+     "output_tokens": 223
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-025-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3523,
+     "output_tokens": 180
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-026-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3346,
+     "output_tokens": 147
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-026-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3359,
+     "output_tokens": 430
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-027-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4426,
+     "output_tokens": 194
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-027-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4905,
+     "output_tokens": 380
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-028-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4282,
+     "output_tokens": 333
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-028-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4597,
+     "output_tokens": 257
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-029-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4502,
+     "output_tokens": 404
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-029-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 1,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4557,
+     "output_tokens": 255
+    }
+   ],
+   "supported": [
+    "yes",
+    "partly",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-030-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 1,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3383,
+     "output_tokens": 463
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-030-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 2,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3403,
+     "output_tokens": 581
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "other"
+  },
+  {
+   "id": "cat-031-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3291,
+     "output_tokens": 423
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-031-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 2,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3375,
+     "output_tokens": 280
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-032-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 7,
+    "sentences_without_citation": 1,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4305,
+     "output_tokens": 750
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "partly",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-032-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4197,
+     "output_tokens": 325
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-033-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 0,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3647,
+     "output_tokens": 177
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-033-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4918,
+     "output_tokens": 225
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-034-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 6407,
+     "output_tokens": 607
+    }
+   ]
+  },
+  {
+   "id": "cat-034-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 1,
+    "citations": 6,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4207,
+     "output_tokens": 916
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-035-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5812,
+     "output_tokens": 186
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-035-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3794,
+     "output_tokens": 589
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-036-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 1,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5325,
+     "output_tokens": 256
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-036-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3174,
+     "output_tokens": 578
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-037-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 6403,
+     "output_tokens": 184
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-037-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 3,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4164,
+     "output_tokens": 661
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-038-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 2,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5306,
+     "output_tokens": 331
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-038-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 1,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3023,
+     "output_tokens": 810
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "partly"
+   ],
+   "correct": "yes",
+   "language": "other"
+  },
+  {
+   "id": "cat-039-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5843,
+     "output_tokens": 145
+    }
+   ]
+  },
+  {
+   "id": "cat-039-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5211,
+     "output_tokens": 627
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "cat-040-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5405,
+     "output_tokens": 340
+    }
+   ]
+  },
+  {
+   "id": "cat-040-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 1,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4655,
+     "output_tokens": 383
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "lit-001-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 1,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4223,
+     "output_tokens": 1071
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "no",
+   "language": "same"
+  },
+  {
+   "id": "lit-002-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 1,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4867,
+     "output_tokens": 576
+    }
+   ],
+   "supported": [
+    "partly",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-002-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5043,
+     "output_tokens": 593
+    }
+   ],
+   "supported": [
+    "yes",
+    "partly"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-003-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4695,
+     "output_tokens": 445
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-003-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 0,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4484,
+     "output_tokens": 998
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "lit-004-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 6,
+    "sentences_without_citation": 3,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 6332,
+     "output_tokens": 682
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-004-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 0,
+    "citations": 6,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4901,
+     "output_tokens": 1201
+    }
+   ],
+   "supported": [
+    "partly",
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-005-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 6,
+    "sentences_without_citation": 1,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4693,
+     "output_tokens": 561
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "lit-005-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3919,
+     "output_tokens": 440
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "lit-006-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 9,
+    "sentences_without_citation": 4,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4204,
+     "output_tokens": 869
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-006-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 0,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3974,
+     "output_tokens": 793
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "lit-007-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 2,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4441,
+     "output_tokens": 643
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-007-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 9,
+    "sentences_without_citation": 5,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4061,
+     "output_tokens": 1261
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-008-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 0,
+    "citations": 5,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3977,
+     "output_tokens": 450
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-008-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 1,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3936,
+     "output_tokens": 1210
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "lit-009-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 7,
+    "sentences_without_citation": 2,
+    "citations": 6,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4933,
+     "output_tokens": 1012
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-009-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 1,
+    "citations": 5,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3995,
+     "output_tokens": 1071
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-010-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 1,
+    "citations": 5,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4356,
+     "output_tokens": 1087
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "partly"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-010-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 1,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3617,
+     "output_tokens": 668
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-011-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 9,
+    "sentences_without_citation": 2,
+    "citations": 7,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3993,
+     "output_tokens": 1139
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-011-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 7,
+    "sentences_without_citation": 1,
+    "citations": 8,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4950,
+     "output_tokens": 1562
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "lit-012-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 7,
+    "sentences_without_citation": 1,
+    "citations": 5,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4863,
+     "output_tokens": 1058
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-014-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 6,
+    "sentences_without_citation": 2,
+    "citations": 5,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5508,
+     "output_tokens": 1109
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-015-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 6,
+    "sentences_without_citation": 1,
+    "citations": 5,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4438,
+     "output_tokens": 752
+    }
+   ],
+   "supported": [
+    "partly",
+    "partly",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-016-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 9,
+    "sentences_without_citation": 0,
+    "citations": 8,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4745,
+     "output_tokens": 1447
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-017-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 6,
+    "sentences_without_citation": 1,
+    "citations": 7,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4281,
+     "output_tokens": 1162
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "partly",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-019-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 6,
+    "sentences_without_citation": 0,
+    "citations": 7,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4423,
+     "output_tokens": 1333
+    }
+   ],
+   "supported": [
+    "yes",
+    "partly",
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-020-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 1,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3597,
+     "output_tokens": 574
+    }
+   ],
+   "supported": [
+    "partly",
+    "partly",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "lit-021-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 7,
+    "sentences_without_citation": 3,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4406,
+     "output_tokens": 931
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "other"
+  },
+  {
+   "id": "lit-022-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 2,
+    "citations": 6,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3826,
+     "output_tokens": 946
+    }
+   ],
+   "supported": [
+    "yes",
+    "partly"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-023-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 3,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3503,
+     "output_tokens": 750
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-024-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3547,
+     "output_tokens": 237
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-026-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 6,
+    "sentences_without_citation": 3,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3626,
+     "output_tokens": 820
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-027-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 7,
+    "sentences_without_citation": 2,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3897,
+     "output_tokens": 769
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same"
+  },
+  {
+   "id": "lit-029-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 1,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4538,
+     "output_tokens": 960
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "partly"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-030-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 0,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3141,
+     "output_tokens": 585
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-031-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 0,
+    "citations": 6,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5202,
+     "output_tokens": 1104
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "partly"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-033-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 6,
+    "sentences_without_citation": 1,
+    "citations": 7,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4475,
+     "output_tokens": 1300
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-034-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 1,
+    "citations": 5,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4952,
+     "output_tokens": 920
+    }
+   ],
+   "supported": [
+    "yes",
+    "partly",
+    "yes",
+    "partly"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-037-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 8,
+    "sentences_without_citation": 0,
+    "citations": 7,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4646,
+     "output_tokens": 1322
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "lit-038-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 0,
+    "citations": 5,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4616,
+     "output_tokens": 828
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "no",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same"
+  },
+  {
+   "id": "oos-001-en",
+   "part": "out_of_scope",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3529,
+     "output_tokens": 10
+    }
+   ]
+  },
+  {
+   "id": "oos-002-es",
+   "part": "out_of_scope",
+   "lang": "es",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3315,
+     "output_tokens": 10
+    }
+   ]
+  },
+  {
+   "id": "oos-003-en",
+   "part": "out_of_scope",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 6100,
+     "output_tokens": 50
+    }
+   ]
+  },
+  {
+   "id": "oos-004-es",
+   "part": "out_of_scope",
+   "lang": "es",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4297,
+     "output_tokens": 409
+    }
+   ]
+  },
+  {
+   "id": "oos-005-en",
+   "part": "out_of_scope",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3643,
+     "output_tokens": 10
+    }
+   ]
+  },
+  {
+   "id": "oos-006-es",
+   "part": "out_of_scope",
+   "lang": "es",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3304,
+     "output_tokens": 157
+    }
+   ]
+  },
+  {
+   "id": "oos-007-en",
+   "part": "out_of_scope",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 2869,
+     "output_tokens": 82
+    }
+   ]
+  },
+  {
+   "id": "oos-008-es",
+   "part": "out_of_scope",
+   "lang": "es",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4782,
+     "output_tokens": 314
+    }
+   ]
+  },
+  {
+   "id": "oos-009-en",
+   "part": "out_of_scope",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 2,
+    "citations": 5,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4835,
+     "output_tokens": 1134
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "no reference",
+   "language": "same"
+  },
+  {
+   "id": "oos-010-es",
+   "part": "out_of_scope",
+   "lang": "es",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3475,
+     "output_tokens": 219
+    }
+   ]
+  },
+  {
+   "id": "oos-011-en",
+   "part": "out_of_scope",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 2,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4814,
+     "output_tokens": 1216
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "partly"
+   ],
+   "correct": "no reference",
+   "language": "same"
+  },
+  {
+   "id": "oos-012-es",
+   "part": "out_of_scope",
+   "lang": "es",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3723,
+     "output_tokens": 10
+    }
+   ]
+  },
+  {
+   "id": "oos-013-en",
+   "part": "out_of_scope",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 1,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3471,
+     "output_tokens": 762
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "no reference",
+   "language": "other"
+  },
+  {
+   "id": "oos-014-es",
+   "part": "out_of_scope",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3985,
+     "output_tokens": 457
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "no reference",
+   "language": "same"
+  },
+  {
+   "id": "oos-015-en",
+   "part": "out_of_scope",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 1,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4371,
+     "output_tokens": 546
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "no reference",
+   "language": "same"
+  },
+  {
+   "id": "oos-016-es",
+   "part": "out_of_scope",
+   "lang": "es",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4810,
+     "output_tokens": 180
+    }
+   ]
+  },
+  {
+   "id": "oos-017-en",
+   "part": "out_of_scope",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 2,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4272,
+     "output_tokens": 660
+    }
+   ],
+   "supported": [
+    "partly"
+   ],
+   "correct": "no reference",
+   "language": "same"
+  },
+  {
+   "id": "oos-018-es",
+   "part": "out_of_scope",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 1,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 6273,
+     "output_tokens": 504
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "no reference",
+   "language": "same"
+  },
+  {
+   "id": "oos-019-en",
+   "part": "out_of_scope",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4208,
+     "output_tokens": 191
+    }
+   ]
+  },
+  {
+   "id": "oos-020-es",
+   "part": "out_of_scope",
+   "lang": "es",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5182,
+     "output_tokens": 10
+    }
+   ]
+  },
+  {
+   "id": "una-001-en",
+   "part": "out_of_scope",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 2,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4295,
+     "output_tokens": 663
+    }
+   ],
+   "supported": [
+    "partly",
+    "yes"
+   ],
+   "correct": "no reference",
+   "language": "same"
+  },
+  {
+   "id": "una-011-es",
+   "part": "out_of_scope",
+   "lang": "es",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4820,
+     "output_tokens": 124
+    }
+   ]
+  },
+  {
+   "id": "una-003-en",
+   "part": "out_of_scope",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4018,
+     "output_tokens": 10
+    }
+   ]
+  },
+  {
+   "id": "una-004-es",
+   "part": "out_of_scope",
+   "lang": "es",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5600,
+     "output_tokens": 91
+    }
+   ]
+  },
+  {
+   "id": "una-005-en",
+   "part": "out_of_scope",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5046,
+     "output_tokens": 117
+    }
+   ]
+  },
+  {
+   "id": "una-006-es",
+   "part": "out_of_scope",
+   "lang": "es",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3847,
+     "output_tokens": 97
+    }
+   ]
+  },
+  {
+   "id": "una-007-en",
+   "part": "out_of_scope",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 7255,
+     "output_tokens": 10
+    }
+   ]
+  },
+  {
+   "id": "una-008-es",
+   "part": "out_of_scope",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 2,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4140,
+     "output_tokens": 605
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "no reference",
+   "language": "same"
+  },
+  {
+   "id": "una-009-en",
+   "part": "out_of_scope",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4343,
+     "output_tokens": 225
+    }
+   ]
+  },
+  {
+   "id": "una-010-es",
+   "part": "out_of_scope",
+   "lang": "es",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3707,
+     "output_tokens": 119
+    }
+   ]
+  },
+  {
+   "id": "thr-001-en",
+   "part": "threads",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": true,
+   "calls": [
+    {
+     "purpose": "rewrite",
+     "state": "ok",
+     "input_tokens": 325,
+     "output_tokens": 22
+    },
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4611,
+     "output_tokens": 326
+    }
+   ],
+   "gold_issue_rank_with_thread": 3,
+   "gold_issue_rank_alone": null
+  },
+  {
+   "id": "thr-002-en",
+   "part": "threads",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 2,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": true,
+   "calls": [
+    {
+     "purpose": "rewrite",
+     "state": "ok",
+     "input_tokens": 368,
+     "output_tokens": 29
+    },
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5410,
+     "output_tokens": 461
+    }
+   ],
+   "gold_issue_rank_with_thread": 1,
+   "gold_issue_rank_alone": null
+  },
+  {
+   "id": "thr-003-en",
+   "part": "threads",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 0,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": true,
+   "calls": [
+    {
+     "purpose": "rewrite",
+     "state": "ok",
+     "input_tokens": 335,
+     "output_tokens": 25
+    },
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3700,
+     "output_tokens": 166
+    }
+   ],
+   "gold_issue_rank_with_thread": 1,
+   "gold_issue_rank_alone": null
+  },
+  {
+   "id": "thr-004-en",
+   "part": "threads",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 1,
+    "sentences_without_citation": 0,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": true,
+   "calls": [
+    {
+     "purpose": "rewrite",
+     "state": "ok",
+     "input_tokens": 418,
+     "output_tokens": 27
+    },
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3674,
+     "output_tokens": 148
+    }
+   ],
+   "gold_issue_rank_with_thread": 1,
+   "gold_issue_rank_alone": 1
+  },
+  {
+   "id": "thr-005-en",
+   "part": "threads",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 3,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": true,
+   "calls": [
+    {
+     "purpose": "rewrite",
+     "state": "ok",
+     "input_tokens": 389,
+     "output_tokens": 39
+    },
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4590,
+     "output_tokens": 413
+    }
+   ],
+   "gold_issue_rank_with_thread": 1,
+   "gold_issue_rank_alone": null
+  },
+  {
+   "id": "thr-006-es",
+   "part": "threads",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": true,
+   "calls": [
+    {
+     "purpose": "rewrite",
+     "state": "ok",
+     "input_tokens": 398,
+     "output_tokens": 36
+    },
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3624,
+     "output_tokens": 339
+    }
+   ],
+   "gold_issue_rank_with_thread": 1,
+   "gold_issue_rank_alone": null
+  },
+  {
+   "id": "thr-007-es",
+   "part": "threads",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 3,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": true,
+   "calls": [
+    {
+     "purpose": "rewrite",
+     "state": "ok",
+     "input_tokens": 362,
+     "output_tokens": 35
+    },
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3896,
+     "output_tokens": 478
+    }
+   ],
+   "gold_issue_rank_with_thread": 1,
+   "gold_issue_rank_alone": null
+  },
+  {
+   "id": "thr-008-es",
+   "part": "threads",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": true,
+   "calls": [
+    {
+     "purpose": "rewrite",
+     "state": "ok",
+     "input_tokens": 423,
+     "output_tokens": 36
+    },
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5298,
+     "output_tokens": 679
+    }
+   ],
+   "gold_issue_rank_with_thread": 1,
+   "gold_issue_rank_alone": null
+  },
+  {
+   "id": "thr-009-es",
+   "part": "threads",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 1,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": true,
+   "calls": [
+    {
+     "purpose": "rewrite",
+     "state": "ok",
+     "input_tokens": 382,
+     "output_tokens": 45
+    },
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4895,
+     "output_tokens": 707
+    }
+   ],
+   "gold_issue_rank_with_thread": 1,
+   "gold_issue_rank_alone": null
+  },
+  {
+   "id": "thr-010-es",
+   "part": "threads",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 1,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": true,
+   "calls": [
+    {
+     "purpose": "rewrite",
+     "state": "ok",
+     "input_tokens": 346,
+     "output_tokens": 38
+    },
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4127,
+     "output_tokens": 496
+    }
+   ],
+   "gold_issue_rank_with_thread": 1,
+   "gold_issue_rank_alone": null
+  }
+ ]
+}

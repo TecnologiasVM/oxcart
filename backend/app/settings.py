@@ -134,10 +134,12 @@ ASK_WARM_ON_START: bool = os.getenv("ASK_WARM_ON_START", "1").strip().lower() no
 # Without ANTHROPIC_API_KEY the route still answers: with the evidence, and no written answer.
 ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "").strip()
 ANSWER_MODEL: str = "claude-haiku-5-5"
-# The lowest setting the model accepts: effort "low", thinking off. ANSWER_THINKING=adaptive
-# turns thinking on (the evaluation compares the two); thinking then shares the output budget.
+# Effort "low", the lowest, with thinking on. The evaluation compared thinking on and off
+# (EVALUATION.md): off, the model copied the cited text into its answers and half of the
+# literature answers were cut at the output limit. ANSWER_THINKING=disabled turns it off.
+# With thinking on, the thinking shares the output budget, so it gets room of its own.
 ANSWER_EFFORT: str = os.getenv("ANSWER_EFFORT", "low").strip().lower() or "low"
-ANSWER_THINKING: str = "adaptive" if os.getenv("ANSWER_THINKING", "").strip().lower() == "adaptive" else "disabled"
+ANSWER_THINKING: str = "disabled" if os.getenv("ANSWER_THINKING", "").strip().lower() == "disabled" else "adaptive"
 ANSWER_MAX_TOKENS: int = _int("ANSWER_MAX_TOKENS", 500)
 ANSWER_THINKING_ROOM_TOKENS: int = _int("ANSWER_THINKING_ROOM_TOKENS", 1500)
 REWRITE_MAX_TOKENS: int = _int("REWRITE_MAX_TOKENS", 120)

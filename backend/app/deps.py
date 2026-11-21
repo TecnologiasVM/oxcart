@@ -137,10 +137,13 @@ async def lifespan(app: FastAPI):
     # background, so that the first question does not wait for them.
     if settings.ASK_WARM_ON_START:
         app.state.ask.warm()
+        # The written answer's client too: loading its package took the first answer's time on a small host.
+        app.state.answer_model.warm_in_background()
     try:
         yield
     finally:
         app.state.ask.close()
+        app.state.answer_model.close()
         # Sync driver: close() is synchronous (no await).
         app.state.neo4j.close()
         app.state.neo4j = None
