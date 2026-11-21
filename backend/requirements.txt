@@ -12,5 +12,7 @@ pydantic==2.12.5           # v2 schemas
 neo4j==6.4.1               # graph driver (read-only usage)
 weaviate-client==4.24.1    # vector/keyword store client (read-only usage)
 python-dotenv==1.2.4       # loads the repo-root environment file
+anthropic==2.12.0          # the written answer's model (app/answer_model.py); the only model the API calls
+langgraph==1.2.24          # the written answer's steps as a graph (app/answer_graph.py)
 httpx==0.28.1              # used by fastapi.testclient (test_mena_backend.py)
 tqdm==4.70.1               # imported by the graph-build modules the API shares

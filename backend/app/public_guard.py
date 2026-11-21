@@ -196,3 +196,28 @@ class Limiter:
                 self._minute = {k: w for k, w in self._minute.items() if w and w[-1] > t - 60}
             self._global = (g_day, g_count + 1)
             return True, "", 0
+
+
+class DayCount:
+    """An allowance for the whole service that starts again each day, in memory.
+
+    The written answer's model calls are counted with it: ``take`` gives one, or says no
+    when the day's allowance is spent. The eval's way in does not skip it.
+    """
+
+    def __init__(self, per_day: int, now: Callable[[], float] = time.time):
+        self.per_day, self.now = per_day, now
+        self._lock = threading.Lock()
+        self._count: tuple[int, int] = (0, 0)
+
+    def take(self) -> bool:
+        day = int(self.now() // 86400)
+        with self._lock:
+            counted_day, count = self._count
+            if counted_day != day:
+                count = 0
+            if count >= self.per_day:
+                self._count = (day, count)
+                return False
+            self._count = (day, count + 1)
+            return True
