@@ -33,9 +33,10 @@ DEVELOPMENT = stores.REPO / "eval" / "data" / "questions_catalogue.jsonl"
 PERIODS = [("to 1900", 0, 1900), ("1901-1950", 1901, 1950), ("1951-2000", 1951, 2000), ("2001-2025", 2001, 2100)]
 if stores.TEST_SET:
     # Another set (OXCART_TEST_SET): 10 facts, another seed, and no issue the development set uses.
+    # No Scott fact: the development set uses the issues of every one the graph holds.
     SEED = 20261121
-    KINDS = {"date_on_sale": 2, "stamp_colour": 2, "stamp_quantity": 2, "printer": 1, "legal_act": 1,
-             "varieties": 1, "scott_equivalent": 1}
+    KINDS = {"date_on_sale": 2, "stamp_colour": 2, "stamp_quantity": 2, "printer": 2, "legal_act": 1, "varieties": 1,
+             "scott_equivalent": 0}
     PREFIX = f"{stores.TEST_SET}-cat"
 else:
     SEED = 1863
