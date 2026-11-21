@@ -1,0 +1,301 @@
+"""The written answer, as a graph (LangGraph).
+
+    START ──(a thread came with the question)──> contextualize ──┐
+      └────────────(a first question)────────────────────────────┴─> retrieve ──> write ──> check ──> END
+                                                                         └──(no store answered)──> END
+
+    contextualize   a follow-up ("and its perforation?") -> a question that stands alone.    one model call
+    retrieve        the question path as it was: embedding, catalogue lookup, literature.     no model
+    write           a short answer from the shown evidence, with citations.                   one model call
+    check           keeps what is cited, drops what is not, names why there is no answer.     no model
+
+**Why a graph.** Each step is a node that is given only the part of the state it declares.
+The earlier turns of a conversation come from the browser, so they are a visitor's text:
+``contextualize`` is the only node that receives them. ``write`` receives the question
+that stands alone and the evidence, and nothing a visitor typed in earlier turns. The
+route sends each node's result as it ends, so the evidence reaches the page when
+``retrieve`` ends, as fast as before, and the answer follows.
+
+**No checkpointer.** A conversation lives in the visitor's browser, which sends its last
+turns with a follow-up. The graph starts from that every time and the server keeps
+nothing between two requests: no visitor's text stays in this process's memory, and
+nothing is lost when the service sleeps.
+
+**What is not here.** No step grades the evidence and none retrieves a second time; there
+is no scope router. The model has no tools.
+
+**The rule for text without a citation.** The answer is cut into sentences. A sentence is
+shown only if a citation that holds is attached to it. A citation holds when it names a
+shown card or passage and the text it cites is in that card or passage. It is attached to
+the sentence its piece of the answer lies in. One case apart: a piece that is nothing but
+the cited text itself, standing between two sentences, is a quote and not a sentence; it
+is attached to the sentence before it and is not printed in the answer (the page shows
+the cited text with the source). A sentence with no citation is not shown, and an answer
+with no sentence left is not shown at all. The part of a kept sentence that lies outside
+its cited text is NOT removed; whether such a sentence says more than its sources is what
+the evaluation's "supported" grade measures.
+"""
+
+from __future__ import annotations
+
+import operator
+import re
+from dataclasses import dataclass
+from typing import Annotated, Any, Callable, Literal
+
+from langgraph.graph import END, START, StateGraph
+from langgraph.runtime import Runtime
+from typing_extensions import TypedDict
+
+from app import settings
+from app.answer_model import NOT_COVERED, Reply
+from app.graph_link import Unavailable
+
+STAMPS_ON_A_CARD = 24          # as many as the page prints
+QUOTES_PER_SOURCE = 5
+
+
+# --------------------------------------------------------------------------- state
+class ChatState(TypedDict, total=False):
+    question: str               # as the visitor wrote it
+    thread: list                # the earlier turns, from the browser: [{"question": .., "answer": ..}]
+    search_question: str        # the question that stands alone: what is searched and what is answered
+    rewritten: bool
+    evidence: dict              # what POST /api/ask returns for search_question
+    error: str                  # set when no store answered
+    draft: dict                 # the model's reply, before the check
+    answer: dict                # what the page gets
+    calls: Annotated[list, operator.add]     # one entry per model call: what for, its state, tokens, seconds
+
+
+class FollowUp(TypedDict):
+    """All that ``contextualize`` is given."""
+    question: str
+    thread: list
+
+
+class Asked(TypedDict, total=False):
+    """All that ``retrieve`` is given."""
+    question: str
+    search_question: str
+
+
+class Found(TypedDict):
+    """All that ``write`` is given: no earlier turn, and not the follow-up as it was typed."""
+    search_question: str
+    evidence: dict
+
+
+class Written(TypedDict):
+    """All that ``check`` is given."""
+    evidence: dict
+    draft: dict
+
+
+@dataclass
+class Deps:
+    """What a run needs from the process. Tests pass fakes."""
+    retrieve: Callable[[str], dict]     # ask_service.answer for this process's stores
+    model: Any                          # answer_model.ClaudeModel, or a fake with the same three members
+    take: Callable[[], bool]            # one model call from the day's allowance; False when it is spent
+
+
+def _call(purpose: str, reply: Reply) -> dict:
+    return {"purpose": purpose, "state": reply.state, "input_tokens": reply.input_tokens,
+            "output_tokens": reply.output_tokens, "seconds": reply.seconds}
+
+
+# --------------------------------------------------------------------------- the evidence as sources
+def card_lines(issue: dict) -> list:
+    """A catalogue card as fact lines: the facts the page prints, one per line."""
+    card = issue.get("card") or {}
+    lines = [f"Issue: {issue.get('title') or issue.get('issue_id')} ({issue.get('issue_id')})"]
+    for key, value in (card.get("dates") or {}).items():
+        if value:
+            lines.append(f"{str(key).replace('_', ' ')}: {value}")
+    if card.get("printers"):
+        lines.append("printers: " + "; ".join(str(p) for p in card["printers"]))
+    if card.get("perforation"):
+        lines.append(f"perforation: {card['perforation']}")
+    for act in card.get("acts") or []:
+        parts = [str(act[k]) for k in ("type", "id", "date") if act.get(k)]
+        if parts:
+            lines.append("legal act: " + ", ".join(parts))
+    for stamp in (card.get("stamps") or [])[:STAMPS_ON_A_CARD]:
+        value = " ".join(str(stamp[k]) for k in ("value", "unit") if stamp.get(k) not in (None, ""))
+        facts = [("value", value), ("colour", stamp.get("color")), ("quantity", stamp.get("quantity"))]
+        told = "; ".join(f"{name} {fact}" for name, fact in facts if fact not in (None, ""))
+        lines.append(f"stamp {stamp.get('catalog_no')}: {told}" if told else f"stamp {stamp.get('catalog_no')}")
+    return lines
+
+
+def sources_of(evidence: dict) -> list:
+    """The shown cards and passages, in the order the model is given them. A passage with
+    no text (a figure only) is not a source."""
+    sources = []
+    for index, issue in enumerate(evidence.get("issues") or []):
+        sources.append({"kind": "issue", "index": index, "lines": card_lines(issue),
+                        "title": f"Catalogue card: {issue.get('title') or issue.get('issue_id')}"})
+    for index, passage in enumerate(evidence.get("passages") or []):
+        if (passage.get("text") or "").strip():
+            sources.append({"kind": "passage", "index": index, "text": passage["text"],
+                            "title": f"{passage.get('doc_id')}, page {passage.get('page')}"})
+    return sources
+
+
+def _squeezed(text: str) -> str:
+    return "".join((text or "").split())
+
+
+def _holds(citation: dict, sources: list) -> bool:
+    """Does the citation name a shown source, and is its text in that source?"""
+    n = citation.get("document")
+    if not isinstance(n, int) or not 0 <= n < len(sources):
+        return False
+    source = sources[n]
+    shown = "\n".join(source["lines"]) if source["kind"] == "issue" else source["text"]
+    cited = _squeezed(citation.get("cited_text", ""))
+    return bool(cited) and cited in _squeezed(shown)
+
+
+_ENDS_A_SENTENCE = re.compile(r"[.!?…][\"'”’»)\]]*$")
+_HAS_A_WORD = re.compile(r"\w")
+_SENTENCE_END = re.compile(r"(?<=[.!?…])[\"'”’»)\]]*\s+|\s*\n+\s*")
+
+
+def sentence_spans(text: str) -> list:
+    """(start, end) of each sentence of ``text``, without the space around it."""
+    spans, start = [], 0
+    for match in _SENTENCE_END.finditer(text):
+        spans.append((start, match.start() + len(match.group(0).rstrip())))
+        start = match.end()
+    spans.append((start, len(text)))
+    out = []
+    for a, b in spans:
+        piece = text[a:b]
+        a, b = a + len(piece) - len(piece.lstrip()), b - (len(piece) - len(piece.rstrip()))
+        if b > a:
+            out.append((a, b))
+    return out
+
+
+# --------------------------------------------------------------------------- nodes
+def contextualize(state: FollowUp, runtime: Runtime[Deps]) -> dict:
+    deps = runtime.context
+    question = state["question"]
+    if not deps.model.configured or not deps.take():
+        return {"search_question": question, "rewritten": False}
+    reply = deps.model.rewrite(question, state["thread"])
+    rewritten = " ".join(reply.text.split())
+    if reply.state != "ok" or not 0 < len(rewritten) <= settings.ASK_MAX_QUESTION_CHARS:
+        return {"search_question": question, "rewritten": False, "calls": [_call("rewrite", reply)]}
+    return {"search_question": rewritten, "rewritten": rewritten != question, "calls": [_call("rewrite", reply)]}
+
+
+def retrieve(state: Asked, runtime: Runtime[Deps]) -> dict:
+    question = state.get("search_question") or state["question"]
+    try:
+        return {"search_question": question, "evidence": runtime.context.retrieve(question)}
+    except Unavailable:
+        return {"search_question": question, "error": "stores_unavailable"}
+
+
+def write(state: Found, runtime: Runtime[Deps]) -> dict:
+    deps = runtime.context
+    sources = sources_of(state["evidence"])
+    if not sources:
+        return {"draft": {"state": "no_evidence"}}
+    if not deps.model.configured:
+        return {"draft": {"state": "no_key"}}
+    if not deps.take():
+        return {"draft": {"state": "daily_cap"}}
+    reply = deps.model.write(state["search_question"], sources)
+    return {"draft": {"state": reply.state, "blocks": reply.blocks}, "calls": [_call("write", reply)]}
+
+
+def check(state: Written) -> dict:
+    draft = state["draft"]
+    if draft["state"] != "ok":
+        return {"answer": {"state": draft["state"]}}
+    sources = sources_of(state["evidence"])
+    blocks = draft.get("blocks") or []
+    whole = "".join(block["text"] for block in blocks)
+    if not whole.strip():
+        return {"answer": {"state": "empty"}}
+    if whole.strip().startswith(NOT_COVERED):
+        return {"answer": {"state": "not_covered"}}
+
+    # The text that is printed, and where each citation that holds is attached to it.
+    text, pieces, quotes, given, held = "", [], [], 0, 0        # pieces: (start, end, citations); quotes: (at, citations)
+    for block in blocks:
+        holding = [c for c in block.get("citations") or [] if _holds(c, sources)]
+        given += len(block.get("citations") or [])
+        held += len(holding)
+        before = text.rstrip()
+        between_sentences = not before or bool(_ENDS_A_SENTENCE.search(before))
+        if holding and between_sentences and any(_squeezed(block["text"]) == _squeezed(c["cited_text"]) for c in holding):
+            quotes.append((len(before), holding))               # a quote: attached to the sentence before it
+            continue
+        start = len(text)
+        text += block["text"]
+        if holding:
+            pieces.append((start, len(text), holding))
+
+    numbers: dict = {}          # (kind, index) -> the number the page prints
+    used: list = []
+    sentences = []
+    spans = [(a, b) for a, b in sentence_spans(text) if _HAS_A_WORD.search(text[a:b])]
+    for position, (a, b) in enumerate(spans):
+        after = spans[position + 1][0] if position + 1 < len(spans) else len(text) + 1
+        attached = [c for start, end, holding in pieces if text[max(a, start):min(b, end)].strip() for c in holding]
+        attached += [c for at, holding in quotes if (a < at < after) or (at == 0 and position == 0) for c in holding]
+        cites = []
+        for citation in attached:
+            source = sources[citation["document"]]
+            key = (source["kind"], source["index"])
+            if key not in numbers:
+                numbers[key] = len(used) + 1
+                used.append({"n": numbers[key], "kind": source["kind"], "index": source["index"],
+                             "title": source["title"], "quotes": []})
+            entry = used[numbers[key] - 1]
+            quote = " ".join(citation["cited_text"].split())
+            if quote not in entry["quotes"] and len(entry["quotes"]) < QUOTES_PER_SOURCE:
+                entry["quotes"].append(quote)
+            if numbers[key] not in cites:
+                cites.append(numbers[key])
+        if cites and NOT_COVERED not in text[a:b]:
+            sentences.append({"text": text[a:b], "cites": cites})
+
+    counts = {"sentences": len(spans), "sentences_without_citation": len(spans) - len(sentences),
+              "citations": given, "citations_that_do_not_hold": given - held}
+    if not sentences:
+        return {"answer": {"state": "uncited", "counts": counts}}
+    cited_numbers = {n for sentence in sentences for n in sentence["cites"]}
+    return {"answer": {"state": "ok", "sentences": sentences,
+                       "sources": [source for source in used if source["n"] in cited_numbers], "counts": counts}}
+
+
+# --------------------------------------------------------------------------- the graph
+def _first(state: ChatState) -> Literal["contextualize", "retrieve"]:
+    return "contextualize" if state.get("thread") else "retrieve"
+
+
+def _after_retrieve(state: ChatState) -> Literal["write", "__end__"]:
+    return END if state.get("error") else "write"
+
+
+def build():
+    graph = StateGraph(ChatState, context_schema=Deps)
+    graph.add_node("contextualize", contextualize)
+    graph.add_node("retrieve", retrieve)
+    graph.add_node("write", write)
+    graph.add_node("check", check)
+    graph.add_conditional_edges(START, _first)
+    graph.add_edge("contextualize", "retrieve")
+    graph.add_conditional_edges("retrieve", _after_retrieve)
+    graph.add_edge("write", "check")
+    graph.add_edge("check", END)
+    return graph.compile()          # no checkpointer: see the module's note
+
+
+GRAPH = build()

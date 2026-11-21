@@ -14,10 +14,13 @@ retrieval. Specifically it wraps:
 
 These are non-negotiable and are enforced in code:
 
-1. **No LLM calls.** No direct OpenAI/Anthropic/LLM API calls in this backend.
-   The only exception is Weaviate using OpenAI *under the hood* for its own
-   vectorizer; BM25 (no key) is the default. There is **no answer-generation
-   phase** in this MVP — the API returns retrieved context only.
+1. **One module calls a language model, and the explorer calls none.** The
+   explorer's routes return retrieved context only: no answer is generated and
+   no model is called (Weaviate's own vectorizer aside; BM25, which needs no
+   key, is the default). The written answer of `POST /api/chat` is the one
+   exception: `app/answer_model.py` calls Claude, and nothing else in the
+   backend calls a language model. The question's embedding is made in
+   `app/ask_service.py`.
 2. **Weaviate is read-only.**
 3. **Neo4j is read-only.** The backend issues only read queries; it never
    writes to the graph.
@@ -137,7 +140,7 @@ With `OXCART_PUBLIC=1` the app runs in **hosted mode**:
 
 | | |
 |---|---|
-| Routes mounted | `GET /api/health`, `GET /api/ask/examples`, `POST /api/session`, `POST /api/ask`. Nothing else: no explorer routes, no export, no figures |
+| Routes mounted | `GET /api/health`, `GET /api/ask/examples`, `POST /api/session`, `POST /api/ask`, `POST /api/chat`. Nothing else: no explorer routes, no export, no figures |
 | Docs | `/docs`, `/redoc` and `/openapi.json` are off |
 | Human check | The page solves a Cloudflare Turnstile challenge and posts its token to `/api/session`; the backend verifies it with Cloudflare and returns a signed token valid for an hour, sent as `X-Oxcart-Session` with each question. If the check cannot be verified, questions are refused with a message |
 | Limits | 10 questions a minute and 100 a day per visitor, 2,000 a day for the service, in memory; a question is at most 300 characters and a request 2 kB. A visitor is counted twice, by address and by session token, and a question passes only when both are under the limits |
@@ -148,12 +151,61 @@ With `OXCART_PUBLIC=1` the app runs in **hosted mode**:
 Settings, all from the environment (`app/settings.py`): `OXCART_PUBLIC`, `CORS_ORIGINS`, `WEAVIATE_URL` and
 `WEAVIATE_API_KEY` (a Weaviate Cloud cluster; without `WEAVIATE_URL` the local instance is used),
 `OPENAI_API_KEY`, `TURNSTILE_SECRET`, `SESSION_SIGNING_KEY`, `EVAL_ACCESS_KEY` (the eval's own way in, a secret
-header; empty means that door does not exist), `TRUSTED_PROXY_HOPS`, `VISITOR_ADDRESS_HEADER`, and the `ASK_*` bounds.
+header; empty means that door does not exist), `TRUSTED_PROXY_HOPS`, `VISITOR_ADDRESS_HEADER`, the `ASK_*` bounds,
+and for the written answer `ANTHROPIC_API_KEY` and the `ANSWER_*` settings.
 
 Without `OXCART_PUBLIC` nothing changes for local use: the explorer's routes are mounted as before, and
-`/api/ask` works without a session.
+`/api/ask` and `/api/chat` work without a session.
 
-Tests, with fakes in place of the stores: `python -m pytest backend/tests`.
+### The written answer
+
+`POST /api/chat` takes a question, and the earlier turns of its conversation when it is a follow-up, and returns
+the same evidence followed by a short answer whose sentences cite it. The steps are a graph (LangGraph,
+`app/answer_graph.py`):
+
+| Step | What it does | Model |
+|---|---|---|
+| `contextualize` | Only for a follow-up: rewrites it as a question that stands alone ("and its perforation?" becomes a question that names the issue). If that fails, the question is used as written | one call |
+| `retrieve` | The question path above, unchanged | none |
+| `write` | A short answer from the shown evidence, with citations (`app/answer_model.py`) | one call |
+| `check` | Keeps the sentences that carry a citation that holds, drops the others, and names why there is no answer when there is none | none |
+
+- **Why a graph.** Each step is given only the part of the state it declares. The earlier turns come from the
+  browser, so they are a visitor's text: `contextualize` is the only step that receives them, and `write`
+  receives the question that stands alone and the evidence. The route sends each step's result as it ends, so the
+  evidence arrives as fast as on `/api/ask` and the answer follows.
+- **No checkpointer.** A conversation is kept in the visitor's browser, which sends its last three turns with a
+  follow-up (each answer clipped to 1,200 characters; a request is at most 8 kB). The server keeps nothing between
+  two requests, so nothing of a visitor stays in its memory and nothing is lost when the service sleeps.
+- **Citations.** Each shown card and passage goes to the model as a document with citations on (Anthropic's
+  citations feature), holding the text the page shows. A citation holds when it names one of them and its cited
+  text is in it. A sentence with no citation that holds is not shown; a piece that is only the cited text,
+  standing between two sentences, counts as the citation of the sentence before it and is not printed. The part
+  of a kept sentence outside its cited text is not removed.
+- **The evidence is untrusted text.** It enters a request as document content only, never in the instructions;
+  the instructions say that text inside a document is not to be followed; the model has no tools. The earlier
+  turns are treated the same way.
+- **Not built.** No step grades the evidence, none retrieves a second time, and there is no scope router.
+
+The response is lines of JSON (`application/x-ndjson`): `{"type": "evidence", "rewritten": .., "evidence": {..}}`
+(what `/api/ask` returns, for the question that was searched), then `{"type": "answer", "answer": {..}}`.
+`answer.state` is `ok` (with `sentences`, each with the numbers of its `sources`, and for each source the text it
+was cited for), `not_covered` (the evidence does not answer the question), or the reason nothing was written:
+`no_key`, `daily_cap`, `no_evidence`, `timeout`, `key_refused`, `rate_limited`, `request_refused`,
+`model_unavailable`, `declined`, `cut` (the answer hit its length limit), `uncited` (no sentence carried a
+citation that holds), `empty`, `stopped`, `failed`. In every one of those the evidence has already been sent.
+
+The route stands behind the same guard as `/api/ask`: the session token, both visitor counts (a question here
+counts as a question there), the service's daily limit, and the eval's way in. On top of that, the whole service
+makes at most `ANSWER_LIMIT_PER_DAY` model calls a day (200; the rewrite of a follow-up counts), in memory; the
+eval's way in does not skip it. Past it the route answers with the evidence only.
+
+The model is `claude-haiku-5-5` at effort `low` with thinking off, at most 500 output tokens for an answer and 120
+for a rewrite, 12 and 5 seconds, no retry. `ANSWER_THINKING=adaptive` turns thinking on. Without
+`ANTHROPIC_API_KEY` the route works and answers with the evidence only (`no_key`). The log line of a question
+holds the answer's state, the citation counts and each call's token counts; no question and no answer.
+
+Tests, with fakes in place of the stores and of the model: `python -m pytest backend/tests`.
 To score the test set through a running backend: `python -m eval.ask_arm --label <name>` (see `EVALUATION.md`).
 
 ## Deploying the hosted mode
@@ -170,6 +222,7 @@ access log. It holds no key and no data. The host provides these settings, as se
 | `WEAVIATE_URL`, `WEAVIATE_API_KEY` | The literature cluster and a **read-only** key |
 | `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`, `NEO4J_DATABASE` | The catalogue graph |
 | `OPENAI_API_KEY` | A key limited to embeddings, with a spend limit. Without it the backend answers in keyword mode |
+| `ANTHROPIC_API_KEY` | Optional: a key for the written answer, in a workspace with a spend limit. Without it `/api/chat` answers with the evidence only |
 | `TURNSTILE_SECRET` | The human check's secret key |
 | `SESSION_SIGNING_KEY` | A long random string; signs the session tokens |
 | `EVAL_ACCESS_KEY` | Optional: a long random string that lets the eval and the page's build in without the human check |
@@ -212,7 +265,7 @@ export (passages and their stored vectors). The export is not in this repository
 ## Dependencies
 
 See `requirements.txt` (pinned: FastAPI 0.116.2, Pydantic 2.12.5, uvicorn 0.35.0,
-`neo4j` 6.4.1, `weaviate-client` 4.24.1). Install it into a Python 3.10+ virtual
+`neo4j` 6.4.1, `weaviate-client` 4.24.1, `anthropic` 2.12.0, `langgraph` 1.2.24). Install it into a Python 3.10+ virtual
 environment:
 
 ```bash

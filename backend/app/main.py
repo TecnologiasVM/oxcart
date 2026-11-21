@@ -6,9 +6,9 @@ Next.js dev frontend, and the API routers (graph, meta, query) under the
 
 Owner contracts upheld across the whole service:
 
-* No direct LLM/OpenAI/Anthropic API calls in new code. (Weaviate's own
-  vectorizer is the only permitted exception; BM25 is the default and needs no
-  key.) There is NO answer-generation phase in this MVP.
+* One module calls a language model, ``app.answer_model``, for the written answer
+  of ``POST /api/chat``; one calls an embedding service, ``app.ask_service``. The
+  explorer's routes call neither and write no answer.
 * Weaviate is read-only.
 * Neo4j queries are read-only.
 * Embedding/vector fields are never exposed -- see ``app.deps.sanitize_props``.
@@ -34,9 +34,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import public_guard, settings
+from app import answer_model, public_guard, settings
 from app.deps import lifespan
-from app.routers import ask
+from app.routers import ask, chat
 
 from oxcart import config
 
@@ -47,7 +47,7 @@ def create_app(public: bool | None = None) -> FastAPI:
     """Build the API.
 
     ``public`` (default: the OXCART_PUBLIC setting) is the hosted mode: only the question
-    path is mounted (health, examples, session, ask), the interactive docs and the OpenAPI
+    path is mounted (health, examples, session, ask, chat), the interactive docs and the OpenAPI
     document are off, CORS allows the listed origins for GET and POST without credentials,
     and a question needs a session token from the human check. Without it the explorer's
     routes are mounted too, as before, for local research use.
@@ -65,6 +65,9 @@ def create_app(public: bool | None = None) -> FastAPI:
     app.state.limiter = public_guard.Limiter(settings.ASK_LIMIT_PER_MINUTE, settings.ASK_LIMIT_PER_DAY,
                                              settings.ASK_LIMIT_GLOBAL_PER_DAY)
     app.state.session_limiter = public_guard.Limiter(10, 200, 20 * settings.ASK_LIMIT_GLOBAL_PER_DAY)
+    # The written answer: the model, and how many calls to it the whole service makes in a day.
+    app.state.answer_model = answer_model.ClaudeModel()
+    app.state.answer_allowance = public_guard.DayCount(settings.ANSWER_LIMIT_PER_DAY)
 
     if public:
         app.add_middleware(
@@ -88,7 +91,7 @@ def create_app(public: bool | None = None) -> FastAPI:
     async def api_headers(request: Request, call_next):
         request.state.request_id = secrets.token_hex(6)
         response = await call_next(request)
-        if request.url.path.startswith("/api") and (public or request.url.path.startswith(("/api/ask", "/api/session"))):
+        if request.url.path.startswith("/api") and (public or request.url.path.startswith(("/api/ask", "/api/chat", "/api/session"))):
             response.headers["Cache-Control"] = "no-store"
             response.headers["X-Robots-Tag"] = "noindex"
         response.headers["X-Request-Id"] = request.state.request_id
@@ -116,6 +119,7 @@ def create_app(public: bool | None = None) -> FastAPI:
 
     # The question path, in both modes.
     app.include_router(ask.router, prefix="/api")
+    app.include_router(chat.router, prefix="/api")
 
     if public:
         app.include_router(ask.health_router, prefix="/api")

@@ -8,10 +8,12 @@ lookup) are the ``oxcart`` package at the repository root. It is installed into 
 environment (``python -m pip install -e .`` from the root), so the backend imports
 it like any other package: ``from oxcart import config``.
 
-The backend honours three owner contracts and they are enforced elsewhere:
+The backend honours these contracts and they are enforced elsewhere:
 
-* No direct LLM/OpenAI/Anthropic API calls in new code (Weaviate's own
-  vectorizer is the only exception). No answer-generation phase.
+* One module calls a language model: ``app.answer_model`` (the written answer of
+  ``POST /api/chat``). One module calls an embedding service: ``app.ask_service``
+  (the question's vector). No other code calls a model, and the explorer's routes
+  call none.
 * Weaviate is read-only.
 * Neo4j queries issued by the backend are read-only.
 * Embedding/vector properties are never exposed (stripped in ``app.deps``).
@@ -123,3 +125,28 @@ GRAPH_RETRY_EVERY_SECONDS: float = float(os.getenv("GRAPH_RETRY_EVERY_SECONDS", 
 # background, so the first question does not wait for them. Opening the embedding's connection makes
 # one tiny embedding per start.
 ASK_WARM_ON_START: bool = os.getenv("ASK_WARM_ON_START", "1").strip().lower() not in ("0", "false", "no", "off")
+
+
+# ---------------------------------------------------------------------------
+# The written answer (POST /api/chat)
+# ---------------------------------------------------------------------------
+# A short answer written from the evidence, by one language model called from this process.
+# Without ANTHROPIC_API_KEY the route still answers: with the evidence, and no written answer.
+ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "").strip()
+ANSWER_MODEL: str = "claude-haiku-5-5"
+# The lowest setting the model accepts: effort "low", thinking off. ANSWER_THINKING=adaptive
+# turns thinking on (the evaluation compares the two); thinking then shares the output budget.
+ANSWER_EFFORT: str = os.getenv("ANSWER_EFFORT", "low").strip().lower() or "low"
+ANSWER_THINKING: str = "adaptive" if os.getenv("ANSWER_THINKING", "").strip().lower() == "adaptive" else "disabled"
+ANSWER_MAX_TOKENS: int = _int("ANSWER_MAX_TOKENS", 500)
+ANSWER_THINKING_ROOM_TOKENS: int = _int("ANSWER_THINKING_ROOM_TOKENS", 1500)
+REWRITE_MAX_TOKENS: int = _int("REWRITE_MAX_TOKENS", 120)
+ANSWER_TIMEOUT_SECONDS: int = _int("ANSWER_TIMEOUT_SECONDS", 12)
+REWRITE_TIMEOUT_SECONDS: int = _int("REWRITE_TIMEOUT_SECONDS", 5)
+# Model calls a day for the whole service (kept in this process's memory). Every call counts,
+# the rewrite of a follow-up too. Past it the route answers with the evidence only.
+ANSWER_LIMIT_PER_DAY: int = _int("ANSWER_LIMIT_PER_DAY", 200)
+# A follow-up comes with the earlier turns of its conversation, kept by the browser.
+CHAT_MAX_BODY_BYTES: int = _int("CHAT_MAX_BODY_BYTES", 8192)
+CHAT_THREAD_TURNS: int = 3
+CHAT_THREAD_ANSWER_CHARS: int = 1200
