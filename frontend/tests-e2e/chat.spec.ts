@@ -29,7 +29,26 @@ const STORED = {
   examples: [{ lang: "en", question: "A stored example question?", answer: { ...ANSWER, question: "A stored example question?" } }],
 };
 
-async function mock(page: Page, options: { health?: number; ask?: object; askStatus?: number; stored?: object | null } = {}) {
+/* A written answer for ANSWER: two sentences, the first cites the card, the second the first passage. */
+const WRITTEN = {
+  state: "ok",
+  sentences: [
+    { text: "The test issue was placed on sale on 20 September 1889.", cites: [1] },
+    { text: "A test document says the same.", cites: [2] },
+  ],
+  sources: [
+    { n: 1, kind: "issue", index: 0, title: "Catalogue card: A test issue", quotes: ["placed on sale: 1889-09-20"] },
+    { n: 2, kind: "passage", index: 0, title: "A TEST DOCUMENT, page 12", quotes: ["A passage that answers the question."] },
+  ],
+};
+
+/** The chat route's answer: lines of JSON, the evidence and then the written answer. */
+const lines = (written: object, evidence: object = ANSWER, rewritten = false) =>
+  [{ type: "evidence", rewritten, evidence }, { type: "answer", answer: written, calls: [] }].map((line) => JSON.stringify(line)).join("\n") + "\n";
+
+type Mock = { health?: number; ask?: object; askStatus?: number; stored?: object | null; written?: object; chatStatus?: number };
+
+async function mock(page: Page, options: Mock = {}) {
   await page.route("**/api/health", (route) =>
     options.health === 0 ? route.abort() : route.fulfill({ status: options.health ?? 200, json: { status: "ok" } }));
   await page.route("**/api/ask/examples", (route) =>
@@ -38,6 +57,13 @@ async function mock(page: Page, options: { health?: number; ask?: object; askSta
     options.stored === null ? route.fulfill({ status: 404, body: "" }) : route.fulfill({ json: options.stored ?? { generated: null, examples: [] } }));
   await page.route("**/api/ask", (route) =>
     route.fulfill({ status: options.askStatus ?? 200, json: options.ask ?? ANSWER, headers: options.askStatus === 429 ? { "Retry-After": "30" } : {} }));
+  // the route that also writes an answer. By default no answer is written (no key), so the
+  // tests about the evidence see what they saw before there was a written answer
+  await page.route("**/api/chat", (route) => {
+    const status = options.chatStatus ?? options.askStatus ?? 200;
+    if (status !== 200) return route.fulfill({ status, json: options.ask ?? { error: "not_found" }, headers: status === 429 ? { "Retry-After": "30" } : {} });
+    return route.fulfill({ contentType: "application/x-ndjson", body: lines(options.written ?? { state: "no_key" }, options.ask ?? ANSWER) });
+  });
 }
 
 test("the site opens directly on the question box", async ({ page }) => {
@@ -125,9 +151,9 @@ test("a question asked while the service wakes shows short lines that follow one
     phase === "asleep"
       ? route.abort()
       : route.fulfill({ json: { status: "ok", graph: "connected", literature: phase === "ready" ? "connected" : "connecting", embedding: "connected" } }));
-  await page.route("**/api/ask", async (route) => {
+  await page.route("**/api/chat", async (route) => {
     await asked;                                                      // the question waits, as it does while the service wakes
-    await route.fulfill({ json: ANSWER });
+    await route.fulfill({ contentType: "application/x-ndjson", body: lines({ state: "no_key" }) });
   });
   await page.goto("/");
   await page.getByLabel(/Your question|Su pregunta/).fill("When was it placed on sale?");
@@ -226,9 +252,9 @@ test("a question that is being searched shows it in view at once, on a small scr
   await page.setViewportSize({ width: 390, height: 700 });
   await mock(page);
   await page.route("**/api/ask/examples", (route) => route.fulfill({ json: { examples: many, max_question_chars: 300 } }));
-  await page.route("**/api/ask", async (route) => {
+  await page.route("**/api/chat", async (route) => {
     await held;
-    await route.fulfill({ json: ANSWER });
+    await route.fulfill({ contentType: "application/x-ndjson", body: lines({ state: "no_key" }) });
   });
   await page.goto("/");
   await expect(page.getByRole("button", { name: /Example question number/ })).toHaveCount(8);
@@ -269,4 +295,144 @@ test("the page speaks Spanish and English", async ({ page }) => {
   await expect(page.locator("h1").first()).not.toHaveText(before);
   await page.reload();
   await expect(page.locator("h1").first()).not.toHaveText(before);   // the choice is remembered
+});
+
+test("a question gets a written answer above the evidence, each sentence with the sources it cites", async ({ page }) => {
+  await mock(page, { written: WRITTEN });
+  await page.goto("/");
+  await page.getByLabel(/Your question|Su pregunta/).fill("When was it placed on sale?");
+  await page.getByRole("button", { name: /^(Ask|Preguntar)$/ }).click();
+  const turn = page.getByTestId("turn").first();
+  const answer = turn.getByTestId("written-answer");
+  await expect(answer.getByTestId("answer-sentence")).toHaveCount(2);
+  await expect(answer).toContainText("The test issue was placed on sale on 20 September 1889.");
+  await expect(answer).toContainText(/Written by an AI model|Redactada por un modelo de IA/);
+  // each source names the card or passage and shows the text it was cited for
+  await expect(answer.getByTestId("answer-source")).toHaveCount(2);
+  await expect(answer.getByTestId("answer-source").first()).toContainText("placed on sale: 1889-09-20");
+  // a number leads to the cited card, which carries the same number
+  const mark = answer.getByTestId("answer-sentence").nth(1).getByRole("link", { name: /2/ });
+  const target = (await mark.getAttribute("href"))!.slice(1);
+  await expect(page.locator(`[id="${target}"]`)).toContainText("A TEST DOCUMENT");
+  await expect(page.locator(`[id="${target}"]`)).toContainText("[2]");
+  await expect(turn.getByTestId("passage").nth(1)).not.toContainText("[");
+  // the answer is above the evidence
+  const answerTop = (await answer.boundingBox())!.y;
+  const evidenceTop = (await turn.getByTestId("mode-line").boundingBox())!.y;
+  expect(answerTop).toBeLessThan(evidenceTop);
+  // and it is kept with the conversation
+  await page.reload();
+  await expect(page.getByTestId("turn").first().getByTestId("written-answer")).toContainText("A test document says the same.");
+});
+
+test("the evidence is shown while the answer is still being written", async ({ page }) => {
+  await mock(page);
+  // the first line arrives, the second waits: a server that answers in two parts
+  await page.addInitScript(() => {
+    const original = window.fetch;
+    window.fetch = async (input, init) => {
+      if (!String(input).endsWith("/api/chat")) return original(input, init);
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode((window as unknown as { __first: string }).__first));
+          (window as unknown as { __finish: () => void }).__finish = () => {
+            controller.enqueue(encoder.encode((window as unknown as { __second: string }).__second));
+            controller.close();
+          };
+        },
+      });
+      return new Response(stream, { status: 200, headers: { "Content-Type": "application/x-ndjson" } });
+    };
+  });
+  await page.goto("/");
+  const [first, second] = lines(WRITTEN).trim().split("\n");
+  await page.evaluate(([a, b]) => Object.assign(window, { __first: a + "\n", __second: b + "\n" }), [first, second]);
+  await page.getByLabel(/Your question|Su pregunta/).fill("When was it placed on sale?");
+  await page.getByLabel(/Your question|Su pregunta/).press("Enter");
+  const turn = page.getByTestId("turn").first();
+  await expect(turn.getByTestId("passage")).toHaveCount(2);                       // the evidence is here
+  await expect(turn.getByTestId("writing")).toContainText(/Writing an answer|Redactando una respuesta/);
+  await expect(turn.getByTestId("written-answer")).toHaveCount(0);
+  await expect(turn.getByTestId("follow-up")).toHaveCount(0);                     // no follow-up before the answer
+  await page.evaluate(() => (window as unknown as { __finish: () => void }).__finish());
+  await expect(turn.getByTestId("written-answer")).toBeVisible();
+  await expect(turn.getByTestId("writing")).toHaveCount(0);
+});
+
+test("when no answer is written the page says why in one line and shows the evidence", async ({ page }) => {
+  await mock(page, { written: { state: "not_covered" } });
+  await page.goto("/");
+  const box = page.getByLabel(/Your question|Su pregunta/);
+  await box.fill("What is the capital of France?");
+  await box.press("Enter");
+  const turn = page.getByTestId("turn").first();
+  await expect(turn.getByTestId("not-covered")).toContainText(/does not answer this question|no responde esta pregunta/);
+  await expect(turn.getByTestId("written-answer")).toHaveCount(0);
+  await expect(turn.getByTestId("passage")).toHaveCount(2);
+
+  for (const [state, words] of [["daily_cap", /all its answers for today|todas sus respuestas de hoy/], ["timeout", /No answer could be written|no se pudo redactar/]] as const) {
+    await page.unroute("**/api/chat");
+    await page.route("**/api/chat", (route) => route.fulfill({ contentType: "application/x-ndjson", body: lines({ state }) }));
+    await box.fill(`A question that ends as ${state}?`);
+    await box.press("Enter");
+    const next = page.getByTestId("turn").first();
+    await expect(next).toContainText(`A question that ends as ${state}?`);
+    await expect(next.getByTestId("no-written-answer")).toContainText(words);
+    await expect(next.getByTestId("passage")).toHaveCount(2);
+    await expect(next.getByTestId("turn-error")).toHaveCount(0);
+  }
+});
+
+test("a follow-up is sent with the turn it follows, and the page says what was searched", async ({ page }) => {
+  await mock(page, { written: WRITTEN });
+  await page.goto("/");
+  const box = page.getByLabel(/Your question|Su pregunta/);
+  await box.fill("When was it placed on sale?");
+  await box.press("Enter");
+  await expect(page.getByTestId("turn").first().getByTestId("written-answer")).toBeVisible();
+
+  const bodies: { question: string; thread: { question: string; answer: string }[] }[] = [];
+  await page.unroute("**/api/chat");
+  await page.route("**/api/chat", (route) => {
+    bodies.push(route.request().postDataJSON());
+    const evidence = { ...ANSWER, question: "Who printed the test issue?" };
+    return route.fulfill({ contentType: "application/x-ndjson", body: lines({ state: "ok", sentences: [{ text: "A printer printed it.", cites: [1] }],
+      sources: [{ n: 1, kind: "issue", index: 0, title: "Catalogue card: A test issue", quotes: ["printers: A printer"] }] }, evidence, true) });
+  });
+  const more = page.getByLabel(/Ask more about this|Pregunte más sobre esto/);
+  await more.fill("And who printed it?");
+  await more.press("Enter");
+  await expect(page.getByTestId("turn")).toHaveCount(2);
+  const turn = page.getByTestId("turn").first();
+  await expect(turn.getByTestId("follows")).toContainText("When was it placed on sale?");
+  await expect(turn.getByTestId("searched-as")).toContainText("Who printed the test issue?");
+  await expect(turn.getByTestId("written-answer")).toContainText("A printer printed it.");
+  expect(bodies[0]).toEqual({
+    question: "And who printed it?",
+    thread: [{ question: "When was it placed on sale?", answer: "The test issue was placed on sale on 20 September 1889. A test document says the same." }],
+  });
+  // only the newest turn has the box, and a second follow-up carries both turns
+  await expect(page.getByTestId("follow-up")).toHaveCount(1);
+  await page.getByLabel(/Ask more about this|Pregunte más sobre esto/).fill("And the next one?");
+  await page.getByLabel(/Ask more about this|Pregunte más sobre esto/).press("Enter");
+  await expect(page.getByTestId("turn")).toHaveCount(3);
+  expect(bodies[1].thread.map((t) => t.question)).toEqual(["When was it placed on sale?", "Who printed the test issue?"]);
+  // a question typed in the main box starts again, with no thread
+  await box.fill("Another subject?");
+  await box.press("Enter");
+  await expect(page.getByTestId("turn")).toHaveCount(4);
+  expect(bodies[2].thread).toEqual([]);
+});
+
+test("a backend without the answer step still gives the evidence", async ({ page }) => {
+  await mock(page, { chatStatus: 404 });
+  await page.goto("/");
+  await page.getByLabel(/Your question|Su pregunta/).fill("When was it placed on sale?");
+  await page.getByLabel(/Your question|Su pregunta/).press("Enter");
+  const turn = page.getByTestId("turn").first();
+  await expect(turn.getByTestId("passage")).toHaveCount(2);
+  await expect(turn.getByTestId("turn-error")).toHaveCount(0);
+  await expect(turn.getByTestId("written-answer")).toHaveCount(0);
+  await expect(turn.getByTestId("no-written-answer")).toHaveCount(0);
 });

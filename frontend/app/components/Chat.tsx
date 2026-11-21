@@ -3,9 +3,15 @@
 /*
  * The chat page: one question box, and under it the conversation so far.
  *
- * - No account. The conversation is a list of turns (question, evidence) kept in
- *   this browser's local storage, so a returning visitor sees it again. "Clear"
- *   empties it. One conversation; no threads yet.
+ * - No account. The conversation is a list of turns (question, written answer,
+ *   evidence) kept in this browser's local storage, so a returning visitor sees it
+ *   again. "Clear" empties it.
+ * - A question gets its evidence first and, a moment later, a short answer written
+ *   from that evidence, each sentence with the cards and passages it cites. When no
+ *   answer can be written the page says so in one line and shows the evidence.
+ * - Under the newest answer a second box asks more about it. That follow-up is sent
+ *   with the last turns it follows (at most three): this browser is the only memory
+ *   the conversation has, the server keeps none.
  * - Stored examples ship with the page (a static file): a visitor sees real
  *   evidence while the service wakes up, and when it is asleep or gone. They are
  *   marked as stored.
@@ -15,13 +21,14 @@
  * - The service sleeps when nobody uses it. While it wakes, the page says so in short
  *   lines that follow one another (waking, connecting, searching) with a count of
  *   seconds, so a long first wait does not look like a fault.
- *
- * Retrieval only: the page shows evidence, it does not write an answer.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ask, AskError, liveExamples, MAX_QUESTION_CHARS, openSession, serviceState, storedExamples, TURNSTILE_SITE_KEY } from "@/lib/ask";
-import type { AskAnswer, Example, ServiceState, StoredExample } from "@/lib/ask";
+import {
+  ask, AskError, chat, liveExamples, MAX_QUESTION_CHARS, openSession, serviceState, storedExamples,
+  THREAD_ANSWER_CHARS, THREAD_TURNS, TURNSTILE_SITE_KEY,
+} from "@/lib/ask";
+import type { AskAnswer, Example, ServiceState, StoredExample, ThreadTurn, WrittenAnswer } from "@/lib/ask";
 import { LABELS } from "@/lib/i18n";
 import type { Labels, Lang } from "@/lib/i18n";
 
@@ -37,6 +44,11 @@ type Turn = {
   question: string;
   at: string;
   answer?: AskAnswer;
+  written?: WrittenAnswer; // the answer written from the evidence, or why there is none
+  writing?: boolean; // the evidence is here and the answer is being written
+  thread?: ThreadTurn[]; // the turns this question follows, as they were sent with it
+  after?: string; // the question it follows, to say so on the page
+  rewritten?: boolean; // the follow-up was made into a question that stands alone before the search
   stored?: boolean;
   storedDate?: string | null;
   error?: { code: string; message: string };
@@ -61,7 +73,8 @@ function loadTurns(): Turn[] {
   try {
     const raw = window.localStorage.getItem(HISTORY_KEY);
     const turns = raw ? (JSON.parse(raw) as Turn[]) : [];
-    return Array.isArray(turns) ? turns.filter((t) => t && t.question && (t.answer || t.error)) : [];
+    // a turn that was being written when the page closed has its evidence and no answer
+    return Array.isArray(turns) ? turns.filter((t) => t && t.question && (t.answer || t.error)).map((t) => ({ ...t, writing: false })) : [];
   } catch {
     return [];
   }
@@ -92,6 +105,7 @@ export default function Chat() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [question, setQuestion] = useState("");
+  const [more, setMore] = useState("");
   const [busy, setBusy] = useState(false);
   const [service, setService] = useState<Service>("checking");
   const [stored, setStored] = useState<StoredExample[]>([]);
@@ -249,37 +263,56 @@ export default function Chat() {
 
   // --- asking
   const submit = useCallback(
-    async (text: string) => {
+    async (text: string, follows?: Turn) => {
       const q = text.replace(/\s+/g, " ").trim().slice(0, MAX_QUESTION_CHARS);
       if (!q || busy) return;
       const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      // a follow-up carries the turns it follows: what was searched for each, and what was answered
+      const thread: ThreadTurn[] = follows
+        ? [...(follows.thread ?? []), { question: follows.answer?.question || follows.question, answer: textOf(follows.written).slice(0, THREAD_ANSWER_CHARS) }].slice(-THREAD_TURNS)
+        : [];
       setBusy(true);
       setQuestion("");
+      setMore("");
       setExamplesChoice(null);
-      setTurns((prev) => [{ id, question: q, at: new Date().toISOString(), pending: true }, ...prev]);
+      setTurns((prev) => [
+        { id, question: q, at: new Date().toISOString(), pending: true, ...(follows ? { thread, after: follows.question } : {}) },
+        ...prev,
+      ]);
       const finish = (patch: Partial<Turn>) =>
         setTurns((prev) => prev.map((turn) => (turn.id === id ? { ...turn, pending: false, ...patch } : turn)));
+      // the evidence comes first and is shown at once; the written answer follows
+      const answered = async (s: string | null) => {
+        try {
+          const written = await chat(q, thread, s, (answer, rewritten) => {
+            setService("ready");
+            finish({ answer, rewritten, writing: true });
+          });
+          finish({ written, writing: false });
+        } catch (e) {
+          if (!(e instanceof AskError) || e.code !== "no_chat_route") throw e;
+          finish({ answer: await ask(q, s) }); // a backend without the answer step: the evidence, as before
+        }
+      };
       try {
         let s = await sessionForAsk();
         if (needsCheck && !s) throw new AskError("session_required", "", 401);
-        let answer: AskAnswer;
         try {
-          answer = await ask(q, s);
+          await answered(s);
         } catch (e) {
           if (!(e instanceof AskError) || e.code !== "session_required" || !needsCheck) throw e;
           window.sessionStorage.removeItem(SESSION_KEY); // the token expired: one more check, one more try
           s = await sessionForAsk();
           if (!s) throw e;
-          answer = await ask(q, s);
+          await answered(s);
         }
         setService("ready");
-        finish({ answer });
       } catch (e) {
         const err = e instanceof AskError ? e : new AskError("unreachable", "", 0);
         // a refusal came from a service that is up; no answer at all, from one that is not
         // (a human check that did not finish says nothing about the service)
         if (err.code !== "session_required") setService(err.status > 0 ? "ready" : "unreachable");
-        finish({ error: { code: err.code, message: err.message } });
+        finish({ error: { code: err.code, message: err.message }, writing: false });
       } finally {
         setBusy(false);
       }
@@ -407,7 +440,11 @@ export default function Chat() {
               <span className="mono muted">{t.you}</span>
               {turn.stored && <span className="chip chip--amber" data-testid="stored-tag">{t.stored}</span>}
             </header>
+            {turn.after && <p className="body-sm muted chat__follows" data-testid="follows">{t.follows} “{turn.after}”</p>}
             <p className="chat__question">{turn.question}</p>
+            {turn.rewritten && turn.answer && (
+              <p className="body-sm muted chat__follows" data-testid="searched-as">{t.searchedAs} “{turn.answer.question}”</p>
+            )}
             {turn.pending && <div className="chat__progress" aria-hidden="true" data-testid="searching-bar" />}
             {turn.pending && <Waiting service={service} t={t} from={WAIT_LINES_AFTER_SECONDS} searching />}
             {turn.error && (
@@ -415,7 +452,32 @@ export default function Chat() {
                 {t.errors[turn.error.code] ?? turn.error.message ?? t.errors.unreachable}
               </p>
             )}
-            {turn.answer && <Evidence answer={turn.answer} t={t} storedNote={turn.stored ? t.storedNote(turn.storedDate ?? null) : null} />}
+            {turn.answer && <Written turn={turn} t={t} />}
+            {turn.answer && <Evidence turn={turn} answer={turn.answer} t={t} storedNote={turn.stored ? t.storedNote(turn.storedDate ?? null) : null} />}
+            {i === 0 && turn.answer && !turn.writing && (
+              <form
+                className="chat__more"
+                data-testid="follow-up"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  submit(more, turn);
+                }}
+              >
+                <label className="mono" htmlFor="chat-more">{t.more}</label>
+                <div className="chat__more-row">
+                  <input
+                    id="chat-more"
+                    className="input"
+                    type="text"
+                    maxLength={MAX_QUESTION_CHARS}
+                    placeholder={t.morePlaceholder}
+                    value={more}
+                    onChange={(e) => setMore(e.target.value)}
+                  />
+                  <button type="submit" className="btn btn--ghost" disabled={busy || !more.trim()}>{t.ask}</button>
+                </div>
+              </form>
+            )}
           </article>
         ))}
       </section>
@@ -468,8 +530,71 @@ function Waiting({ service, t, from, searching = false }: { service: Service; t:
   );
 }
 
-function Evidence({ answer, t, storedNote }: { answer: AskAnswer; t: Labels; storedNote: string | null }) {
+/** The text of a written answer, as it is sent back with a follow-up. */
+function textOf(written?: WrittenAnswer): string {
+  return (written?.sentences ?? []).map((sentence) => sentence.text).join(" ");
+}
+
+/** Where a cited card or passage is on the page. */
+const anchor = (turnId: string, kind: string, index: number) => `t${turnId}-${kind}-${index}`;
+
+/*
+ * The answer written from the evidence: its sentences, each followed by the numbers of
+ * the sources it cites, then those sources with the text they were cited for. A number
+ * leads to the card or passage below. When nothing was written, one line says why.
+ */
+function Written({ turn, t }: { turn: Turn; t: Labels }) {
+  if (turn.writing) {
+    return (
+      <div className="chat__answer" data-testid="writing">
+        <div className="chat__progress" aria-hidden="true" />
+        <p className="body-sm muted" role="status">{t.writing}</p>
+      </div>
+    );
+  }
+  const written = turn.written;
+  if (!written) return null;
+  if (written.state === "not_covered") return <p className="chat__notice" data-testid="not-covered">{t.notCovered}</p>;
+  if (written.state !== "ok" || !written.sentences?.length) {
+    return <p className="body-sm muted chat__no-answer" data-testid="no-written-answer">{written.state === "daily_cap" ? t.answerCap : t.noAnswer}</p>;
+  }
+  const sources = written.sources ?? [];
+  const href = (n: number) => {
+    const source = sources.find((s) => s.n === n);
+    return source ? `#${anchor(turn.id, source.kind, source.index)}` : undefined;
+  };
+  return (
+    <div className="chat__answer" data-testid="written-answer">
+      <h2 className="chat__block-title mono">{t.answer}</h2>
+      <p className="chat__answer-text">
+        {written.sentences.map((sentence, i) => (
+          <span key={i} data-testid="answer-sentence">
+            {sentence.text}
+            {sentence.cites.map((n) => (
+              <a key={n} className="chat__cite mono" href={href(n)} aria-label={`${t.source} ${n}`}>[{n}]</a>
+            ))}{" "}
+          </span>
+        ))}
+      </p>
+      <ol className="chat__sources" aria-label={t.sources}>
+        {sources.map((source) => (
+          <li key={source.n} data-testid="answer-source">
+            <a className="mono" href={`#${anchor(turn.id, source.kind, source.index)}`}>[{source.n}] {source.title}</a>
+            {source.quotes.map((quote, i) => (
+              <q key={i} className="chat__quote">{quote}</q>
+            ))}
+          </li>
+        ))}
+      </ol>
+      <p className="body-sm muted">{t.answerNote}</p>
+    </div>
+  );
+}
+
+function Evidence({ turn, answer, t, storedNote }: { turn: Turn; answer: AskAnswer; t: Labels; storedNote: string | null }) {
   const keyword = answer.mode.embedding !== "ok";
+  const sources = turn.written?.state === "ok" ? turn.written.sources ?? [] : [];
+  const cited = (kind: string, index: number) => sources.find((s) => s.kind === kind && s.index === index)?.n;
   return (
     <div className="chat__evidence">
       {storedNote && <p className="chat__notice" data-testid="stored-note">{storedNote}</p>}
@@ -484,8 +609,9 @@ function Evidence({ answer, t, storedNote }: { answer: AskAnswer; t: Labels; sto
         <p className="body-sm muted">{t.noIssues}</p>
       ) : (
         answer.issues.map((issue, index) => (
-          <details key={issue.issue_id} className="evi-card evi-card--cobalt chat__issue" open={index === 0}>
+          <details key={issue.issue_id} id={anchor(turn.id, "issue", index)} className="evi-card evi-card--cobalt chat__issue" open={index === 0 || cited("issue", index) !== undefined}>
             <summary>
+              {cited("issue", index) !== undefined && <span className="chip chat__cited mono">[{cited("issue", index)}]</span>}{" "}
               <strong>{issue.title || issue.issue_id}</strong>{" "}
               <span className="mono muted">{issue.issue_id} · {t.matchedBy} {issue.matched_by.join(", ")}</span>
             </summary>
@@ -522,8 +648,9 @@ function Evidence({ answer, t, storedNote }: { answer: AskAnswer; t: Labels; sto
         <p className="body-sm muted">{t.noPassages}</p>
       ) : (
         answer.passages.map((p, i) => (
-          <div key={i} className="evi-card" data-testid="passage">
+          <div key={i} id={anchor(turn.id, "passage", i)} className="evi-card" data-testid="passage">
             <div className="evi-card__meta">
+              {cited("passage", i) !== undefined && <span className="chip chat__cited mono">[{cited("passage", i)}]</span>}
               <strong className="body-sm">{p.doc_id}</strong>
               <span className="mono muted">{t.page} {p.page ?? "?"}</span>
               {p.clipped && <span className="chip">{t.clipped}</span>}

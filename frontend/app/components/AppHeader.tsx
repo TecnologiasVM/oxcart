@@ -21,7 +21,7 @@ export function AppHeader() {
           </span>
         </Link>
         <span className="mono mono-muted" style={{ marginLeft: "auto" }} data-testid="demo-tag">
-          Demo · retrieval only
+          Demo
         </span>
         {!HOSTED && (
           <Link className="mono" href="/research" data-testid="research-link">
