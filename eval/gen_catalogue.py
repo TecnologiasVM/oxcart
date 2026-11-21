@@ -23,16 +23,25 @@ from pathlib import Path
 
 from eval import stores
 
-DATA = stores.REPO / "local-data" / "eval"
-SNAPSHOT = DATA / "catalogue_snapshot.json"
+SNAPSHOT = stores.REPO / "local-data" / "eval" / "catalogue_snapshot.json"
+DATA = stores.REPO / "local-data" / "eval" / stores.TEST_SET
 SELECTION = DATA / "catalogue_selection.json"
 TITLES_ES = stores.data_file("catalogue_titles_es.json")
 OUT = DATA / "questions_catalogue.jsonl"
+DEVELOPMENT = stores.REPO / "eval" / "data" / "questions_catalogue.jsonl"
 
-SEED = 1863
 PERIODS = [("to 1900", 0, 1900), ("1901-1950", 1901, 1950), ("1951-2000", 1951, 2000), ("2001-2025", 2001, 2100)]
-KINDS = {"date_on_sale": 7, "stamp_colour": 7, "stamp_quantity": 7, "printer": 6, "legal_act": 6,
-         "varieties": 5, "scott_equivalent": 2}
+if stores.TEST_SET:
+    # Another set (OXCART_TEST_SET): 10 facts, another seed, and no issue the development set uses.
+    SEED = 20261121
+    KINDS = {"date_on_sale": 2, "stamp_colour": 2, "stamp_quantity": 2, "printer": 1, "legal_act": 1,
+             "varieties": 1, "scott_equivalent": 1}
+    PREFIX = f"{stores.TEST_SET}-cat"
+else:
+    SEED = 1863
+    KINDS = {"date_on_sale": 7, "stamp_colour": 7, "stamp_quantity": 7, "printer": 6, "legal_act": 6,
+             "varieties": 5, "scott_equivalent": 2}
+    PREFIX = "cat"
 GENERIC_TITLE = re.compile(
     r"(?i)^\s*(((definitive|regular|airmail|air mail|official)\s+)?(issue|issues|surcharges?|overprints?)(\s+of)?\s+\d{4}"
     r"|\d{4}(-\d{2,4})?\s+issue\s*$)")
@@ -149,6 +158,11 @@ def select() -> None:
     pool = eligible(snapshot)
     rng = random.Random(SEED)
     used: set[str] = set()
+    if stores.TEST_SET:
+        used = {i for line in DEVELOPMENT.read_text(encoding="utf-8").splitlines() if line.strip() for i in json.loads(line)["issue_ids"]}
+        for kind in pool:
+            for period in pool[kind]:
+                pool[kind][period] = [f for f in pool[kind][period] if f["issue_id"] not in used]
     facts = []
     order = [p[0] for p in PERIODS]
     for kind, wanted in KINDS.items():
@@ -171,7 +185,8 @@ def select() -> None:
         if got < wanted:
             print(f"only {got} of {wanted} facts available for {kind}")
     for n, fact in enumerate(facts, start=1):
-        fact["id"] = f"cat-{n:03d}"
+        fact["id"] = f"{PREFIX}-{n:03d}"
+    SELECTION.parent.mkdir(parents=True, exist_ok=True)
     SELECTION.write_text(json.dumps({"seed": SEED, "snapshot_date": snapshot.get("snapshot_date"), "facts": facts},
                                     ensure_ascii=False, indent=1), encoding="utf-8")
     print(len(facts), "facts;", len({f["issue_id"] for f in facts}), "issues")

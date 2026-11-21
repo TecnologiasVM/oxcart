@@ -19,6 +19,12 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 
+# Which test set the tools read and write. Empty: the development set (eval/data/). A name: the
+# set kept in eval/data/<name>/, for example "sealed", a set that is run only to report a result.
+TEST_SET = os.getenv("OXCART_TEST_SET", "").strip()
+if TEST_SET and not TEST_SET.replace("-", "").isalnum():
+    raise SystemExit("OXCART_TEST_SET is a plain name: letters, digits and dashes")
+
 
 def weaviate_target():
     """Return (client, collection name, vector name or None, label). The caller closes the client."""
@@ -50,9 +56,10 @@ def data_file(name: str) -> Path:
 
     The working copies are where the generator and the judgments converter write; they can hold
     things that are not published (a judge's wording of the answer). The scores need neither.
+    With OXCART_TEST_SET set, both places are that set's own folder.
     """
-    working = REPO / "local-data" / "eval" / name
-    return working if working.exists() else REPO / "eval" / "data" / name
+    working = REPO / "local-data" / "eval" / TEST_SET / name
+    return working if working.exists() else REPO / "eval" / "data" / TEST_SET / name
 
 
 def neo4j_session_factory():

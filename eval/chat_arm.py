@@ -48,7 +48,8 @@ OUTCOMES = stores.REPO / "eval" / "outcomes"
 
 # claude-haiku-5-5, prompts up to 100,000 tokens, USD per million tokens (Anthropic's price list, 2026-11-20)
 USD_PER_MTOK_IN, USD_PER_MTOK_OUT = 0.10, 0.50
-DRAFTS_LEFT_OUT = 8          # literature drafts with no page that answers them: counted as misses in the second denominator
+# Literature drafts with no page that answers them: counted as misses in the second denominator (8 in the development set).
+DRAFTS_LEFT_OUT = max(0, len(ask_arm.load("drafts_literature.jsonl")) - len(ask_arm.load("questions_literature.jsonl")))
 
 
 def cost(calls: list) -> float:
