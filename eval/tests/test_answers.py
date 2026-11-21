@@ -86,3 +86,13 @@ def test_a_row_is_one_line_even_when_its_text_holds_other_line_characters(tmp_pa
     rows = [{"id": "a", "text": "a form feed \x0c and a line separator \u2028 inside a made-up passage"}, {"id": "b", "text": "plain"}]
     path.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows), encoding="utf-8")
     assert chat_arm._rows(path) == rows
+
+
+def test_ranking_cases_are_well_formed_and_their_place_is_read_from_the_issues():
+    from eval import ask_arm, ranking_cases
+    cases = ask_arm.load("ranking_cases.jsonl")
+    assert cases and len({c["id"] for c in cases}) == len(cases)
+    assert all(c["type"] == "ranking" and c["question"].endswith("?") and c["issue_ids"][0].startswith("CR-") for c in cases)
+    case = {"issue_ids": ["CR-9999-MADE-UP"]}
+    assert ranking_cases.place(case, [{"issue_id": "CR-1"}, {"issue_id": "CR-9999-MADE-UP"}]) == 2
+    assert ranking_cases.place(case, [{"issue_id": "CR-1"}]) is None
