@@ -79,3 +79,10 @@ def test_the_second_pass_writes_under_local_data_only(tmp_path):
     args = type("Args", (), {"dir": str(tmp_path / "judge"), "label": "x", "references": None})()
     with pytest.raises(SystemExit):
         answer_judge.prepare_asked(args)
+
+
+def test_a_row_is_one_line_even_when_its_text_holds_other_line_characters(tmp_path):
+    path = tmp_path / "answers.jsonl"
+    rows = [{"id": "a", "text": "a form feed \x0c and a line separator \u2028 inside a made-up passage"}, {"id": "b", "text": "plain"}]
+    path.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows), encoding="utf-8")
+    assert chat_arm._rows(path) == rows

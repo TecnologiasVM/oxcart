@@ -104,7 +104,7 @@ def run(args) -> None:
     threads = ask_arm.load("threads.jsonl")
     wanted = [args.only] if args.only else ["catalogue", "literature", "out_of_scope", "threads"]
     path = folder / "answers.jsonl"
-    done = {json.loads(line)["id"] for line in path.read_text(encoding="utf-8").splitlines()} if path.exists() and args.resume else set()
+    done = {row["id"] for row in _rows(path)} if path.exists() and args.resume else set()
     with path.open("a" if args.resume else "w", encoding="utf-8") as out:
         def keep(row: dict) -> None:
             out.write(json.dumps(row, ensure_ascii=False) + "\n")
@@ -137,9 +137,14 @@ def run(args) -> None:
 
 
 # --------------------------------------------------------------------------- table
+def _rows(path: Path) -> list:
+    """One JSON object per line. Split on the newline only: a passage can hold other characters
+    that ``str.splitlines`` also breaks at (a form feed, U+2028), and they are inside a string."""
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").split("\n") if line.strip()]
+
+
 def _load(label: str) -> list:
-    path = OUT / label / "answers.jsonl"
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return _rows(OUT / label / "answers.jsonl")
 
 
 def _retrieval(label: str, rows: list) -> None:
