@@ -1,7 +1,7 @@
 """Ask the test set through POST /api/chat and report on the written answers.
 
     OXCART_API=https://<backend> OXCART_EVAL_KEY=<secret> python -m eval.chat_arm run --label <name> [--pace 0.5]
-    python -m eval.chat_arm table --label <name> [--grades <judge dir>/grades.json] [--publish]
+    python -m eval.chat_arm table --label <name> [--grades <judge dir>/grades.json] [--asked <dir>/asked.json] [--publish]
 
 `run` asks every question once (catalogue, literature, out of scope) and the follow-up
 threads, and keeps what came back under local-data/eval/chat/<label>/:
@@ -173,6 +173,9 @@ def table(args) -> None:
     grades = {}
     if args.grades:
         grades = {g["id"]: g for g in json.loads(Path(args.grades).read_text(encoding="utf-8"))["answers"]}
+    asked = {}
+    if getattr(args, "asked", None):
+        asked = {g["id"]: g["asked"] for g in json.loads(Path(args.asked).read_text(encoding="utf-8"))["answers"]}
     single = [r for r in rows if r["part"] != "threads"]
     print(f"# Written answers, run '{args.label}': {len(single)} questions, {sum(1 for r in rows if r['part'] == 'threads')} threads\n")
     print("## Retrieval through this route\n")
@@ -223,6 +226,18 @@ def table(args) -> None:
         written = [r for r in scope if r.get("answer", {}).get("state") == "ok"]
         print(f"out of scope: {len(scope) - len(written)} of {len(scope)} got no written answer; {len(written)} got one")
 
+    if asked:
+        print("\n## Gives what the question asks (the judge's second pass; a model; no person has checked it)\n")
+        print("yes = the answer states the thing asked and it agrees with the reference; detail the question did not ask")
+        print("for does not count. Counted over ALL questions of the part: a question with no written answer is a no.\n")
+        for part in ("catalogue", "literature"):
+            for lang in ("all", "en", "es"):
+                mine = [r for r in single if r["part"] == part and lang in ("all", r["lang"])]
+                marks = collections.Counter(asked[r["id"]] for r in mine if r["id"] in asked)
+                extra = f" | of all {len(mine) + DRAFTS_LEFT_OUT} drafts: yes {marks['yes']}" if part == "literature" and lang == "all" else ""
+                print(f"{part:<12} {lang:<3} n={len(mine):<3} judged {sum(marks.values())}: yes {_share(marks['yes'], len(mine))}; "
+                      f"partly {marks['partly']}; no {marks['no']}; not written {len(mine) - sum(marks.values())}{extra}")
+
     threads = [r for r in rows if r["part"] == "threads"]
     if threads:
         print("\n## Follow-ups: is the first question's issue among the issues returned for the follow-up\n")
@@ -262,6 +277,7 @@ def table(args) -> None:
                            "calls": [{k: c[k] for k in ("purpose", "state", "input_tokens", "output_tokens")} for c in r.get("calls", [])],
                            **({"supported": [s["supported"] for s in g["sentences"]], "correct": g["correct"],
                                "language": g["language"]} if g else {}),
+                           **({"asked": asked[r["id"]]} if r["id"] in asked else {}),
                            **({"gold_issue_rank_with_thread": ([i["issue_id"] for i in r.get("evidence", {}).get("issues", [])].index(r["gold_issue"]) + 1
                                                                 if r["gold_issue"] in [i["issue_id"] for i in r.get("evidence", {}).get("issues", [])] else None),
                                "gold_issue_rank_alone": (r["alone_issues"].index(r["gold_issue"]) + 1 if r["gold_issue"] in r.get("alone_issues", []) else None)}
@@ -285,6 +301,7 @@ def main() -> None:
     t = sub.add_parser("table")
     t.add_argument("--label", required=True)
     t.add_argument("--grades")
+    t.add_argument("--asked", help="asked.json of the judge's second pass (eval.answer_judge collect-asked)")
     t.add_argument("--judge", default="", help="the judge's name, for the published file")
     t.add_argument("--publish", action="store_true")
     t.set_defaults(fn=table)
