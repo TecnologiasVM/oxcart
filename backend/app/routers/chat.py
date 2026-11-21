@@ -11,11 +11,13 @@ The answer comes as lines of JSON (``application/x-ndjson``), sent as they are r
 
     {"type": "evidence", "rewritten": false, "evidence": {...}}    what POST /api/ask returns, for the question
                                                                   that was searched (``evidence.question``)
-    {"type": "answer", "answer": {"state": "ok", "sentences": [...], "sources": [...]}}
+    {"type": "answer", "answer": {"state": "ok", "sentences": [...], "sources": [...]}, "calls": [...]}
 
 ``answer.state`` is "ok", "not_covered" (the evidence does not answer the question), or
 the reason no answer was written (no key, the day's allowance spent, a timeout, ...): the
-page then shows the evidence, as it did before there was a written answer. A refusal
+page then shows the evidence, as it did before there was a written answer. ``calls`` has
+one entry per model call made for the question: what it was for, its state, its token
+counts and its seconds; that is what a cost is measured from. A refusal
 (limits, no session, a body too large, no store answering) is a JSON error with its
 status, as on ``/api/ask``, and comes before any line.
 
@@ -139,14 +141,14 @@ async def chat(payload: ChatRequest, request: Request) -> StreamingResponse:
         except Exception as exc:                # the evidence was sent: the answer says it failed
             log.warning("chat failed after the evidence: %s", type(exc).__name__)
             answer = {"state": "failed"}
-        yield _line({"type": "answer", "answer": answer})
+        calls = [{k: c[k] for k in ("purpose", "state", "input_tokens", "output_tokens", "seconds")} for c in seen["calls"]]
+        yield _line({"type": "answer", "answer": answer, "calls": calls})
         log.info(json.dumps({"event": "chat", "request_id": getattr(request.state, "request_id", None),
                              "who": "eval" if visitor is None else "visitor", "chars": len(question),
                              "turns": len(payload.thread), "rewritten": bool(seen.get("rewritten")),
                              "mode": evidence["mode"], "issues": len(evidence["issues"]),
                              "passages": len(evidence["passages"]), "timings": evidence["timings"],
                              "answer": answer["state"], "counts": answer.get("counts"),
-                             "model_calls": [{k: c[k] for k in ("purpose", "state", "input_tokens", "output_tokens", "seconds")}
-                                             for c in seen["calls"]]}))
+                             "model_calls": calls}))
 
     return StreamingResponse(lines(), media_type="application/x-ndjson", headers={"X-Accel-Buffering": "no"})

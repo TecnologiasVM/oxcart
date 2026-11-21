@@ -188,7 +188,9 @@ the same evidence followed by a short answer whose sentences cite it. The steps 
 - **Not built.** No step grades the evidence, none retrieves a second time, and there is no scope router.
 
 The response is lines of JSON (`application/x-ndjson`): `{"type": "evidence", "rewritten": .., "evidence": {..}}`
-(what `/api/ask` returns, for the question that was searched), then `{"type": "answer", "answer": {..}}`.
+(what `/api/ask` returns, for the question that was searched), then `{"type": "answer", "answer": {..}, "calls": [..]}`.
+`calls` has one entry per model call made for the question (what for, its state, its token counts, its seconds):
+a cost is measured from it.
 `answer.state` is `ok` (with `sentences`, each with the numbers of its `sources`, and for each source the text it
 was cited for), `not_covered` (the evidence does not answer the question), or the reason nothing was written:
 `no_key`, `daily_cap`, `no_evidence`, `timeout`, `key_refused`, `rate_limited`, `request_refused`,
@@ -197,11 +199,19 @@ citation that holds), `empty`, `stopped`, `failed`. In every one of those the ev
 
 The route stands behind the same guard as `/api/ask`: the session token, both visitor counts (a question here
 counts as a question there), the service's daily limit, and the eval's way in. On top of that, the whole service
-makes at most `ANSWER_LIMIT_PER_DAY` model calls a day (200; the rewrite of a follow-up counts), in memory; the
-eval's way in does not skip it. Past it the route answers with the evidence only.
+makes at most `ANSWER_LIMIT_PER_DAY` model calls a day (200; the rewrite of a follow-up counts); the eval's way in
+does not skip it. Past it the route answers with the evidence only.
 
-The model is `claude-haiku-5-5` at effort `low` with thinking off, at most 500 output tokens for an answer and 120
-for a rewrite, 12 and 5 seconds, no retry. `ANSWER_THINKING=adaptive` turns thinking on. Without
+**Every one of these counts lives in the process's memory and starts again when the process does**, and on a
+host that puts an idle service to sleep that is often: the visitor limits, the service's daily limit and the 200
+model calls are a brake on a running service, not a budget. The one limit that cannot be passed is the spend
+limit of the key's workspace at the provider; set it there.
+
+The model is `claude-haiku-5-5` at effort `low`, its lowest, with thinking on: at most 500 output tokens for an
+answer plus 1,500 of room for the thinking, 120 for a rewrite, 12 and 5 seconds, no retry.
+`ANSWER_THINKING=disabled` turns thinking off; the evaluation compared the two ([EVALUATION.md](../EVALUATION.md)).
+The model's client is
+made as the process starts, in the background and without a request, so the first answer does not wait for it. Without
 `ANTHROPIC_API_KEY` the route works and answers with the evidence only (`no_key`). The log line of a question
 holds the answer's state, the citation counts and each call's token counts; no question and no answer.
 

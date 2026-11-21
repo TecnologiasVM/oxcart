@@ -1,0 +1,47 @@
+"""The written answers' eval tools. Every text is made up."""
+
+import json
+
+import pytest
+
+from eval import answer_judge, chat_arm
+
+
+def test_cost_adds_every_call_at_the_listed_prices():
+    calls = [{"input_tokens": 1_000_000, "output_tokens": 0}, {"input_tokens": 0, "output_tokens": 1_000_000}]
+    assert chat_arm.cost(calls) == pytest.approx(chat_arm.USD_PER_MTOK_IN + chat_arm.USD_PER_MTOK_OUT)
+    assert chat_arm.cost([]) == 0
+
+
+def test_the_text_of_an_answer_is_its_sentences():
+    assert chat_arm.text_of({"sentences": [{"text": "One."}, {"text": "Two."}]}) == "One. Two."
+    assert chat_arm.text_of({"state": "not_covered"}) == ""
+
+
+def test_judge_inputs_are_written_under_local_data_only(tmp_path):
+    args = type("Args", (), {"dir": str(tmp_path / "judge"), "label": "x", "references": None})()
+    with pytest.raises(SystemExit):
+        answer_judge.prepare(args)
+
+
+def test_collect_keeps_marks_only_and_refuses_a_grade_that_does_not_match_its_input(tmp_path, capsys):
+    (tmp_path / "inputs").mkdir()
+    (tmp_path / "outputs").mkdir()
+    for name, reference in (("cat-1", {"kind": "printer", "gold_value": ["A printer"]}), ("lit-1", None), ("lit-2", None), ("lit-3", None)):
+        (tmp_path / "inputs" / f"{name}.json").write_text(json.dumps(
+            {"id": name, "part": name[:3], "lang": "en", "question": "A question?", "reference": reference,
+             "sentences": [{"n": 1, "text": "One.", "cites": [1]}, {"n": 2, "text": "Two.", "cites": [1]}], "sources": []}))
+    grade = {"sentences": [{"n": 1, "supported": "yes", "reason": "a made-up reason"}, {"n": 2, "supported": "partly", "reason": "r"}],
+             "correct": "yes", "correct_reason": "another made-up reason", "language": "same"}
+    (tmp_path / "outputs" / "cat-1.json").write_text(json.dumps({"id": "cat-1", **grade}))
+    (tmp_path / "outputs" / "lit-1.json").write_text(json.dumps({"id": "lit-1", **grade}))
+    (tmp_path / "outputs" / "lit-2.json").write_text(json.dumps({"id": "lit-2", **grade, "sentences": grade["sentences"][:1]}))
+    answer_judge.collect(type("Args", (), {"dir": str(tmp_path)})())
+    graded = json.loads((tmp_path / "grades.json").read_text())["answers"]
+    assert [g["id"] for g in graded] == ["cat-1", "lit-1"]
+    assert graded[0] == {"id": "cat-1", "part": "cat", "lang": "en", "correct": "yes", "language": "same",
+                         "sentences": [{"n": 1, "supported": "yes"}, {"n": 2, "supported": "partly"}]}
+    assert graded[1]["correct"] == "no reference"            # no reference to compare with: not counted as correct
+    assert "made-up reason" not in (tmp_path / "grades.json").read_text()
+    out = capsys.readouterr().out
+    assert "lit-2: the grade does not match its input" in out and "lit-3: no grade" in out

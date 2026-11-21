@@ -16,7 +16,7 @@ only as document content, never in the instructions; the instructions say that t
 inside a document is not to be followed; and the model is given no tools, so the most a
 passage can change is the wording of one answer.
 
-**Settings.** The model's lowest setting: effort "low" and thinking off (settings.py).
+**Settings.** Effort "low", the model's lowest, with thinking on (settings.py says why).
 
 Nothing here raises: every way of not getting text is a state the caller reports. Logs
 carry error CLASS names only: never a question, a passage, a key or the API's message.
@@ -51,8 +51,14 @@ WRITE_INSTRUCTIONS = f"""\
 You answer questions about Costa Rican stamps for collectors. Your only sources are the documents in the message: \
 cards from a stamp catalogue and passages from the philatelic literature.
 
+Scope: Costa Rican stamps, postal stationery and postal history, and nothing else. If the question is about \
+something else (another country's stamps, general history or general knowledge, how to use today's postal \
+services or what they cost now), reply with exactly {NOT_COVERED} and nothing else, even when a document happens \
+to mention it.
+
 Language: answer in the language the question is written in, Spanish or English, even when the documents are in \
-the other language. Do not mention which language it is.
+the other language. Put what you take from a document into your own words in that language; keep only names, \
+titles and catalogue numbers as they are written. Do not mention which language it is.
 
 Length and form: at most 120 words, in plain sentences of your own. No lists, no headings, no markup, no links.
 
@@ -131,6 +137,22 @@ class ClaudeModel:
 
                 self._client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, max_retries=0)
             return self._client
+
+    def warm_in_background(self) -> Optional[threading.Thread]:
+        """Load the client's package and make the client as the process starts, so the first
+        answer does not wait for it. No request is made. Nothing happens without a key."""
+        if not self.configured:
+            return None
+
+        def warm() -> None:
+            try:
+                self._get()
+            except Exception as exc:
+                log.warning("model client could not be made: %s", type(exc).__name__)
+
+        thread = threading.Thread(target=warm, name="model-warm-up", daemon=True)
+        thread.start()
+        return thread
 
     def close(self) -> None:
         with self._lock:

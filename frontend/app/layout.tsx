@@ -37,7 +37,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Oxcart · Costa Rica philately knowledge graph",
   description:
-    "Research demo: ask about any Costa Rican stamp issue and read the evidence, from the catalogue graph and the philatelic literature. Retrieval only, no generated answers.",
+    "Research demo: ask about any Costa Rican stamp issue and read a short answer with its sources, written from the evidence of the catalogue graph and the philatelic literature.",
 };
 
 export default function RootLayout({

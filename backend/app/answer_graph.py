@@ -52,6 +52,7 @@ from app.answer_model import NOT_COVERED, Reply
 from app.graph_link import Unavailable
 
 STAMPS_ON_A_CARD = 24          # as many as the page prints
+VARIETIES_OF_A_STAMP = 12
 QUOTES_PER_SOURCE = 5
 
 
@@ -107,7 +108,7 @@ def _call(purpose: str, reply: Reply) -> dict:
 
 # --------------------------------------------------------------------------- the evidence as sources
 def card_lines(issue: dict) -> list:
-    """A catalogue card as fact lines: the facts the page prints, one per line."""
+    """A catalogue card as fact lines, one fact per line: what the page prints of the card."""
     card = issue.get("card") or {}
     lines = [f"Issue: {issue.get('title') or issue.get('issue_id')} ({issue.get('issue_id')})"]
     for key, value in (card.get("dates") or {}).items():
@@ -126,6 +127,13 @@ def card_lines(issue: dict) -> list:
         facts = [("value", value), ("colour", stamp.get("color")), ("quantity", stamp.get("quantity"))]
         told = "; ".join(f"{name} {fact}" for name, fact in facts if fact not in (None, ""))
         lines.append(f"stamp {stamp.get('catalog_no')}: {told}" if told else f"stamp {stamp.get('catalog_no')}")
+        scott = [str(number) for number in stamp.get("scott") or [] if number]
+        if scott:
+            lines.append(f"stamp {stamp.get('catalog_no')}, Scott catalogue number: {', '.join(scott)}")
+        for variety in (stamp.get("varieties") or [])[:VARIETIES_OF_A_STAMP]:
+            told = ": ".join(str(variety[k]) for k in ("suffix", "description") if variety.get(k))
+            if told:
+                lines.append(f"stamp {stamp.get('catalog_no')}, variety {told}")
     return lines
 
 

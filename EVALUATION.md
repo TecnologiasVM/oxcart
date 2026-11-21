@@ -1,8 +1,8 @@
-# Retrieval evaluation
+# Evaluation
 
-What was measured in November 2026, on which questions, and how far the numbers can be trusted. This file covers
-retrieval only: does the right passage, or the right catalogue issue, come back. No written answer is evaluated
-here; there is no answer step yet.
+What was measured in November 2026, on which questions, and how far the numbers can be trusted. Most of this file
+is about retrieval: does the right passage, or the right catalogue issue, come back. The last measured part,
+[Written answers](#written-answers), is about the short answer the question page writes from that evidence.
 
 The earlier audit of the First Issue evidence graph (coverage and precision of the rule-based linker) is a
 separate document: [pipeline/first_issue_graph/EVALUATION.md](pipeline/first_issue_graph/EVALUATION.md).
@@ -183,6 +183,133 @@ runs; an unreachable graph is recorded as "not scored", never as a miss (`eval/g
 attempt). The graph was then moved to a fresh instance with identical content, and the questions left unscored
 (3 with the vector index, 7 with the full-text index) were run there once. Two of those three were misses.
 
+## Written answers
+
+The question page writes a short answer from the evidence it shows (`POST /api/chat`: Claude Haiku 5.5, the
+catalogue cards and passages given as documents with citations on; `backend/README.md` has the steps). This part
+measures those answers on the same 151 questions, asked once each through a backend in hosted mode on the
+development machine, against the hosted stores.
+
+### Read this first
+
+- **The grades are a model's. No person has checked them.** The judge was `gpt-6.1-sol` at high reasoning effort,
+  run through the Codex CLI: another vendor's model than the one that writes the answers. One judge, one pass.
+- **One run per setting.** The model's answers change from run to run, and nothing here measures by how much. A
+  difference of a few questions between two columns is not a finding.
+- **The last column is not a held-out result.** After the first two runs the model's instructions were revised
+  once (a rule on scope, and one on writing in the question's language), having read answers to these same
+  questions. The third run is the setting that is served.
+- **"Correct" for a literature question means agreeing with a reference answer** that the retrieval judge wrote
+  from the pages it graded for that question in its first pass (12 pages a question on average, each with up to
+  two full passages). The answer is written from
+  five passages of at most 700 characters. "In part" is the usual grade: the answer gives a true part of the
+  reference and leaves out the rest. That measures the evidence the model is given as much as the model.
+- **"Correct" for a catalogue question** means stating the value the graph holds for the fact asked; the judge
+  reads the answer against that value.
+- The literature gold behind those references is itself model-judged (see the top of this file).
+- Grades are counted over **all** questions of a part: a question with no written answer is neither supported
+  nor correct. Literature results are also given over all 49 drafts, the 8 left out counted as misses.
+
+### What is graded
+
+- **How a question ended:** an answer was written; the model said the evidence does not cover the question
+  (`not covered`); or nothing was shown, and why (cut at the output limit, no sentence with a citation that
+  holds, a failed call).
+- **Sentences with no citation.** The page shows a sentence only if a citation that holds is attached to it: it
+  names a shown card or passage, and the cited text is in it. A sentence the model wrote with no citation is
+  removed before the page shows the answer. The table gives the share of written sentences that were removed.
+  The part of a kept sentence that lies outside its cited text is not removed; "supported" is what measures it.
+- **Supported:** every shown sentence of the answer is stated by the sources it cites (the judge marks each
+  sentence yes, partly or no; an answer is supported when all are yes).
+- **Correct:** as above.
+- **Out of scope:** 30 questions that are not about Costa Rican stamps, or whose answer is not in the sources. The
+  wanted outcome is no written answer.
+- **Follow-ups:** 10 conversations of two turns, written for this test (`eval/data/threads.jsonl`): a catalogue
+  question, then a follow-up that names nothing ("And who printed it?"). No judge: is the first question's issue
+  among the issues returned for the follow-up, with the conversation and with the follow-up asked alone.
+
+### Result
+
+Three runs. **Thinking off** and **thinking on, first instructions** differ only in the model's thinking setting
+(both at effort `low`). **Thinking on, as served** has the revised instructions.
+
+| | Thinking off | Thinking on, first instructions | Thinking on, as served |
+|---|---|---|---|
+| **Catalogue, 80 questions** | | | |
+| A written answer | 65 | 75 | 73 |
+| Not covered | 3 | 5 | 6 |
+| Cut at the output limit | 12 | 0 | 0 |
+| No sentence with a citation that holds | 0 | 0 | 1 |
+| Supported | 56 | 65 | 62 |
+| Correct | 64 | 74 | 69 |
+| Correct in part / not correct | 1 / 0 | 1 / 0 | 3 / 1 |
+| Supported and correct | 56 | 64 | 58 |
+| **Literature, 41 questions** | | | |
+| A written answer | 19 | 41 | 41 |
+| Not covered | 1 | 0 | 0 |
+| Cut at the output limit | 21 | 0 | 0 |
+| Supported | 14 | 28 | 27 |
+| Correct (agrees with the reference in full) | 5 | 8 | 10 |
+| Correct in part / not correct | 13 / 1 | 32 / 1 | 29 / 2 |
+| Supported and correct | 4 | 7 | 9 |
+| Correct, of all 49 drafts | 5 | 8 | 10 |
+| Supported and correct, of all 49 drafts | 4 | 7 | 9 |
+| **Out of scope, 30 questions** | | | |
+| No written answer (the wanted outcome) | 27 | 21 | 29 |
+| **Sentences** | | | |
+| Written with no citation, and removed | 79 of 266 (30%) | 113 of 439 (26%) | 100 of 419 (24%) |
+| Citations that did not hold | 0 of 197 | 0 of 355 | 0 of 357 |
+| Shown sentences the judge marked supported / partly / not | 179 / 15 / 0 | 314 / 28 / 2 | 292 / 28 / 1 |
+| **Follow-ups, 10 conversations** | | | |
+| With the conversation: the issue first / in the first three | 8 / 10 | 9 / 10 | 9 / 10 |
+| The follow-up asked alone: first / in the first three | 1 / 1 | 1 / 1 | 1 / 1 |
+
+By language, as served:
+
+| | English | Spanish |
+|---|---|---|
+| Catalogue: written / supported / correct | 34 / 29 / 33 of 40 | 39 / 33 / 36 of 40 |
+| Literature: written / supported / correct (in part) | 22 / 15 / 3 (18) of 22 | 19 / 12 / 7 (11) of 19 |
+| Answers in another language than the question | 0 | 2 (both catalogue) |
+
+- **Thinking off is not served.** With it the model wrote a fact without a citation and then copied the cited
+  text as a piece of its own; the copied text is output, so half of the literature answers and 12 catalogue
+  answers hit the output limit and nothing was shown for them.
+- **The scope rule did what it was written for** (out-of-scope questions with a written answer: 9, then 1), and
+  the catalogue column moved by a few questions with it. With one run per setting those few cannot be told from
+  run-to-run change.
+- **About a quarter of what the model writes carries no citation** and is removed; most answers lose at least one
+  sentence. What is shown is mostly supported by its sources (292 of 321 sentences in full), and one sentence in
+  eleven says more than its sources do.
+- **Literature answers are rarely complete.** 10 of 41 agree with the reference in full and 29 in part; 2 do not.
+- **Retrieval did not move.** Through this route the counts are the question path's: a page that answers in the
+  first five for 36 of 41 literature questions (36 of 49 drafts); the issue first with the fact in its card for 78
+  of 80 catalogue questions, in the first three for 80 of 80. A first question is searched as it is typed; only a
+  follow-up is rewritten.
+
+### Cost and waits
+
+Measured from the token counts the API returned for every call, at the list price of the day (0.10 USD per
+million input tokens, 0.50 per million output tokens; thinking is billed as output).
+
+| | Thinking off | Thinking on, first instructions | Thinking on, as served |
+|---|---|---|---|
+| Cost of a question, USD: mean / maximum | 0.00055 / 0.00089 | 0.00069 / 0.00128 | 0.00068 / 0.00129 |
+| Cost of a follow-up (rewrite and answer), USD: mean / maximum | 0.00063 / 0.00083 | 0.00070 / 0.00093 | 0.00070 / 0.00094 |
+| Input tokens of a question: mean / maximum | 4,304 / 7,254 | 4,305 / 7,255 | 4,442 / 7,392 |
+| Output tokens of a question: mean / maximum | 249 / 500 | 520 / 1,562 | 478 / 1,478 |
+| Wait for the evidence, s: median / 95th percentile | 1.26 / 1.58 | 1.27 / 1.51 | 1.28 / 1.53 |
+| Wait for the answer, s: median / 95th percentile | 2.57 / 4.15 | 3.49 / 6.64 | 3.46 / 6.48 |
+| The whole run, 151 questions and 10 conversations, USD | about 0.10 | about 0.12 | about 0.12 |
+
+The waits are from the development machine, with the backend on it; the hosted backend is on a smaller machine.
+At the served mean, 200 model calls a day are about 4 USD a month. That count lives in the server's memory and
+starts again when the service restarts, so the limit that holds is the spend limit of the key's workspace.
+
+Per-question outcomes of the three runs: `eval/outcomes/answers_thinking-off.json`,
+`answers_thinking-on-first.json`, `answers_thinking-on.json` (ids, how each ended, sentence and citation counts,
+token counts, the judge's marks; no answer and no passage).
+
 ## Other limits
 
 - The pool that produced the gold was built from keyword, vector and hybrid search, so those arms are favoured
@@ -223,6 +350,13 @@ python -m eval.table local-data/eval/results/run_cloud-K_dev.json --split dev
 
 # catalogue questions against the graph
 scripts/with-key.sh OPENAI_API_KEY=<entry> -- python -m eval.catalogue_arm --split dev --mode vector
+
+# written answers: ask every question through a running backend, then grade and print the tables
+OXCART_API=http://127.0.0.1:8090 OXCART_EVAL_KEY=<the backend's EVAL_ACCESS_KEY> python -m eval.chat_arm run --label <name>
+python -m eval.answer_judge prepare --label <name> --dir local-data/eval/judge/answers-<name> --references <judgment files>
+#   ... run a judge model once per file of that folder's inputs/, writing outputs/<id>.json (see eval/answer_judge.py) ...
+python -m eval.answer_judge collect --dir local-data/eval/judge/answers-<name>
+python -m eval.chat_arm table --label <name> --grades local-data/eval/judge/answers-<name>/grades.json
 ```
 
 Per-question outcomes behind every table: `eval/outcomes/stage2.json` (ids and ranks only).

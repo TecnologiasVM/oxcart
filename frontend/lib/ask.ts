@@ -58,6 +58,20 @@ export type AskAnswer = {
   timings: Record<string, number>;
 };
 
+/** One sentence of a written answer, with the numbers of the sources it cites. */
+export type AnswerSentence = { text: string; cites: number[] };
+/** A card or passage of the evidence that the answer cites, and the text it was cited for. */
+export type AnswerSource = { n: number; kind: "issue" | "passage"; index: number; title: string; quotes: string[] };
+/**
+ * The written answer. `state` is "ok" (with sentences and sources), "not_covered" (the
+ * evidence does not answer the question), or the reason nothing was written.
+ */
+export type WrittenAnswer = { state: string; sentences?: AnswerSentence[]; sources?: AnswerSource[] };
+/** An earlier turn of a conversation, sent with a follow-up. */
+export type ThreadTurn = { question: string; answer: string };
+export const THREAD_TURNS = 3;
+export const THREAD_ANSWER_CHARS = 1200;
+
 export type Example = { lang: "es" | "en"; question: string };
 export type StoredExample = Example & { answer: AskAnswer };
 export type StoredExamples = { generated: string | null; examples: StoredExample[] };
@@ -90,20 +104,23 @@ async function post<T>(path: string, body: unknown, headers: Record<string, stri
   } catch {
     throw new AskError("unreachable", "The service could not be reached.", 0);
   }
-  if (!res.ok) {
-    let code = "http_error";
-    let message = res.statusText;
-    try {
-      const data = (await res.json()) as { error?: string; message?: string };
-      code = data.error || code;
-      message = data.message || message;
-    } catch {
-      /* not JSON: a gateway answered instead of the backend */
-    }
-    const retry = Number(res.headers.get("Retry-After"));
-    throw new AskError(code, message, res.status, Number.isFinite(retry) && retry > 0 ? retry : null);
-  }
+  if (!res.ok) throw await refusal(res);
   return (await res.json()) as T;
+}
+
+/** What a response that is not a success says, as an error the page can translate. */
+async function refusal(res: Response): Promise<AskError> {
+  let code = "http_error";
+  let message = res.statusText;
+  try {
+    const data = (await res.json()) as { error?: string; message?: string };
+    code = data.error || code;
+    message = data.message || message;
+  } catch {
+    /* not JSON: a gateway answered instead of the backend */
+  }
+  const retry = Number(res.headers.get("Retry-After"));
+  return new AskError(code, message, res.status, Number.isFinite(retry) && retry > 0 ? retry : null);
 }
 
 /**
@@ -150,6 +167,73 @@ export function openSession(token: string): Promise<{ session: string; expires_i
 
 export async function ask(question: string, session: string | null): Promise<AskAnswer> {
   return clean(await post<AskAnswer>("/api/ask", { question }, session ? { "X-Oxcart-Session": session } : {}));
+}
+
+/**
+ * One question through the route that also writes an answer. The response is lines of
+ * JSON sent as they are ready: the evidence first (`onEvidence` is called with it, and with
+ * whether a follow-up was rewritten before it was searched), then the written answer,
+ * which is what this resolves to.
+ *
+ * `thread` holds the earlier turns of the conversation when the question is a follow-up;
+ * it is kept by this browser and is the only memory the conversation has.
+ *
+ * Throws an AskError with code "no_chat_route" when the backend has no such route, so the
+ * caller can ask the evidence-only route instead.
+ */
+export async function chat(
+  question: string,
+  thread: ThreadTurn[],
+  session: string | null,
+  onEvidence: (answer: AskAnswer, rewritten: boolean) => void,
+): Promise<WrittenAnswer> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(session ? { "X-Oxcart-Session": session } : {}) },
+      body: JSON.stringify({ question, thread }),
+    });
+  } catch {
+    throw new AskError("unreachable", "The service could not be reached.", 0);
+  }
+  if (res.status === 404 || res.status === 405) throw new AskError("no_chat_route", "", res.status);
+  if (!res.ok) throw await refusal(res);
+
+  let seen = false;
+  let written: WrittenAnswer | null = null;
+  const take = (line: string) => {
+    if (!line.trim()) return;
+    const data = JSON.parse(line) as { type?: string; evidence?: AskAnswer; rewritten?: boolean; answer?: WrittenAnswer };
+    if (data.type === "evidence" && data.evidence) {
+      seen = true;
+      onEvidence(clean(data.evidence), Boolean(data.rewritten));
+    } else if (data.type === "answer" && data.answer) {
+      written = data.answer;
+    }
+  };
+  try {
+    const reader = res.body?.getReader();
+    if (!reader) {
+      (await res.text()).split("\n").forEach(take);
+    } else {
+      const decoder = new TextDecoder();
+      let rest = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        rest += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+        const lines = rest.split("\n");
+        rest = lines.pop() ?? "";
+        lines.forEach(take);
+        if (done) break;
+      }
+      take(rest);
+    }
+  } catch {
+    /* the connection broke: what arrived before it stands */
+  }
+  if (!seen) throw new AskError("unreachable", "The service could not be reached.", 0);
+  return written ?? { state: "failed" };
 }
 
 /**
