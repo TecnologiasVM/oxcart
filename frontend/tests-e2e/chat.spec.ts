@@ -1,5 +1,28 @@
 import { test, expect, Page } from "@playwright/test";
 import { formatDate } from "../lib/evidence-text";
+import {
+  ANSWER,
+  ISSUE,
+  LONG,
+  STORED,
+  type SeedTurn,
+  THREAD,
+  WRITTEN,
+  ask,
+  box,
+  checkInReach,
+  checkMode,
+  checks,
+  deleteConversation,
+  lines,
+  mock,
+  newest,
+  noOverflow,
+  panel,
+  seed,
+  settleCheck,
+  startNew,
+} from "./helpers";
 
 /*
  * The question page, with the backend's answers mocked in the browser. No live backend,
@@ -11,245 +34,6 @@ import { formatDate } from "../lib/evidence-text";
  * stub passes on its own unless a test sets another mode with `checkMode`.
  * A build with no site key (no human check) is not covered by these tests.
  */
-
-const ISSUE = {
-  issue_id: "CR-TEST-ISSUE",
-  title: "A test issue",
-  score: 4,
-  matched_by: ["vector", "year"],
-  card: {
-    // two names the catalogue uses, and two it does not (shown as the data has them)
-    dates: { placed_on_sale: "1889-09-20", probable_first_circulation: "1889-09-21", issued: "1889-09", withdrawn: "about 1890" },
-    printers: ["A printer"],
-    perforation: "12",
-    acts: [{ type: "decree", id: "Test decree 1", date: "1889-01-02" }],
-    stamps: [
-      { catalog_no: "T1", value: 5, unit: "c", color: "blue", quantity: 1000 },
-      { catalog_no: "T2", value: 10, unit: "c", color: "red", quantity: 500 },
-    ],
-  },
-};
-const OTHER_ISSUE = {
-  issue_id: "CR-OTHER-TEST-ISSUE",
-  title: "Another test issue",
-  score: 2.123456,
-  matched_by: ["vector"],
-  card: { printers: ["Another printer"], acts: [{ type: "law", id: "Act 7", date: "1890-05" }], stamps: [{ catalog_no: "T9", value: 1, unit: "c", color: "green", quantity: null }] },
-};
-const ANSWER = {
-  question: "When was it placed on sale?",
-  mode: { embedding: "ok", catalogue: "vector index", literature: "vector" },
-  issues: [ISSUE, OTHER_ISSUE],
-  passages: [
-    { doc_id: "A TEST DOCUMENT", page: 12, chunk_type: "text", text: "A passage that answers the question.", clipped: true, score: 0.9 },
-    { doc_id: "ANOTHER DOCUMENT", page: 3, chunk_type: "text", text: "A second passage.", clipped: false, score: 0.8 },
-  ],
-  timings: { embedding_ms: 100, catalogue_ms: 200, literature_ms: 50, total_ms: 900 },
-};
-
-const STORED = {
-  generated: "2026-11-19",
-  examples: [{ lang: "en", question: "A stored example question?", answer: { ...ANSWER, question: "A stored example question?" } }],
-};
-
-/* A written answer for ANSWER: two sentences, the first cites the card, the second the first passage. */
-const WRITTEN = {
-  state: "ok",
-  sentences: [
-    { text: "The test issue was placed on sale on 20 September 1889.", cites: [1] },
-    { text: "A test document says the same.", cites: [2] },
-  ],
-  sources: [
-    { n: 1, kind: "issue", index: 0, title: "Catalogue card: A test issue", quotes: ["placed on sale: 1889-09-20"] },
-    { n: 2, kind: "passage", index: 0, title: "A TEST DOCUMENT, page 12", quotes: ["A passage that answers the question."] },
-  ],
-  counts: { sentences: 3, sentences_without_citation: 1, citations: 2, citations_that_do_not_hold: 0 },
-};
-const CALLS = [{ purpose: "write", state: "ok", input_tokens: 4321, output_tokens: 123, seconds: 1.25 }];
-
-/* Long sentences with several marks each, so lines wrap on a phone and on a wide screen. */
-const LONG = {
-  state: "ok",
-  sentences: [
-    { text: "A made-up sentence that runs on for long enough to wrap across more than one line of the answer on a narrow phone screen.", cites: [1, 2] },
-    { text: "Another made-up sentence, with words of several lengths, which also carries more than one mark at its very end.", cites: [2, 1] },
-    { text: "Short one.", cites: [1] },
-    { text: "A third made-up sentence closes the answer with a last word that is rather long: extraordinarily.", cites: [1, 2] },
-  ],
-  sources: WRITTEN.sources,
-  counts: { sentences: 4, sentences_without_citation: 0, citations: 7, citations_that_do_not_hold: 0 },
-};
-
-/** The chat route's answer: lines of JSON, the evidence and then the written answer. */
-const lines = (written: object, evidence: object = ANSWER, rewritten = false, calls: object[] = CALLS) =>
-  [{ type: "evidence", rewritten, evidence }, { type: "answer", answer: written, calls }].map((line) => JSON.stringify(line)).join("\n") + "\n";
-
-type Mock = { health?: number; ask?: object; askStatus?: number; stored?: object | null; written?: object; chatStatus?: number; examples?: object[] };
-
-/*
- * Cloudflare's script, stubbed. Like the real one with appearance "interaction-only", the
- * widget it draws stays out of view (its own display: none) unless it needs a click.
- * Modes (set before the page loads with `checkMode`):
- *   pass   the check passes on its own a moment after it runs (the default)
- *   hold   the check runs until the test settles it (`settleCheck`)
- *   click  the check needs a click on its own button
- */
-const TURNSTILE_STUB = `(() => {
-  let n = 0;
-  window.__checks = [];
-  window.turnstile = {
-    render(el, o) {
-      const id = "w" + (++n);
-      const mode = window.__checkMode || "pass";
-      const widget = document.createElement("div");
-      widget.dataset.widget = id;
-      widget.style.cssText = "width:300px;height:65px;box-sizing:border-box;border:1px dashed";
-      const show = (on) => { widget.style.display = o.appearance !== "interaction-only" || on ? "block" : "none"; };
-      el.appendChild(widget);
-      const entry = { id, el, o, runs: 0 };
-      entry.run = () => {
-        entry.runs += 1;
-        widget.replaceChildren();
-        show(false);
-        if (mode === "pass") setTimeout(() => o.callback("token-" + id + "-" + entry.runs), 20);
-        if (mode === "click") {
-          if (o["before-interactive-callback"]) o["before-interactive-callback"]();
-          show(true);
-          const button = document.createElement("button");
-          button.type = "button";
-          button.textContent = "Verify you are human";
-          button.onclick = () => {
-            show(false);
-            if (o["after-interactive-callback"]) o["after-interactive-callback"]();
-            o.callback("token-" + id);
-          };
-          widget.appendChild(button);
-        }
-      };
-      window.__checks.push(entry);
-      entry.run();
-      return id;
-    },
-    reset(id) {
-      const entry = window.__checks.find((c) => c.id === id);
-      if (entry) entry.run();
-    },
-    remove() {},
-  };
-})();`;
-
-async function checkMode(page: Page, mode: "pass" | "hold" | "click") {
-  await page.addInitScript((m) => Object.assign(window, { __checkMode: m }), mode);
-}
-type CheckEntry = { id: string; runs: number; el: HTMLElement; o: { callback: (t: string) => void; appearance?: string } };
-const checks = (page: Page) =>
-  page.evaluate(() => ((window as unknown as { __checks?: CheckEntry[] }).__checks ?? []).map((c) => ({
-    id: c.id, runs: c.runs, appearance: c.o.appearance, inHost: c.el.getAttribute("data-testid") === "check-host",
-  })));
-const settleCheck = (page: Page) =>
-  page.evaluate(() => {
-    const all = (window as unknown as { __checks: CheckEntry[] }).__checks;
-    all[all.length - 1].o.callback("token-held");
-  });
-
-/**
- * Fails if any element the check is drawn into is off screen, or is put out of view or out of
- * reach by the page: `inert` or `aria-hidden` on it or above it, `display: none` or
- * `visibility: hidden` on it or above it. (The widget inside is Cloudflare's to show or hide.)
- */
-async function checkInReach(page: Page) {
-  const problems = await page.evaluate(() => {
-    const out: string[] = [];
-    const doc = document.documentElement;
-    for (const entry of (window as unknown as { __checks?: CheckEntry[] }).__checks ?? []) {
-      const el = entry.el;
-      if (!el.isConnected) { out.push(`${entry.id}: not in the page`); continue; }
-      const box = el.getBoundingClientRect();
-      const left = box.left + window.scrollX;
-      const top = box.top + window.scrollY;
-      if (left < 0 || left >= doc.scrollWidth || top < 0 || top >= doc.scrollHeight) out.push(`${entry.id}: off screen at ${left},${top}`);
-      for (let node: Element | null = el; node; node = node.parentElement) {
-        const style = getComputedStyle(node);
-        const name = `${node.tagName.toLowerCase()}.${node.className}`;
-        if (node.hasAttribute("inert")) out.push(`${name}: inert`);
-        if (node.getAttribute("aria-hidden") === "true") out.push(`${name}: aria-hidden`);
-        if (style.display === "none") out.push(`${name}: display none`);
-        if (style.visibility === "hidden") out.push(`${name}: visibility hidden`);
-      }
-    }
-    return out;
-  });
-  expect(problems).toEqual([]);
-}
-
-async function mock(page: Page, options: Mock = {}) {
-  await page.route(/^https:\/\/challenges\.cloudflare\.com\/turnstile\//, (route) =>
-    route.fulfill({ contentType: "text/javascript", body: TURNSTILE_STUB }));
-  await page.route("**/api/session", (route) => route.fulfill({ json: { session: "test-session", expires_in: 600 } }));
-  await page.route("**/api/health", (route) =>
-    options.health === 0 ? route.abort() : route.fulfill({ status: options.health ?? 200, json: { status: "ok" } }));
-  await page.route("**/api/ask/examples", (route) =>
-    route.fulfill({ json: { examples: options.examples ?? [{ lang: "en", question: "A live example question?" }], max_question_chars: 300 } }));
-  await page.route("**/stored-examples.json", (route) =>
-    options.stored === null ? route.fulfill({ status: 404, body: "" }) : route.fulfill({ json: options.stored ?? { generated: null, examples: [] } }));
-  await page.route("**/api/ask", (route) =>
-    route.fulfill({ status: options.askStatus ?? 200, json: options.ask ?? ANSWER, headers: options.askStatus === 429 ? { "Retry-After": "30" } : {} }));
-  // the route that also writes an answer. By default no answer is written (no key), so the
-  // tests about the evidence see the evidence alone
-  await page.route("**/api/chat", (route) => {
-    const status = options.chatStatus ?? options.askStatus ?? 200;
-    if (status !== 200) return route.fulfill({ status, json: options.ask ?? { error: "not_found" }, headers: status === 429 ? { "Retry-After": "30" } : {} });
-    return route.fulfill({ contentType: "application/x-ndjson", body: lines(options.written ?? { state: "no_key" }, options.ask ?? ANSWER) });
-  });
-}
-
-/** A conversation already kept in this browser, in the stored shape. */
-type SeedTurn = { question: string; written?: object; evidence?: object; rewritten?: boolean; stored?: boolean };
-async function seed(page: Page, turns: SeedTurn[]) {
-  const kept = turns.map((turn, i) => ({
-    id: `seed-${i}`,
-    question: turn.question,
-    at: "2026-11-20T10:00:00.000Z",
-    answer: turn.evidence ?? { ...ANSWER, question: turn.question },
-    ...(turn.written ? { written: turn.written, calls: CALLS } : {}),
-    ...(turn.rewritten ? { rewritten: true } : {}),
-    ...(turn.stored ? { stored: true, storedDate: "2026-11-19" } : {}),
-  }));
-  const store = { version: 2, current: "c-seed", conversations: [{ id: "c-seed", started: kept[0].at, turns: kept }] };
-  await page.addInitScript((value) => {
-    if (!window.sessionStorage.getItem("seeded")) {
-      window.localStorage.setItem("oxcart-conversations", value);
-      window.sessionStorage.setItem("seeded", "1");
-    }
-  }, JSON.stringify(store));
-}
-
-/** Four kept turns: two answers, an answer that was not written, and the newest answer. */
-const THREAD: SeedTurn[] = [
-  { question: "When was the test issue placed on sale?", written: WRITTEN },
-  { question: "And who printed it?", written: { ...WRITTEN, sentences: [WRITTEN.sentences[0]], sources: [WRITTEN.sources[0]] }, rewritten: true },
-  { question: "What is the best glue for a test album?", written: { state: "not_covered" } },
-  { question: "Which documents mention it?", written: LONG },
-];
-
-const box = (page: Page) => page.locator("#q");
-async function ask(page: Page, text: string) {
-  await box(page).fill(text);
-  await box(page).press("Enter");
-}
-const newest = (page: Page) => page.getByTestId("turn").last();
-const panel = (page: Page) => page.getByTestId("evidence-panel");
-
-/** No page wider than the screen, and no Evidence panel wider than itself. */
-async function noOverflow(page: Page, where: string) {
-  const over = await page.evaluate(() => {
-    const doc = document.documentElement;
-    const ev = document.getElementById("evidence-panel");
-    return { page: doc.scrollWidth - doc.clientWidth, panel: ev ? ev.scrollWidth - ev.clientWidth : 0 };
-  });
-  expect(over.page, `${where}: page`).toBeLessThanOrEqual(0);
-  expect(over.panel, `${where}: panel`).toBeLessThanOrEqual(0);
-}
 
 // ===================================================================== the first screen
 
@@ -312,7 +96,7 @@ test("a question holds at most 300 characters, and the box counts down the last 
   await expect(page.getByTestId("chars-left")).toHaveText(/0 characters left|Quedan 0 caracteres/);
 });
 
-test("the questions to try give way to the thread, and come back when it is cleared", async ({ page }) => {
+test("the questions to try give way to the thread, and come back when it is deleted", async ({ page }) => {
   const many = Array.from({ length: 8 }, (_, i) => ({ lang: "en", question: `Example question number ${i + 1}?` }));
   await mock(page, { examples: many });
   await page.goto("/");
@@ -326,7 +110,7 @@ test("the questions to try give way to the thread, and come back when it is clea
   await page.reload();                                                // a conversation found on opening: no list
   await expect(page.getByTestId("turn")).toHaveCount(1);
   await expect(examples).toHaveCount(0);
-  await page.getByTestId("clear").click();
+  await deleteConversation(page);
   await expect(examples).toHaveCount(8);
   await examples.first().click();                                     // a live example is asked at once
   await expect(page.getByTestId("turn")).toHaveCount(1);
@@ -577,7 +361,7 @@ test("the human check's element is in the page and in reach, at every width", as
     await settleCheck(page);
     await expect(newest(page).getByTestId("evidence-button")).toBeVisible();
     await checkInReach(page);                                          // a thread, passed
-    await page.getByTestId("clear").click();
+    await deleteConversation(page);
     await page.evaluate(() => window.sessionStorage.clear());
   }
 });
@@ -735,7 +519,7 @@ test("an older answer's Evidence names its own question, and each answer keeps i
   await expect(panel(page)).toHaveCount(0);
 });
 
-test("the conversation stays in this browser and can be cleared", async ({ page }) => {
+test("the conversation stays in this browser and can be deleted", async ({ page }) => {
   await mock(page);
   await page.goto("/");
   await ask(page, "First question?");
@@ -751,7 +535,7 @@ test("the conversation stays in this browser and can be cleared", async ({ page 
   expect(kept.conversations).toHaveLength(1);
   expect(kept.conversations[0].id).toBe(kept.current);
   expect(kept.conversations[0].turns[0].question).toBe("First question?");
-  await page.getByTestId("clear").click();
+  await deleteConversation(page);
   await expect(page.getByTestId("turn")).toHaveCount(0);
   await page.reload();
   await expect(page.getByTestId("turn")).toHaveCount(0);
@@ -826,8 +610,8 @@ test("a follow-up is sent with the turns it follows, and the page says what was 
   await expect(page.getByTestId("turn")).toHaveCount(3);
   await expect(newest(page).getByTestId("written-answer")).toBeVisible();
   expect(bodies[1].thread.map((t) => t.question)).toEqual(["When was it placed on sale?", "Who printed the test issue?"]);
-  // a cleared conversation starts again, with no thread
-  await page.getByTestId("clear").click();
+  // a new conversation starts again, with no thread
+  await startNew(page);
   await ask(page, "Another subject?");
   await expect(page.getByTestId("turn")).toHaveCount(1);
   await expect(newest(page).getByTestId("evidence-button")).toBeVisible();
@@ -1235,7 +1019,8 @@ test("screenshots of the main states at 360, 820 and 1440 px (kept under test-re
     await page.unrouteAll();
     await mock(page, { stored: STORED, written: WRITTEN });
     await page.goto("/");
-    if (await page.getByTestId("clear").count()) await page.getByTestId("clear").click();   // the last width's thread
+    await page.evaluate(() => window.localStorage.removeItem("oxcart-conversations"));   // the last width's conversations
+    await page.reload();
     await expect(page.getByRole("button", { name: /A stored example question\?/ })).toBeVisible();
     await shot("01-first", width);
     await page.getByTestId("privacy").getByText("Details").click();
@@ -1264,7 +1049,7 @@ test("screenshots of the main states at 360, 820 and 1440 px (kept under test-re
     await ask(page, "One more question?");
     await expect(newest(page).getByTestId("turn-error")).toBeVisible();
     await shot("07-limit-minute", width);
-    await page.getByTestId("clear").click();
+    await startNew(page);
     await page.getByRole("button", { name: /A stored example question\?/ }).click();
     await expect(newest(page).getByTestId("stored-note")).toBeVisible();
     await shot("08-stored-example", width);
