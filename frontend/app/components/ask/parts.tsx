@@ -28,6 +28,8 @@ export function followed(turns: Turn[]): Turn | undefined {
 
 /** Where a turn's source is, inside Evidence. */
 export const sourceId = (turnId: string, n: number) => `ev-src-${turnId}-${n}`;
+/** Where a passage's figures are, inside Evidence ("Cards and passages"). */
+export const figuresId = (turnId: string, index: number) => `ev-figs-${turnId}-${index}`;
 
 /** One line, with a sign, for a refusal, a failure or a part that could not be reached. Never by colour alone. */
 export function Warn({ text, inline = false, testId, alert = true }: { text: string; inline?: boolean; testId?: string; alert?: boolean }) {

@@ -16,6 +16,8 @@ import type { ReactNode } from "react";
 import type { AnswerSentence } from "@/lib/ask";
 import type { Turn } from "@/lib/conversation";
 import { sourceTitle } from "@/lib/evidence-text";
+import type { FigureGroup } from "@/lib/figures";
+import { citedFigures, figureSrc, fit, ratio } from "@/lib/figures";
 import type { Labels } from "@/lib/i18n";
 import type { Service } from "./hooks";
 import { WAIT_LINES_AFTER_SECONDS } from "./hooks";
@@ -29,7 +31,7 @@ type Props = {
   open: boolean; // this turn's Evidence is open
   storedNote: string | null;
   busy: boolean;
-  onEvidence: (turnId: string, opener: HTMLElement, source?: number) => void;
+  onEvidence: (turnId: string, opener: HTMLElement, source?: number, figures?: number) => void;
   onAskNow: (question: string) => void;
 };
 
@@ -66,8 +68,10 @@ function Answered({ turn, t, newest, open, storedNote, busy, onEvidence, onAskNo
   const evidence = turn.answer!;
   const written = turn.written;
   const ok = !turn.writing && answered(written);
+  // the figures of the cited pages: drawn under the newest answer, counted beside an older one's button
+  const figs = ok ? citedFigures(written?.sources ?? [], evidence.passages) : { groups: [], pages: 0, count: 0 };
   const counts = ok && !newest
-    ? t.nSources(written?.sources?.length ?? 0)
+    ? [t.nSources(written?.sources?.length ?? 0), figs.count ? t.nFigures(figs.count) : ""].filter(Boolean).join(" · ")
     : [ok ? t.nSources(written?.sources?.length ?? 0) : "", t.nCards(evidence.issues.length), t.nPassages(evidence.passages.length)].filter(Boolean).join(" · ");
   const evrow = (
     <p className="evrow">
@@ -151,6 +155,7 @@ function Answered({ turn, t, newest, open, storedNote, busy, onEvidence, onAskNo
               </div>
               {evrow}
             </div>
+            {figs.groups.length > 0 && <Figures turnId={turn.id} groups={figs.groups} pages={figs.pages} t={t} onEvidence={onEvidence} />}
           </>
         ) : (
           evrow
@@ -198,5 +203,47 @@ function Sentence({ sentence, mark }: { sentence: AnswerSentence; mark: (n: numb
       {head}
       <span className="keep">{tail}<span className="marks">{sentence.cites.map(mark)}</span></span>{" "}
     </span>
+  );
+}
+
+/** In the conversation a picture is never taller than this; inside Evidence it is at its own size. */
+export const FIGURE_CAP = 200;
+
+/**
+ * The figures of the pages the newest answer cites: last in the turn, under its Evidence button,
+ * so their arrival never moves the answer. One group per cited page; the whole group is one
+ * button that opens Evidence on that page's figures. Each picture's box is held at its drawn size
+ * (on a tint) before its file arrives; alt text is the page's own words, from the class and the place.
+ */
+function Figures({ turnId, groups, pages, t, onEvidence }: { turnId: string; groups: FigureGroup[]; pages: number; t: Labels; onEvidence: Props["onEvidence"] }) {
+  const head = `figs-${turnId}`;
+  return (
+    <div className="pics" role="group" aria-labelledby={head} data-testid="figures">
+      <p className="label" id={head}>{t.figsTitle}</p>
+      <p className="pics__say">{t.figsSay} {t.figsOf(groups.length, pages)}</p>
+      <ul className="pics__pages">
+        {groups.map((g) => (
+          <li key={g.index}>
+            <button type="button" className="pics__link" onClick={(e) => onEvidence(turnId, e.currentTarget, undefined, g.index)} data-testid="figure-group">
+              <span className="pics__cap">
+                <b className="mark"><span className="vh">{t.source} </span>{g.n}</b>
+                <span className="pics__what">
+                  <span className="pics__doc">{g.doc}</span> <span className="pics__page">{t.page} {g.page}</span> <span className="pics__go">{t.figsGo}</span>
+                </span>
+              </span>
+              <span className="pics__row">
+                {g.figures.map((f, i) => {
+                  const size = fit(f.width, f.height, FIGURE_CAP);
+                  const src = figureSrc(f.id);
+                  return src ? (
+                    <img key={f.id} src={src} width={size.width} height={size.height} style={ratio(f)} loading="lazy" decoding="async" alt={t.figAlt(i + 1, g.figures.length, t.figKind[f.class])} data-testid="figure" />
+                  ) : null;
+                })}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

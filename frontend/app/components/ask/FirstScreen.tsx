@@ -4,10 +4,17 @@
  * The first screen: what the page does, the question box with the privacy line between
  * the box and its button (read, and reached by keyboard, before a question can be sent),
  * the questions to try, and the way to how it works and how it was evaluated.
+ *
+ * Beside them (under them on a narrow screen) a plate of stamps cropped from the literature, read
+ * at run time from the figures host (lib/figures.ts). Without that list nothing is drawn and no
+ * room is kept: the first screen is as it was.
  */
+import { useEffect, useState } from "react";
 import type { Example, StoredExample } from "@/lib/ask";
 import { MAX_QUESTION_CHARS } from "@/lib/ask";
 import type { Conversation } from "@/lib/conversation";
+import type { PlateItem } from "@/lib/figures";
+import { figureSrc, plateList } from "@/lib/figures";
 import type { Labels } from "@/lib/i18n";
 import { HOW_URL, PrivacyLine } from "./parts";
 
@@ -31,6 +38,14 @@ const MINE_SHOWN = 3;
 
 export default function FirstScreen({ t, draft, setDraft, submit, busy, closed, examples, stored, pick, onBoxFocus, mine, onOpen, onAll }: Props) {
   const left = MAX_QUESTION_CHARS - draft.length;
+  const [plate, setPlate] = useState<PlateItem[]>([]);
+  useEffect(() => {
+    let live = true;
+    plateList().then((items) => live && setPlate(items));
+    return () => {
+      live = false;
+    };
+  }, []);
   return (
     <>
       <div className="first__part first__head">
@@ -104,6 +119,30 @@ export default function FirstScreen({ t, draft, setDraft, submit, busy, closed, 
 
         <p className="first__how"><a href={HOW_URL}>{t.evalLink}</a></p>
       </div>
+      {plate.length > 0 && <Plate items={plate} caption={t.plateCaption} />}
     </>
+  );
+}
+
+/**
+ * The plate: a ruled grid, each crop at its own proportions in a square cell, never larger than its
+ * pixels. Decoration beside the title: the pictures have empty alt text and the caption says what
+ * they are. The cells are square, so their room is held before any file arrives.
+ */
+function Plate({ items, caption }: { items: PlateItem[]; caption: string }) {
+  return (
+    <figure className="first__part plate" data-testid="plate">
+      <ul className="plate__grid" aria-hidden="true">
+        {items.map((item, i) => {
+          const src = figureSrc(item.digest);
+          return src ? (
+            <li key={`${i}-${item.digest}`}>
+              <img src={src} width={item.width} height={item.height} style={{ maxWidth: item.width, maxHeight: item.height }} loading="lazy" decoding="async" alt="" />
+            </li>
+          ) : null;
+        })}
+      </ul>
+      <figcaption>{caption}</figcaption>
+    </figure>
   );
 }
