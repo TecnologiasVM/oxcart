@@ -36,17 +36,27 @@ import type { Labels, Lang } from "@/lib/i18n";
 import EvidencePanel from "./ask/EvidencePanel";
 import type { PanelFocus, TabKey } from "./ask/EvidencePanel";
 import FirstScreen from "./ask/FirstScreen";
-import { useConversation, useHeaderHeight, useHumanCheck, useMedia, usePinnedEdges, useService } from "./ask/hooks";
-import { answered, followed, HOW_URL, PrivacyLine, REPO_URL, textOf, Waiting, Warn } from "./ask/parts";
+import Conversations, { RAIL_ID } from "./ask/Conversations";
+import { useConversations, useHeaderHeight, useHumanCheck, useMedia, usePinnedEdges, useService } from "./ask/hooks";
+import { answered, Confirm, followed, HOW_URL, KeepNote, PrivacyLine, REPO_URL, textOf, Waiting, Warn } from "./ask/parts";
 import TurnView from "./ask/TurnView";
 
 const LANG_KEY = "oxcart-lang";
+const RAIL_KEY = "oxcart-rail"; // "hidden" when the visitor hid the rail; kept with the language
 const HUMAN_CODES = ["session_required", "human_check_failed", "human_check_unavailable"];
 const DAY_CODES = ["visitor_daily_limit", "service_daily_limit"];
 
 export default function Chat() {
   const [lang, setLang] = useState<Lang>("en");
-  const { turns, loaded, add, patch, clear } = useConversation();
+  const conv = useConversations();
+  const { turns, loaded, add, patch } = conv;
+  const [railHidden, setRailHidden] = useState(false);
+  const [convsOpen, setConvsOpen] = useState(false); // the list as a sheet, below 1100 px
+  const [confirmOne, setConfirmOne] = useState(false);
+  const [confirmAll, setConfirmAll] = useState(false);
+  const deleteOneRef = useRef<HTMLButtonElement | null>(null);
+  const deleteAllRef = useRef<HTMLButtonElement | null>(null);
+  const convsButton = useRef<HTMLButtonElement | null>(null);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [closed, setClosed] = useState(false); // the day's limit: the box stays closed
@@ -64,6 +74,7 @@ export default function Chat() {
   const turnsNow = useRef<Turn[]>(turns);
   const check = useHumanCheck();
   const sheet = useMedia("(max-width: 1279px)");
+  const railRoom = useMedia("(min-width: 1100px)");
   const t: Labels = LABELS[lang];
   useHeaderHeight();
 
@@ -80,6 +91,11 @@ export default function Chat() {
       /* storage blocked */
     }
     setLang(saved === "es" || saved === "en" ? saved : navigator.language.toLowerCase().startsWith("es") ? "es" : "en");
+    try {
+      setRailHidden(window.localStorage.getItem(RAIL_KEY) === "hidden");
+    } catch {
+      /* storage blocked: the rail shows */
+    }
     setSlot(document.getElementById("masthead-page"));
   }, []);
   useEffect(() => {
@@ -124,9 +140,9 @@ export default function Chat() {
     window.scrollTo({ top: Math.max(0, Math.min(foot, question)) });
   }, [turns]);
 
-  // --- Evidence over the conversation (below 1280 px): the page behind it is put out of reach
+  // --- Evidence or the list of conversations over the page: what is behind it is put out of reach
   const evTurn = evidence ? turns.find((turn) => turn.id === evidence.turnId && turn.answer) : undefined;
-  const modal = Boolean(evTurn) && sheet;
+  const modal = (Boolean(evTurn) && sheet) || convsOpen;
   useEffect(() => {
     document.documentElement.classList.toggle("evp-lock", modal);
     const outside = [...document.querySelectorAll<HTMLElement>("header.masthead, footer.site-foot")];
@@ -159,6 +175,72 @@ export default function Chat() {
     opened.current += 1;
     setEvidence({ turnId, focus: { source, nonce: opened.current } });
   }, [evidence, closeEvidence]);
+
+  // --- the kept conversations
+  useEffect(() => {
+    if (railRoom) setConvsOpen(false); // the screen grew past the rail's width: the rail stands, no sheet
+  }, [railRoom]);
+  const focusLater = (el: () => HTMLElement | null | undefined) => requestAnimationFrame(() => el()?.focus());
+  const leaveConversation = () => {
+    // Evidence belongs to an answer of the conversation that is left: it closes
+    setEvidence(null);
+    setConfirmOne(false);
+    setConfirmAll(false);
+    pinned.current = true;
+  };
+  const openConversation = (id: string) => {
+    leaveConversation();
+    conv.open(id);
+    if (convsOpen) {
+      setConvsOpen(false);
+      focusLater(() => convsButton.current);
+    }
+  };
+  const newConversation = () => {
+    leaveConversation();
+    conv.start();
+    setConvsOpen(false);
+    focusLater(() => document.getElementById("q"));
+  };
+  const rememberRail = (hidden: boolean) => {
+    setRailHidden(hidden);
+    try {
+      window.localStorage.setItem(RAIL_KEY, hidden ? "hidden" : "open");
+    } catch {
+      /* storage blocked: the choice lasts as long as the page */
+    }
+  };
+  const hideRail = () => {
+    rememberRail(true);
+    focusLater(() => convsButton.current); // "Conversations" stands where "Hide" was
+  };
+  /** "Conversations" in the bar: the rail comes back where there is room for it, else the list opens as a sheet. */
+  const showConversations = () => {
+    if (window.matchMedia("(min-width: 1100px)").matches) {
+      if (railHidden) rememberRail(false);
+      // between 1280 and 1599 px the rail stands aside for docked Evidence: it comes back when Evidence closes
+      if (window.matchMedia("(max-width: 1599px)").matches) setEvidence(null);
+      focusLater(() => document.querySelector<HTMLElement>(`#${RAIL_ID} [aria-current="true"], #${RAIL_ID} .newbtn`));
+    } else {
+      setConvsOpen(true);
+    }
+  };
+  const closeConversations = () => {
+    setConvsOpen(false);
+    setConfirmAll(false);
+    focusLater(() => convsButton.current);
+  };
+  const deleteThis = () => {
+    leaveConversation();
+    conv.remove(conv.current);
+    focusLater(() => document.getElementById("q"));
+  };
+  const deleteAll = () => {
+    leaveConversation();
+    conv.removeAll();
+    setConvsOpen(false);
+    focusLater(() => document.getElementById("q"));
+  };
 
   // --- asking
   const submit = useCallback(
@@ -233,19 +315,15 @@ export default function Chat() {
     if (saved) showStored(saved);
     else submit(example.question);
   };
-  const clearAll = () => {
-    setEvidence(null);
-    clear();
-    window.scrollTo({ top: 0 });
-  };
 
   const storedNote = (turn: Turn) => (turn.stored ? t.storedNote(turn.storedDate ?? null) : null);
   const waking = (service === "waking" || service === "connecting") && !busy;
   const follows = followed(turns);
   const left = MAX_QUESTION_CHARS - draft.length;
   const docked = Boolean(evTurn) && !sheet;
-  // what is pinned changes with the thread and with Evidence: measured again each time
-  usePinnedEdges(`${turns.length > 0}|${docked}`);
+  const hasList = conv.list.length > 0;
+  // what is pinned changes with the thread, the rail and Evidence: measured again each time
+  usePinnedEdges(`${turns.length > 0}|${hasList}|${railHidden}|${docked}|${convsOpen}`);
 
   const status = waking ? (
     <div className="wake" role="status" aria-label={t.wakeTitle} data-testid="service-starting">
@@ -259,14 +337,54 @@ export default function Chat() {
   return (
     <>
       {slot && createPortal(<HeaderNav t={t} lang={lang} setLang={setLang} />, slot)}
-      <main className={`ask${turns.length ? " ask--thread" : ""}${docked ? " ask--ev" : ""}`}>
+      <main
+        className={`ask${turns.length ? " ask--thread" : ""}${docked ? " ask--ev" : ""}${
+          hasList ? (railHidden ? " ask--norail" : " ask--rail") : ""}${convsOpen ? " ask--convs" : ""}`}
+      >
+        {hasList || convsOpen ? (
+          <Conversations
+            t={t}
+            list={conv.list}
+            current={conv.current}
+            keeping={conv.keeping}
+            sheet={convsOpen}
+            behind={Boolean(evTurn) && sheet}
+            confirmAll={confirmAll}
+            deleteAllRef={deleteAllRef}
+            onOpen={openConversation}
+            onNew={newConversation}
+            onHide={hideRail}
+            onClose={closeConversations}
+            onAskDeleteAll={() => setConfirmAll(true)}
+            onDeleteAll={deleteAll}
+            onKeepAll={() => {
+              setConfirmAll(false);
+              focusLater(() => deleteAllRef.current);
+            }}
+          />
+        ) : null}
         {/* the first screen and the thread share one frame, so the human check's element, its
             second child, stays the same element from the box's first focus on: its widget is
             never moved, and CSS places it under the box or under the newest turn */}
         <div className={`conv${turns.length ? "" : " conv--first"}`} inert={modal}>
+          {/* where there is no rail: the bar "Conversations / New", and a storage line under it */}
+          <div className="convbar">
+            <div className="threadbar">
+              <button type="button" ref={convsButton} className="tb" aria-expanded={convsOpen} aria-controls={RAIL_ID} onClick={showConversations} data-testid="conversations-button">
+                <span className="tb__glyph" aria-hidden="true" />{t.convsBtn}
+              </button>
+              <button type="button" className="tb" onClick={newConversation} data-testid="new-short">
+                <span aria-hidden="true">+</span> {t.newShort}<span className="vh"> ({t.newConv})</span>
+              </button>
+            </div>
+            {conv.keeping !== "kept" && turns.length > 0 && <div className="strip"><KeepNote text={conv.keeping === "full" ? t.noRoom : t.notKept} /></div>}
+          </div>
           {turns.length === 0 ? (
             <>
-              <FirstScreen t={t} draft={draft} setDraft={setDraft} submit={submit} busy={busy} closed={closed} examples={examples} stored={stored} pick={pick} onBoxFocus={check.warm} />
+              <FirstScreen
+                t={t} draft={draft} setDraft={setDraft} submit={submit} busy={busy} closed={closed} examples={examples} stored={stored}
+                pick={pick} onBoxFocus={check.warm} mine={conv.list} onOpen={openConversation} onAll={() => setConvsOpen(true)}
+              />
               {status && <div className="wake-pin">{status}</div>}
             </>
           ) : (
@@ -301,9 +419,19 @@ export default function Chat() {
           {turns.length > 0 && (
             <div className="conv__foot">
               {turns.some((turn) => answered(turn.written)) && <p className="thread__note" data-testid="ai-note">{t.noteOnce}</p>}
-              <p className="conv__end">
-                <button type="button" className="linkbtn" onClick={clearAll} data-testid="clear">{t.clear}</button>
-              </p>
+              <div className="conv__end">
+                {confirmOne ? (
+                  <Confirm
+                    text={t.delAsk} yes={t.delYes} no={t.delNo} onYes={deleteThis} testId="confirm-one"
+                    onNo={() => {
+                      setConfirmOne(false);
+                      focusLater(() => deleteOneRef.current);
+                    }}
+                  />
+                ) : (
+                  <button type="button" ref={deleteOneRef} className="linkbtn" onClick={() => setConfirmOne(true)} data-testid="delete-one">{t.delOne}</button>
+                )}
+              </div>
             </div>
           )}
           {turns.length > 0 && (
