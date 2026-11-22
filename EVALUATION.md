@@ -363,8 +363,11 @@ The writer is Claude Haiku 5.5 at effort `low`, as served, in every row but one.
 
 - **No setting that could be served moves the answers out of the spread of the first row.** The grading step
   comes nearest (about three more answers in full) for 60% more cost and a later first line on the page.
-- **The search is not the limit by itself.** With five passages of pages known to answer, cut at 700 characters
-  as the page cuts them: about three more answers in full, and about as many answers that give what is asked.
+- **The search is not the limit by itself.** Five passages of pages known to answer, each cut to the 700
+  characters nearest the question, against the second row (the found passages, cut the same way): about three
+  more answers in full (13, 14, 14 against 10, 12, 10) and about as many that give what is asked (20, 19, 22
+  against 18, 21, 20). Against the first row, as served, it is about four more of each (means of 9.6 in full
+  and 16.4 that give what is asked).
 - **More text is not the limit by itself.** Reading 2,000 or 4,000 characters of the passages the search finds
   changes nothing.
 - **Both together move it:** the right passages and up to 4,000 characters of each give what is asked in 21 to
@@ -379,6 +382,10 @@ The writer is Claude Haiku 5.5 at effort `low`, as served, in every row but one.
 
 Same instructions, same effort (`low`), same evidence; only the model that writes changes. None of this is
 served.
+
+The two stronger writers were given more room than the served one: 4,000 tokens for thinking on top of the
+answer's limit (1,500 as served) and 60 seconds for a reply (12 as served). No answer of theirs was cut by the
+limit.
 
 | Writer and evidence | Runs | Written | Supported | In full | Gives what is asked | USD a question |
 |---|---|---|---|---|---|---|
@@ -407,8 +414,9 @@ the five runs of the first row, from the same instructions and the same inputs a
 | no | 0 | 6 | 33 |
 
 The two give the same mark for 177 of 205 answers (86%), and stand on the same side of yes against not-yes for
-186 (91%). No answer is "yes" for one and "no" for the other. Totals: 82 and 83 "yes". Two models agreeing is
-not a person checking; it says the mark does not rest on one vendor's reading.
+186 (91%). No answer is "yes" for one and "no" for the other. Totals: 82 and 83 "yes". Cohen's kappa, which
+takes out the agreement two judges would reach by chance: 0.78 over the three marks, 0.81 on yes against
+not-yes. Two models agreeing is not a person checking; it says the mark does not rest on one vendor's reading.
 
 ### What was kept
 
