@@ -194,11 +194,12 @@ development machine, against the hosted stores.
 
 - **The grades are a model's. No person has checked them.** The judge was `gpt-6.1-sol` at high reasoning effort,
   run through the Codex CLI: another vendor's model than the one that writes the answers. One judge, one pass.
-- **One run per setting.** The model's answers change from run to run, and nothing here measures by how much. A
-  difference of a few questions between two columns is not a finding.
-- **The last column is not a held-out result.** After the first two runs the model's instructions were revised
-  once (a rule on scope, and one on writing in the question's language), having read answers to these same
-  questions. The third run is the setting that is served.
+- **One run per setting, three of the served one.** The model's answers change from run to run. The last three
+  columns are the served setting asked three times, and show by how much: a difference of a few questions
+  between two columns is not a finding.
+- **The served setting's columns are not a held-out result.** After the first two runs the model's instructions
+  were revised once (a rule on scope, and one on writing in the question's language), having read answers to
+  these same questions. The third run is the setting that is served; the fourth and fifth repeat it.
 - **"Correct" for a literature question means agreeing with a reference answer** that the retrieval judge wrote
   from the pages it graded for that question in its first pass (12 pages a question on average, each with up to
   two full passages). The answer is written from
@@ -230,39 +231,44 @@ development machine, against the hosted stores.
 
 ### Result
 
-Three runs. **Thinking off** and **thinking on, first instructions** differ only in the model's thinking setting
-(both at effort `low`). **Thinking on, as served** has the revised instructions.
+Five runs. **Thinking off** and **thinking on, first instructions** differ only in the model's thinking setting
+(both at effort `low`). **Thinking on, as served** has the revised instructions. **As served, through the public
+host** is the same code and settings asked once more on 2026-11-21 through the public service itself (the hosted
+backend and the hosted stores), from another machine: a second run of the served setting, not a new setting.
+**The public host again, a day later** is that run repeated on 2026-11-22, one day after it, with nothing changed
+in between: a third run of the served setting. The last three columns differ by a few answers in most rows and
+by seven in one (catalogue supported: 62, 59, 66); that is what one run of this setting is worth.
 
-| | Thinking off | Thinking on, first instructions | Thinking on, as served |
-|---|---|---|---|
-| **Catalogue, 80 questions** | | | |
-| A written answer | 65 | 75 | 73 |
-| Not covered | 3 | 5 | 6 |
-| Cut at the output limit | 12 | 0 | 0 |
-| No sentence with a citation that holds | 0 | 0 | 1 |
-| Supported | 56 | 65 | 62 |
-| Correct | 64 | 74 | 69 |
-| Correct in part / not correct | 1 / 0 | 1 / 0 | 3 / 1 |
-| Supported and correct | 56 | 64 | 58 |
-| **Literature, 41 questions** | | | |
-| A written answer | 19 | 41 | 41 |
-| Not covered | 1 | 0 | 0 |
-| Cut at the output limit | 21 | 0 | 0 |
-| Supported | 14 | 28 | 27 |
-| Correct (agrees with the reference in full) | 5 | 8 | 10 |
-| Correct in part / not correct | 13 / 1 | 32 / 1 | 29 / 2 |
-| Supported and correct | 4 | 7 | 9 |
-| Correct, of all 49 drafts | 5 | 8 | 10 |
-| Supported and correct, of all 49 drafts | 4 | 7 | 9 |
-| **Out of scope, 30 questions** | | | |
-| No written answer (the wanted outcome) | 27 | 21 | 29 |
-| **Sentences** | | | |
-| Written with no citation, and removed | 79 of 266 (30%) | 113 of 439 (26%) | 100 of 419 (24%) |
-| Citations that did not hold | 0 of 197 | 0 of 355 | 0 of 357 |
-| Shown sentences the judge marked supported / partly / not | 179 / 15 / 0 | 314 / 28 / 2 | 292 / 28 / 1 |
-| **Follow-ups, 10 conversations** | | | |
-| With the conversation: the issue first / in the first three | 8 / 10 | 9 / 10 | 9 / 10 |
-| The follow-up asked alone: first / in the first three | 1 / 1 | 1 / 1 | 1 / 1 |
+| | Thinking off | Thinking on, first instructions | Thinking on, as served | As served, through the public host | The public host again, a day later |
+|---|---|---|---|---|---|
+| **Catalogue, 80 questions** | | | | | |
+| A written answer | 65 | 75 | 73 | 75 | 75 |
+| Not covered | 3 | 5 | 6 | 4 | 5 |
+| Cut at the output limit | 12 | 0 | 0 | 0 | 0 |
+| No sentence with a citation that holds | 0 | 0 | 1 | 1 | 0 |
+| Supported | 56 | 65 | 62 | 59 | 66 |
+| Correct | 64 | 74 | 69 | 74 | 74 |
+| Correct in part / not correct | 1 / 0 | 1 / 0 | 3 / 1 | 1 / 0 | 1 / 0 |
+| Supported and correct | 56 | 64 | 58 | 58 | 65 |
+| **Literature, 41 questions** | | | | | |
+| A written answer | 19 | 41 | 41 | 41 | 41 |
+| Not covered | 1 | 0 | 0 | 0 | 0 |
+| Cut at the output limit | 21 | 0 | 0 | 0 | 0 |
+| Supported | 14 | 28 | 27 | 24 | 29 |
+| Correct (agrees with the reference in full) | 5 | 8 | 10 | 9 | 10 |
+| Correct in part / not correct | 13 / 1 | 32 / 1 | 29 / 2 | 32 / 0 | 30 / 1 |
+| Supported and correct | 4 | 7 | 9 | 5 | 9 |
+| Correct, of all 49 drafts | 5 | 8 | 10 | 9 | 10 |
+| Supported and correct, of all 49 drafts | 4 | 7 | 9 | 5 | 9 |
+| **Out of scope, 30 questions** | | | | | |
+| No written answer (the wanted outcome) | 27 | 21 | 29 | 28 | 28 |
+| **Sentences** | | | | | |
+| Written with no citation, and removed | 79 of 266 (30%) | 113 of 439 (26%) | 100 of 419 (24%) | 98 of 433 (23%) | 118 of 452 (26%) |
+| Citations that did not hold | 0 of 197 | 0 of 355 | 0 of 357 | 0 of 373 | 0 of 376 |
+| Shown sentences the judge marked supported / partly / not | 179 / 15 / 0 | 314 / 28 / 2 | 292 / 28 / 1 | 281 / 35 / 0 | 290 / 24 / 1 |
+| **Follow-ups, 10 conversations** | | | | | |
+| With the conversation: the issue first / in the first three | 8 / 10 | 9 / 10 | 9 / 10 | 8 / 10 | 8 / 10 |
+| The follow-up asked alone: first / in the first three | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 |
 
 By language, as served:
 
@@ -292,22 +298,24 @@ By language, as served:
 Measured from the token counts the API returned for every call, at the list price of the day (0.10 USD per
 million input tokens, 0.50 per million output tokens; thinking is billed as output).
 
-| | Thinking off | Thinking on, first instructions | Thinking on, as served |
-|---|---|---|---|
-| Cost of a question, USD: mean / maximum | 0.00055 / 0.00089 | 0.00069 / 0.00128 | 0.00068 / 0.00129 |
-| Cost of a follow-up (rewrite and answer), USD: mean / maximum | 0.00063 / 0.00083 | 0.00070 / 0.00093 | 0.00070 / 0.00094 |
-| Input tokens of a question: mean / maximum | 4,304 / 7,254 | 4,305 / 7,255 | 4,442 / 7,392 |
-| Output tokens of a question: mean / maximum | 249 / 500 | 520 / 1,562 | 478 / 1,478 |
-| Wait for the evidence, s: median / 95th percentile | 1.26 / 1.58 | 1.27 / 1.51 | 1.28 / 1.53 |
-| Wait for the answer, s: median / 95th percentile | 2.57 / 4.15 | 3.49 / 6.64 | 3.46 / 6.48 |
-| The whole run, 151 questions and 10 conversations, USD | about 0.10 | about 0.12 | about 0.12 |
+| | Thinking off | Thinking on, first instructions | Thinking on, as served | As served, through the public host | The public host again, a day later |
+|---|---|---|---|---|---|
+| Cost of a question, USD: mean / maximum | 0.00055 / 0.00089 | 0.00069 / 0.00128 | 0.00068 / 0.00129 | 0.00068 / 0.00122 | 0.00068 / 0.00130 |
+| Cost of a follow-up (rewrite and answer), USD: mean / maximum | 0.00063 / 0.00083 | 0.00070 / 0.00093 | 0.00070 / 0.00094 | 0.00070 / 0.00097 | 0.00069 / 0.00090 |
+| Input tokens of a question: mean / maximum | 4,304 / 7,254 | 4,305 / 7,255 | 4,442 / 7,392 | 4,442 / 7,392 | 4,442 / 7,392 |
+| Output tokens of a question: mean / maximum | 249 / 500 | 520 / 1,562 | 478 / 1,478 | 476 / 1,417 | 466 / 1,625 |
+| Wait for the evidence, s: median / 95th percentile | 1.26 / 1.58 | 1.27 / 1.51 | 1.28 / 1.53 | 0.89 / 1.15 | 0.87 / 1.05 |
+| Wait for the answer, s: median / 95th percentile | 2.57 / 4.15 | 3.49 / 6.64 | 3.46 / 6.48 | 3.25 / 6.11 | 3.08 / 5.97 |
+| The whole run, 151 questions and 10 conversations, USD | about 0.10 | about 0.12 | about 0.12 | about 0.11 | about 0.11 |
 
-The waits are from the development machine, with the backend on it; the hosted backend is on a smaller machine.
+The waits of the first three columns are from the development machine, with the backend on it. Those of the last
+two columns are measured from a laptop through the public service, with the service awake; the hosted backend is
+on a smaller machine.
 At the served mean, 200 model calls a day are about 4 USD a month. That count lives in the server's memory and
 starts again when the service restarts, so the limit that holds is the spend limit of the key's workspace.
 
-Per-question outcomes of the three runs: `eval/outcomes/answers_thinking-off.json`,
-`answers_thinking-on-first.json`, `answers_thinking-on.json` (ids, how each ended, sentence and citation counts,
+Per-question outcomes of the five runs: `eval/outcomes/answers_thinking-off.json`,
+`answers_thinking-on-first.json`, `answers_thinking-on.json`, `answers_hosted.json`, `answers_hosted-2.json` (ids, how each ended, sentence and citation counts,
 token counts, the judge's marks; no answer and no passage).
 
 ## Other limits

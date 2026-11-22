@@ -182,12 +182,20 @@ The hosted demo serves the question path only: a human check before the first qu
 for the whole service, and a subset of the index that fits a free hosting tier, chosen and measured in
 [EVALUATION.md](EVALUATION.md). Not done yet: caching.
 
+**The hosts are free tiers, and two of them stop when unused.** The backend's host puts it to sleep; it wakes in
+about half a minute and the page says so. The literature's cluster (Weaviate Cloud, free plan) does not expire,
+but its provider suspends a free cluster after 7 days without use, keeping the data, and deletes it after 30
+(its documentation, read on 2026-11-22). A scheduled job outside this repository makes one read-only search of
+it several times a day, and a heartbeat write to the graph database for the same reason. While either store
+cannot be reached the page shows what the other returned and says which one is missing.
+
 **What the limits are, and what they are not.** A visitor may ask 10 questions a minute and 100 a day; the
 service takes 2,000 questions a day and makes at most 200 model calls a day (about 4 USD a month at the measured
 average). All of these counts live in the server's memory and start again whenever the service restarts, which on
 a host that puts an idle service to sleep happens many times a day. They slow down a running service; they are
-not a budget. The one limit that cannot be passed is the spend limit of the model key's workspace at the provider,
-set to 5 USD a month for the demo; when it is reached the page shows the evidence without a written answer.
+not a budget. The one limit that cannot be passed is the monthly spend limit of the model key's workspace at the
+provider. It is set there, not in this repository (9 USD for November 2026); when it is reached the page shows
+the evidence without a written answer.
 
 ## Run it locally
 
