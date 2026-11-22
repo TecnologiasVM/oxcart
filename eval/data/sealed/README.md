@@ -40,6 +40,9 @@ Measured on 2026-11-21 by a script that prints numbers and no question:
   words (median 11%); no pair reaches half. Jaccard index: at most 0.20.
 - No catalogue question is about an issue the development set uses.
 
+So the literature results are given twice: over the 20 questions, and over the 16 that share no page graded
+"answers" with a development question.
+
 ## Limits
 
 - The gold is a model's; no person has checked it. A page outside the pool has no grade until a run shows it
