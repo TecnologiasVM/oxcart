@@ -88,6 +88,10 @@ ASK_EXCERPT: str = "nearest" if os.getenv("ASK_EXCERPT", "").strip().lower() == 
 # The catalogue lookup also asks the second, short vector index of the issues (their title, years and
 # section). Off until the graph holds it: scripts/issue_short_vectors.py writes it and can take it away.
 ASK_SHORT_VECTOR: bool = _flag("ASK_SHORT_VECTOR")
+# The write call says which of three things happened when it does not answer a question in full: the
+# question is outside the scope, the documents do not answer it, or they answer part of it (answer_model.py).
+# Off, the instructions and the reply's reading are the ones served before this setting existed.
+ASK_WEB: bool = _flag("ASK_WEB")
 ASK_TIMEOUT_SECONDS: int = _int("ASK_TIMEOUT_SECONDS", 25)
 EMBED_TIMEOUT_SECONDS: int = _int("EMBED_TIMEOUT_SECONDS", 5)
 

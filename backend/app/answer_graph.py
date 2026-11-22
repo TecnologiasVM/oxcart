@@ -50,7 +50,7 @@ from langgraph.runtime import Runtime
 from typing_extensions import TypedDict
 
 from app import settings
-from app.answer_model import NOT_COVERED, UNCHANGED, Reply
+from app.answer_model import NOT_COVERED, OUT_OF_SCOPE, PART_ONLY, UNCHANGED, Reply
 from app.graph_link import Unavailable
 
 STAMPS_ON_A_CARD = 24          # as many as the page prints
@@ -309,6 +309,16 @@ def check(state: Written) -> dict:
     whole = "".join(block["text"] for block in blocks)
     if not whole.strip():
         return {"answer": {"state": "empty"}}
+    covers = None                # with ASK_WEB: "all" or "part" of the question, by the model's own last line
+    if settings.ASK_WEB:
+        if whole.strip().startswith(OUT_OF_SCOPE):
+            return {"answer": {"state": "out_of_scope"}}
+        covers = "part" if PART_ONLY in whole else "all"
+        # the marker's line is taken out before sentences are counted: it is not a sentence of the answer
+        blocks = [{**block, "text": block["text"].replace(PART_ONLY, "")} for block in blocks]
+        blocks = [block for block in blocks if block["text"].strip() or block.get("citations")]
+        if not "".join(block["text"] for block in blocks).strip():
+            return {"answer": {"state": "not_covered"}}
     if whole.strip().startswith(NOT_COVERED):
         return {"answer": {"state": "not_covered"}}
 
@@ -350,7 +360,7 @@ def check(state: Written) -> dict:
                 entry["quotes"].append(quote)
             if numbers[key] not in cites:
                 cites.append(numbers[key])
-        if cites and NOT_COVERED not in text[a:b]:
+        if cites and NOT_COVERED not in text[a:b] and OUT_OF_SCOPE not in text[a:b]:
             sentences.append({"text": text[a:b], "cites": cites})
 
     counts = {"sentences": len(spans), "sentences_without_citation": len(spans) - len(sentences),
@@ -359,7 +369,8 @@ def check(state: Written) -> dict:
         return {"answer": {"state": "uncited", "counts": counts}}
     cited_numbers = {n for sentence in sentences for n in sentence["cites"]}
     return {"answer": {"state": "ok", "sentences": sentences,
-                       "sources": [source for source in used if source["n"] in cited_numbers], "counts": counts}}
+                       "sources": [source for source in used if source["n"] in cited_numbers], "counts": counts,
+                       **({"covers": covers} if covers else {})}}
 
 
 # --------------------------------------------------------------------------- the graph
