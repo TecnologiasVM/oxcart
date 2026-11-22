@@ -133,6 +133,11 @@ async def lifespan(app: FastAPI):
     if settings.GRAPH_WARM_ON_START:
         app.state.graph.warm_in_background()
     app.state.ask = ask_service.default_deps(app.state.graph)
+    # The list of figures that may be named, read as the process starts when figures are on.
+    from app import figures
+
+    if figures.on():
+        figures.shipped()
     # The literature client and the embedding's connection, opened the same way: in the
     # background, so that the first question does not wait for them.
     if settings.ASK_WARM_ON_START:
