@@ -500,14 +500,14 @@ made), so no page had to be graded before scoring.
 | Supported | 12 | 10 |
 | In full | 0 | 0 |
 | In part | 17 | 18 |
-| Gives what is asked: yes / partly / no | 2 / 10 / 5 | 4 / 10 / 4 |
+| Gives what is asked: yes / partly / no (a question with no written answer is a no) | 2 / 10 / 8 | 4 / 10 / 6 |
 | **Literature, the 16 that share no answering page with a development question** | | |
 | A page that answers among the five passages | 12 | 12 |
 | A written answer | 13 | 14 |
 | Supported | 9 | 8 |
 | In full | 0 | 0 |
 | In part | 13 | 14 |
-| Gives what is asked: yes / partly / no | 2 / 7 / 4 | 4 / 7 / 3 |
+| Gives what is asked: yes / partly / no (a question with no written answer is a no) | 2 / 7 / 7 | 4 / 7 / 5 |
 | **Out of scope, 10 questions** | | |
 | No written answer (the wanted outcome) | 9 | 9 |
 | **Sentences** | | |
