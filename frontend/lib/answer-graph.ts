@@ -52,7 +52,7 @@ export type AnswerGraph = {
 };
 
 // Geometry, for a panel about 640 px wide. With no answer the cards start at the left edge.
-const WITH_ANSWER = { W: 640, XA: 4, WA: 92, XS: 128, WS: 262, XC: 422, WC: 214, kid: 25, title: 27, titlePlain: 32 };
+const WITH_ANSWER = { W: 640, XA: 2, WA: 108, XS: 128, WS: 262, XC: 422, WC: 214, kid: 25, title: 27, titlePlain: 32 };
 const FOUND_ONLY = { W: 640, XA: 0, WA: 0, XS: 4, WS: 290, XC: 330, WC: 306, kid: 37, title: 36, titlePlain: 36 };
 const LH = 20;
 const PAD = 10;
