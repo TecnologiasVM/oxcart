@@ -638,7 +638,7 @@ def test_the_short_vector_is_asked_only_when_the_setting_is_on_and_a_refusal_fal
         def read(self, fn):
             return fn("a session")
 
-    def fake_lookup(session, question, k, question_vector, use_short):
+    def fake_lookup(session, question, k, question_vector, use_short=False):
         asked.append(use_short)
         if use_short and Link.refuse_short:
             raise ask_service.Unavailable("ClientError")   # what the link raises when the graph refuses a query

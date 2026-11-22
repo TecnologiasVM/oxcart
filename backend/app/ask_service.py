@@ -171,8 +171,9 @@ def make_lookup(link: GraphLink) -> Callable[[str, Optional[list]], list]:
         from oxcart import catalogue_lookup
 
         def read(short: bool) -> list:
+            more = {"use_short": True} if short else {}
             return link.read(lambda session: catalogue_lookup.lookup(
-                session, question, k=settings.ASK_ISSUES, question_vector=vector, use_short=short))
+                session, question, k=settings.ASK_ISSUES, question_vector=vector, **more))
 
         if not (settings.ASK_SHORT_VECTOR and vector):
             return read(False)
