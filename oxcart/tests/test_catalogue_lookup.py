@@ -11,13 +11,14 @@ from oxcart import catalogue_lookup as cl
 class FakeSession:
     """Answers the lookup's four queries from small tables."""
 
-    def __init__(self, by_mena=(), by_scott=(), by_text=(), by_year=(), by_vector=()):
-        self.tables = {"mena": by_mena, "scott": by_scott, "text": by_text, "year": by_year, "vector": by_vector}
+    def __init__(self, by_mena=(), by_scott=(), by_text=(), by_year=(), by_vector=(), by_short=()):
+        self.tables = {"mena": by_mena, "scott": by_scott, "text": by_text, "year": by_year, "vector": by_vector,
+                       "short": by_short}
         self.calls = []
 
     def run(self, query, **params):
         for name, marker in (("mena", "toUpper(s.catalog_no)"), ("scott", "toUpper(sc.scott_number)"),
-                             ("text", "issue_text_idx"), ("vector", "issue_vec_idx"),
+                             ("text", "issue_text_idx"), ("vector", "issue_vec_idx"), ("short", "issue_short_vec_idx"),
                              ("year", "i.issue_id CONTAINS")):
             if marker in query:
                 self.calls.append((name, params))
@@ -48,6 +49,13 @@ class Parse(unittest.TestCase):
         self.assertEqual(p.terms, ["san", "juan", "dios", "hospital"])
         p = cl.parse("¿Quién imprimió la emisión del Hospital San Juan de Dios de 1946?")
         self.assertEqual(p.terms, ["hospital", "san", "juan", "dios"])
+
+
+class ShortText(unittest.TestCase):
+    def test_title_years_and_section(self):
+        self.assertEqual(cl.short_text("CR-1936-COCO-ISLAND", "Coco Island issue", '{"placed_on_sale": "1937-01-05"}', "Airmail"),
+                         "Coco Island issue. Costa Rica, 1936, 1937. Airmail")
+        self.assertEqual(cl.short_text("CR-SEALS", None, None, None), ". Costa Rica, .")
 
 
 class Query(unittest.TestCase):
@@ -102,6 +110,29 @@ class FindIssues(unittest.TestCase):
         self.assertNotIn("text", [c[0] for c in session.calls])       # with a vector, the words are left out
         both = cl.find_issues(session, question, question_vector=[0.1, 0.2], use_text=True)
         self.assertIn("text", both[1]["matched_by"])
+
+    def test_the_short_vector_lifts_the_issue_the_question_names(self):
+        # the long vector puts a commemorative first, because its catalogue text tells the older issue's story
+        long_rows = [{"issue_id": "CR-1963-CENTENARY", "title": "Centenary of the first stamp", "issue_dates": "{}", "score": 0.70},
+                     {"issue_id": "CR-1950-FAIR", "title": "Fair issue", "issue_dates": "{}", "score": 0.66},
+                     {"issue_id": "CR-1863-FIRST", "title": "First issue", "issue_dates": "{}", "score": 0.60}]
+        short_rows = [{"issue_id": "CR-1863-FIRST", "title": "First issue", "issue_dates": "{}", "score": 0.80},
+                      {"issue_id": "CR-1963-CENTENARY", "title": "Centenary of the first stamp", "issue_dates": "{}", "score": 0.62},
+                      {"issue_id": "CR-1901-OTHER", "title": "Another issue", "issue_dates": "{}", "score": 0.50}]
+        session = FakeSession(by_vector=long_rows, by_short=short_rows)
+        today = cl.find_issues(session, "what was the first stamp?", question_vector=[0.1])
+        self.assertEqual(today[0]["issue_id"], "CR-1963-CENTENARY")
+        self.assertNotIn("short", [c[0] for c in session.calls])        # not asked unless the caller says so
+        both = cl.find_issues(session, "what was the first stamp?", question_vector=[0.1], use_short=True)
+        self.assertEqual([h["issue_id"] for h in both], ["CR-1963-CENTENARY", "CR-1863-FIRST", "CR-1950-FAIR"])
+        self.assertEqual(both[1]["matched_by"], ["vector", "title"])
+        self.assertEqual(both[1]["score"], cl.SHORT_VECTOR_WEIGHT)       # last of the long hits, first of the short ones
+        self.assertAlmostEqual(both[0]["score"], cl.VECTOR_WEIGHT + cl.SHORT_VECTOR_WEIGHT * 0.4)
+
+    def test_the_short_vector_needs_the_question_vector(self):
+        session = FakeSession(by_short=[{"issue_id": "CR-1863-FIRST", "title": "First issue", "issue_dates": "{}", "score": 0.8}])
+        self.assertEqual(cl.find_issues(session, "what is it?", use_short=True), [])
+        self.assertEqual(session.calls, [])
 
     def test_no_signal_returns_nothing_and_asks_nothing(self):
         session = FakeSession()

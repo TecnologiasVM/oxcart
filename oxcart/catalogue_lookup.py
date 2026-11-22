@@ -15,6 +15,13 @@ and a fourth when the caller passes the question's embedding:
 
   4. the vector index over issues (``issue_vec_idx``, text-embedding-3-large, 3,072 numbers)
 
+and a fifth when the caller asks for it and the graph holds it (``scripts/issue_short_vectors.py``):
+
+  5. a second vector index (``issue_short_vec_idx``) over a short text of each issue: its
+     title, its years and its section. The first vector is made from the title and the whole
+     catalogue text, so a commemorative issue whose text tells an earlier issue's story can
+     stand before that issue; the short vector is about what the issue is called.
+
 The catalogue's titles are English. A Spanish question shares few words with them, so
 signals 2 and 3 are not enough for it; the vector index is what finds the issue then.
 The embedding is made by the caller, never in this module.
@@ -133,6 +140,11 @@ CALL db.index.vector.queryNodes('issue_vec_idx', $limit, $vector) YIELD node AS 
 RETURN i.issue_id AS issue_id, i.title AS title, i.issue_dates AS issue_dates, score
 ORDER BY score DESC
 """
+_BY_SHORT_VECTOR = """
+CALL db.index.vector.queryNodes('issue_short_vec_idx', $limit, $vector) YIELD node AS i, score
+RETURN i.issue_id AS issue_id, i.title AS title, i.issue_dates AS issue_dates, score
+ORDER BY score DESC
+"""
 _BY_YEAR = """
 MATCH (i:Issue)
 WHERE any(y IN $years WHERE i.issue_id CONTAINS ('-' + y + '-') OR i.issue_dates CONTAINS ('"' + y + '-'))
@@ -144,6 +156,7 @@ RETURN i.issue_id AS issue_id, i.title AS title
 NUMBER_WEIGHT = 10.0
 TEXT_WEIGHT = 4.0
 VECTOR_WEIGHT = 4.0
+SHORT_VECTOR_WEIGHT = 4.0
 YEAR_WEIGHT = 3.0
 
 
@@ -153,8 +166,15 @@ def _issue_years(issue_id: str, issue_dates: Any) -> set:
     return years
 
 
+def short_text(issue_id: str, title: Any, issue_dates: Any, section: Any) -> str:
+    """The text an issue's short vector is made from: its title, its years and its section."""
+    years = sorted(_issue_years(issue_id, issue_dates))
+    return f"{title or ''}. Costa Rica, {', '.join(map(str, years))}. {section or ''}".strip()
+
+
 def find_issues(session, question: str, k: int = 3, text_limit: int = 40,
-                question_vector: List[float] | None = None, use_text: bool | None = None) -> List[Dict[str, Any]]:
+                question_vector: List[float] | None = None, use_text: bool | None = None,
+                use_short: bool = False) -> List[Dict[str, Any]]:
     """Rank the issues a question is most likely about. Returns up to k of
     ``{"issue_id", "title", "score", "matched_by": [...]}``, best first.
 
@@ -162,7 +182,13 @@ def find_issues(session, question: str, k: int = 3, text_limit: int = 40,
     index. ``use_text``: use the full-text index; by default only when no vector is given.
     Measured on the test set's development questions (48, half Spanish): right issue first
     in 85% with the full-text index, 100% with the vector index, 98% with both, so the
-    words are left out when the meaning is available."""
+    words are left out when the meaning is available.
+
+    ``use_short``: also use the short vector index, with the same question vector. Its hits
+    are named "title" in ``matched_by``. Measured offline before it was built: on 15
+    questions a collector would type, a wanted issue first for 11 against 9, and among the
+    first three for 13 against 12; on the 80 catalogue questions, first for 75 against 78
+    and among the first three for all 80 either way."""
     if use_text is None:
         use_text = question_vector is None
     parsed = parse(question)
@@ -195,13 +221,16 @@ def find_issues(session, question: str, k: int = 3, text_limit: int = 40,
             if wanted_years & _issue_years(r["issue_id"], r["issue_dates"]):
                 add(r["issue_id"], r["title"], YEAR_WEIGHT, "year")
 
-    if question_vector:
-        rows = list(session.run(_BY_VECTOR, vector=question_vector, limit=text_limit))
+    indexes = [(_BY_VECTOR, VECTOR_WEIGHT, "vector")] if question_vector else []
+    if question_vector and use_short:
+        indexes.append((_BY_SHORT_VECTOR, SHORT_VECTOR_WEIGHT, "title"))
+    for query, weight, reason in indexes:
+        rows = list(session.run(query, vector=question_vector, limit=text_limit))
         scores = [r["score"] for r in rows]
         top, low = max(scores, default=0.0), min(scores, default=0.0)
         for r in rows:
             share = (r["score"] - low) / (top - low) if top > low else 1.0
-            add(r["issue_id"], r["title"], VECTOR_WEIGHT * share, "vector")
+            add(r["issue_id"], r["title"], weight * share, reason)
             if wanted_years & _issue_years(r["issue_id"], r["issue_dates"]):
                 add(r["issue_id"], r["title"], YEAR_WEIGHT, "year")
 
@@ -262,9 +291,10 @@ def issue_card(session, issue_id: str) -> Dict[str, Any] | None:
 
 
 def lookup(session, question: str, k: int = 3, question_vector: List[float] | None = None,
-           use_text: bool | None = None) -> List[Dict[str, Any]]:
+           use_text: bool | None = None, use_short: bool = False) -> List[Dict[str, Any]]:
     """The issues a question is about, best first, each with its facts under ``"card"``."""
-    hits = find_issues(session, question, k=k, question_vector=question_vector, use_text=use_text)
+    hits = find_issues(session, question, k=k, question_vector=question_vector, use_text=use_text,
+                       use_short=use_short)
     for hit in hits:
         hit["card"] = issue_card(session, hit["issue_id"])
     return hits
