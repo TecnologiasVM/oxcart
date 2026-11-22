@@ -42,6 +42,8 @@ Measured on 2026-11-21 by a script that prints numbers and no question:
 
 So the literature results are given twice: over the 20 questions, and over the 16 that share no page graded
 "answers" with a development question.
+The four left out of the 16: `sealed-lit-001-en`, `sealed-lit-001-es`, `sealed-lit-003-en`, `sealed-lit-010-es`
+(told with the development set's working gold, which holds pages graded after its published file was written).
 
 ## Limits
 
@@ -50,5 +52,11 @@ So the literature results are given twice: over the 20 questions, and over the 1
 - The questions were written by a model and were not edited by a person. The assistant that builds the system
   did not write them and has not read them.
 - 50 questions, one run each: small counts.
+
+## The two runs
+
+Both were made on 2026-11-22 and are reported in `EVALUATION.md`, "The sealed set: two runs". Every page they
+showed for a literature question already had a grade, so the gold in this folder is as it was made. The set is
+not run again.
 
 To use it: `OXCART_TEST_SET=sealed` before any `eval` command.
