@@ -1,0 +1,1283 @@
+{
+ "label": "sealed-served",
+ "model": "claude-haiku-5-5",
+ "judge": "codex gpt-6.1-sol (high)",
+ "usd_per_mtok": {
+  "input": 0.1,
+  "output": 0.5
+ },
+ "rows": [
+  {
+   "id": "sealed-cat-001-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 1,
+    "sentences_without_citation": 0,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3672,
+     "output_tokens": 74
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same",
+   "asked": "yes"
+  },
+  {
+   "id": "sealed-cat-001-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3783,
+     "output_tokens": 270
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same",
+   "asked": "yes"
+  },
+  {
+   "id": "sealed-cat-002-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4047,
+     "output_tokens": 311
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same",
+   "asked": "yes"
+  },
+  {
+   "id": "sealed-cat-002-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4899,
+     "output_tokens": 346
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same",
+   "asked": "yes"
+  },
+  {
+   "id": "sealed-cat-003-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 1,
+    "sentences_without_citation": 0,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4268,
+     "output_tokens": 373
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same",
+   "asked": "yes"
+  },
+  {
+   "id": "sealed-cat-003-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3817,
+     "output_tokens": 294
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same",
+   "asked": "yes"
+  },
+  {
+   "id": "sealed-cat-004-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 5,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4326,
+     "output_tokens": 714
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "no",
+   "language": "same",
+   "asked": "no"
+  },
+  {
+   "id": "sealed-cat-004-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4698,
+     "output_tokens": 529
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "no",
+   "language": "same",
+   "asked": "no"
+  },
+  {
+   "id": "sealed-cat-005-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 2,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5266,
+     "output_tokens": 289
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same",
+   "asked": "yes"
+  },
+  {
+   "id": "sealed-cat-005-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4339,
+     "output_tokens": 713
+    }
+   ],
+   "supported": [
+    "yes",
+    "partly"
+   ],
+   "correct": "yes",
+   "language": "same",
+   "asked": "yes"
+  },
+  {
+   "id": "sealed-cat-006-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 1,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3935,
+     "output_tokens": 178
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same",
+   "asked": "yes"
+  },
+  {
+   "id": "sealed-cat-006-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 1,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4019,
+     "output_tokens": 443
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same",
+   "asked": "yes"
+  },
+  {
+   "id": "sealed-cat-007-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 2,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5640,
+     "output_tokens": 318
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same",
+   "asked": "yes"
+  },
+  {
+   "id": "sealed-cat-007-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5543,
+     "output_tokens": 410
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same",
+   "asked": "yes"
+  },
+  {
+   "id": "sealed-cat-008-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 1,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5251,
+     "output_tokens": 69
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same",
+   "asked": "yes"
+  },
+  {
+   "id": "sealed-cat-008-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5184,
+     "output_tokens": 509
+    }
+   ],
+   "supported": [
+    "yes",
+    "partly"
+   ],
+   "correct": "yes",
+   "language": "same",
+   "asked": "yes"
+  },
+  {
+   "id": "sealed-cat-009-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 1,
+    "sentences_without_citation": 0,
+    "citations": 1,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 2835,
+     "output_tokens": 77
+    }
+   ],
+   "supported": [
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same",
+   "asked": "yes"
+  },
+  {
+   "id": "sealed-cat-009-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 2,
+    "sentences_without_citation": 0,
+    "citations": 2,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3475,
+     "output_tokens": 232
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same",
+   "asked": "yes"
+  },
+  {
+   "id": "sealed-cat-010-en",
+   "part": "catalogue",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 7214,
+     "output_tokens": 433
+    }
+   ]
+  },
+  {
+   "id": "sealed-cat-010-es",
+   "part": "catalogue",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 1,
+    "citations": 5,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4843,
+     "output_tokens": 697
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes"
+   ],
+   "correct": "yes",
+   "language": "same",
+   "asked": "yes"
+  },
+  {
+   "id": "sealed-lit-001-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 1,
+    "citations": 6,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 6010,
+     "output_tokens": 718
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same",
+   "asked": "partly"
+  },
+  {
+   "id": "sealed-lit-001-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 7,
+    "sentences_without_citation": 2,
+    "citations": 5,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5952,
+     "output_tokens": 920
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same",
+   "asked": "partly"
+  },
+  {
+   "id": "sealed-lit-003-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 2,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4233,
+     "output_tokens": 1110
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same",
+   "asked": "no"
+  },
+  {
+   "id": "sealed-lit-003-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 6,
+    "sentences_without_citation": 3,
+    "citations": 5,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3479,
+     "output_tokens": 1022
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "partly"
+   ],
+   "correct": "partly",
+   "language": "same",
+   "asked": "no"
+  },
+  {
+   "id": "sealed-lit-004-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 1,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4473,
+     "output_tokens": 617
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same",
+   "asked": "partly"
+  },
+  {
+   "id": "sealed-lit-004-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 1,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4539,
+     "output_tokens": 925
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same",
+   "asked": "no"
+  },
+  {
+   "id": "sealed-lit-005-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4295,
+     "output_tokens": 131
+    }
+   ]
+  },
+  {
+   "id": "sealed-lit-005-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3981,
+     "output_tokens": 257
+    }
+   ]
+  },
+  {
+   "id": "sealed-lit-006-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 7,
+    "sentences_without_citation": 2,
+    "citations": 7,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4040,
+     "output_tokens": 1072
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same",
+   "asked": "yes"
+  },
+  {
+   "id": "sealed-lit-006-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 1,
+    "citations": 5,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4154,
+     "output_tokens": 1289
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same",
+   "asked": "partly"
+  },
+  {
+   "id": "sealed-lit-007-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 6,
+    "sentences_without_citation": 2,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4328,
+     "output_tokens": 795
+    }
+   ],
+   "supported": [
+    "partly",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same",
+   "asked": "no"
+  },
+  {
+   "id": "sealed-lit-010-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 0,
+    "citations": 6,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 6816,
+     "output_tokens": 1453
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "partly"
+   ],
+   "correct": "partly",
+   "language": "same",
+   "asked": "no"
+  },
+  {
+   "id": "sealed-lit-010-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 0,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 6790,
+     "output_tokens": 731
+    }
+   ],
+   "supported": [
+    "yes",
+    "partly",
+    "partly"
+   ],
+   "correct": "partly",
+   "language": "same",
+   "asked": "partly"
+  },
+  {
+   "id": "sealed-lit-011-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 2,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5224,
+     "output_tokens": 745
+    }
+   ],
+   "supported": [
+    "partly",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same",
+   "asked": "partly"
+  },
+  {
+   "id": "sealed-lit-011-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "uncited",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 5,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 5110,
+     "output_tokens": 799
+    }
+   ]
+  },
+  {
+   "id": "sealed-lit-012-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 7,
+    "sentences_without_citation": 3,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3728,
+     "output_tokens": 900
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same",
+   "asked": "partly"
+  },
+  {
+   "id": "sealed-lit-013-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 3,
+    "sentences_without_citation": 0,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3851,
+     "output_tokens": 544
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same",
+   "asked": "partly"
+  },
+  {
+   "id": "sealed-lit-013-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 0,
+    "citations": 5,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4020,
+     "output_tokens": 673
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same",
+   "asked": "yes"
+  },
+  {
+   "id": "sealed-lit-014-en",
+   "part": "literature",
+   "lang": "en",
+   "state": "ok",
+   "counts": {
+    "sentences": 6,
+    "sentences_without_citation": 1,
+    "citations": 5,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4426,
+     "output_tokens": 1101
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same",
+   "asked": "partly"
+  },
+  {
+   "id": "sealed-lit-014-es",
+   "part": "literature",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 5,
+    "sentences_without_citation": 2,
+    "citations": 4,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4211,
+     "output_tokens": 1034
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "partly",
+   "language": "same",
+   "asked": "partly"
+  },
+  {
+   "id": "sealed-oos-001-en",
+   "part": "out_of_scope",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3436,
+     "output_tokens": 10
+    }
+   ]
+  },
+  {
+   "id": "sealed-oos-002-en",
+   "part": "out_of_scope",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4556,
+     "output_tokens": 10
+    }
+   ]
+  },
+  {
+   "id": "sealed-oos-003-es",
+   "part": "out_of_scope",
+   "lang": "es",
+   "state": "ok",
+   "counts": {
+    "sentences": 4,
+    "sentences_without_citation": 1,
+    "citations": 3,
+    "citations_that_do_not_hold": 0
+   },
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 3794,
+     "output_tokens": 667
+    }
+   ],
+   "supported": [
+    "yes",
+    "yes",
+    "yes"
+   ],
+   "correct": "no reference",
+   "language": "same"
+  },
+  {
+   "id": "sealed-oos-004-es",
+   "part": "out_of_scope",
+   "lang": "es",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4091,
+     "output_tokens": 10
+    }
+   ]
+  },
+  {
+   "id": "sealed-oos-005-en",
+   "part": "out_of_scope",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4949,
+     "output_tokens": 10
+    }
+   ]
+  },
+  {
+   "id": "sealed-oos-006-en",
+   "part": "out_of_scope",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4631,
+     "output_tokens": 10
+    }
+   ]
+  },
+  {
+   "id": "sealed-oos-007-es",
+   "part": "out_of_scope",
+   "lang": "es",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4088,
+     "output_tokens": 198
+    }
+   ]
+  },
+  {
+   "id": "sealed-oos-008-en",
+   "part": "out_of_scope",
+   "lang": "en",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4695,
+     "output_tokens": 10
+    }
+   ]
+  },
+  {
+   "id": "sealed-oos-009-es",
+   "part": "out_of_scope",
+   "lang": "es",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4398,
+     "output_tokens": 69
+    }
+   ]
+  },
+  {
+   "id": "sealed-oos-010-es",
+   "part": "out_of_scope",
+   "lang": "es",
+   "state": "not_covered",
+   "counts": null,
+   "rewritten": false,
+   "calls": [
+    {
+     "purpose": "write",
+     "state": "ok",
+     "input_tokens": 4475,
+     "output_tokens": 10
+    }
+   ]
+  }
+ ]
+}

@@ -327,7 +327,7 @@ the reference in full. This part reports everything that was tried on it, with w
 
 - **These are the development questions.** Answers to them were read while the instructions were revised, so
   nothing here is a held-out result. A sealed set of 50 questions was made before any change
-  (`eval/data/sealed/`); it has not been run yet.
+  (`eval/data/sealed/`); its two runs are reported at the end of this part.
 - **Marks are a model's** (`gpt-6.1-sol`, high effort). No person has checked them. A second model marked a part
   of them again; that is reported below.
 - **Three runs a setting** unless a row says otherwise, because the writer's answers change from run to run. The
@@ -435,7 +435,8 @@ Counts of every run, with no text: `eval/outcomes/answers_literature_settings.js
 
 ### The catalogue lookup: a second, short vector for each issue
 
-Built and measured on a copy of the graph; not served yet.
+Built and measured on a copy of the graph, then written to the served graph and turned on, on 2026-11-22. The
+table's third row is the public service after that.
 
 An issue has one vector, made from its title and its whole catalogue text. For "what was the first stamp of
 Costa Rica?" the 1863 issue is 20th: issues that commemorate it tell its story at more length and stand before
@@ -447,6 +448,7 @@ vector, at the same weight as the first (`scripts/issue_short_vectors.py` writes
 |---|---|---|---|---|
 | As served | 78 | 80 | 9 | 12 |
 | With the short vector | 75 | 80 | 11 | 13 |
+| With the short vector, through the public host | 75 | 80 | 11 | 13 |
 
 - The ranking cases are 15 questions a collector would type (`eval/data/ranking_cases.jsonl`); their wanted
   issues were set from the catalogue's titles and no person checked them. Both sets are development questions.
@@ -461,6 +463,75 @@ vector, at the same weight as the first (`scripts/issue_short_vectors.py` writes
   hits. Measured on the copy, over the same 96 questions: 36.8 of the exact 40 on average, the same first issue
   for 93, the same first three for 85. With exact cosine in its place no count above moves (78 of 80; 9 and 12
   of the ranking cases).
+- **Written answers with it, one run through the public host** (the 151 questions and the ten conversations,
+  2026-11-22; this run also has the card's lines as phrases): catalogue written 75, supported 66, correct 72 of
+  80; literature written 40, supported 23, in full 13, in part 26 of 41; out of scope with no answer 27 of 30;
+  citations that did not hold 0 of 378; the follow-ups keep their issue first for 9 of 10. Each count is inside
+  the range of the served setting's earlier runs or one answer outside it. `eval/outcomes/answers_hosted-short.json`.
+
+### The sealed set: two runs
+
+The 50 questions of `eval/data/sealed/` (20 catalogue, 20 literature, 10 out of scope) were made on 2026-11-21,
+before any of the changes of this part, and were not asked until 2026-11-22, when everything above was decided.
+They were asked twice, once each:
+
+- **As served when the set was made:** the backend's code at commit `d27e269`.
+- **As served now:** the code at commit `5dae0c1` with the short vector on (`ASK_SHORT_VECTOR=on`): the card's
+  lines as phrases, the excerpt from the start of a passage.
+
+Both on a development machine against the hosted stores, the same day. The marks are the same judge's, from the
+same instructions as above; no person has checked them. Nobody read the answers, and nothing was changed after
+these numbers were seen. Every page the two runs showed for a literature question already had a grade (100
+passages a run, and the 15 shown for the three out-of-scope questions whose pages were graded when the set was
+made), so no page had to be graded before scoring.
+
+| | As served when the set was made | As served now |
+|---|---|---|
+| **Catalogue, 20 questions** | | |
+| The issue first, with the fact in its card / among the three shown | 17 / 18 | 17 / 18 |
+| A written answer | 19 | 20 |
+| Supported | 17 | 18 |
+| Correct | 17 | 18 |
+| Supported and correct | 15 | 16 |
+| Gives what is asked | 17 | 18 |
+| **Literature, 20 questions** | | |
+| A page that answers among the five passages | 16 | 16 |
+| A written answer | 17 | 18 |
+| Supported | 12 | 10 |
+| In full | 0 | 0 |
+| In part | 17 | 18 |
+| Gives what is asked: yes / partly / no | 2 / 10 / 5 | 4 / 10 / 4 |
+| **Literature, the 16 that share no answering page with a development question** | | |
+| A page that answers among the five passages | 12 | 12 |
+| A written answer | 13 | 14 |
+| Supported | 9 | 8 |
+| In full | 0 | 0 |
+| In part | 13 | 14 |
+| Gives what is asked: yes / partly / no | 2 / 7 / 4 | 4 / 7 / 3 |
+| **Out of scope, 10 questions** | | |
+| No written answer (the wanted outcome) | 9 | 9 |
+| **Sentences** | | |
+| Written with no citation, and removed | 43 of 141 (30%) | 40 of 158 (25%) |
+| Citations that did not hold | 0 of 123 | 0 of 139 |
+| Shown sentences the judge marked supported / partly / not | 90 / 8 / 0 | 106 / 12 / 0 |
+| Cost of a question, USD: mean / maximum | 0.00071 / 0.00141 | 0.00076 / 0.00145 |
+
+- **The literature answers are weaker on these questions than on the development ones.** No answer agrees with
+  its reference in full, in either run (0 of 20; about 10 of 41 on the development questions), and 2 and 4 of 20
+  give what is asked (14 to 19 of 41 there). Every written answer agrees in part. A page that answers is among
+  the five passages for 16 of 20 (36 of 41 there). The development numbers of this document were read while the
+  instructions were revised; these were not.
+- **The catalogue part holds:** 17 and 18 of 20 correct (69 to 74 of 80 on the development questions).
+- **The two runs differ by one or two questions in every row.** With one run each, that is not a finding in
+  either direction. The short vector moved no sealed catalogue question: the same 17 first and 18 shown.
+- The references of the sealed literature questions are somewhat longer than the development ones (a median of
+  288 characters against 240), from more judged pages a question (19 against 12). That may be part of why none
+  is matched in full; it was not tested.
+- 50 questions, one run each, questions written by a model and a model's marks: small counts.
+
+Per-question outcomes: `eval/outcomes/answers_sealed-served.json`, `answers_sealed-chosen.json` (ids, how each
+ended, counts, the judge's marks; no answer and no passage). The four questions left out of the 16 are named in
+`eval/data/sealed/README.md`.
 
 ## Other limits
 
