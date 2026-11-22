@@ -414,18 +414,48 @@ def test_sentences_are_cut_at_their_ends_and_at_line_breaks():
 
 def test_a_card_becomes_the_fact_lines_the_page_prints():
     issue = {"issue_id": "CR-9", "title": "A made-up issue", "card": {
-        "dates": {"placed_on_sale": "1901-02-03", "withdrawn": None}, "printers": ["A printer", "Another"],
+        "dates": {"placed_on_sale": "1901-02-03", "withdrawn": None, "announced": "1901-01", "demonetized": "about 1905"},
+        "printers": ["A printer", "Another"],
         "perforation": "12", "acts": [{"type": "Decree", "id": "7", "date": "1901-01-01"}, {"type": None, "id": None}],
         "stamps": [{"catalog_no": "1", "value": 5, "unit": "c", "color": "blue", "quantity": 1000, "scott": ["31", "32"],
                     "varieties": [{"suffix": "a", "type": "error", "description": "a made-up flaw"}, {"suffix": None, "description": None}]},
                    {"catalog_no": "2", "value": None, "unit": None, "color": None, "quantity": None, "scott": [], "varieties": []}]}}
     assert answer_graph.card_lines(issue) == [
-        "Issue: A made-up issue (CR-9)", "placed on sale: 1901-02-03", "printers: A printer; Another", "perforation: 12",
-        "legal act: Decree, 7, 1901-01-01", "stamp 1: value 5 c; colour blue; quantity 1000",
+        "Issue: A made-up issue (CR-9)", "placed on sale on 3 February 1901", "announced in January 1901",
+        "demonetized: about 1905", "printed by A printer; Another", "perforation 12",
+        "authorized by Decree, 7, of 1 January 1901", "stamp 1: value 5 c; colour blue; quantity 1000",
         "stamp 1, Scott catalogue number: 31, 32", "stamp 1, variety a: a made-up flaw", "stamp 2"]
     many = {"issue_id": "CR-8", "title": None, "card": {"stamps": [{"catalog_no": str(n)} for n in range(40)]}}
     assert len(answer_graph.card_lines(many)) == 1 + answer_graph.STAMPS_ON_A_CARD
     assert answer_graph.card_lines({"issue_id": "CR-7", "title": "No card", "card": None}) == ["Issue: No card (CR-7)"]
+
+
+def test_a_card_is_given_in_the_language_of_the_question():
+    issue = {"issue_id": "CR-9", "title": "A made-up issue", "card": {
+        "dates": {"placed_on_sale": "1901-02-03", "announced": "1901-01"}, "printers": ["A printer"], "perforation": "12",
+        "acts": [{"type": "Decree", "id": "7", "date": "1901-01-01"}],
+        "stamps": [{"catalog_no": "1", "value": 5, "unit": "c", "color": "blue", "quantity": 1000, "scott": ["31"],
+                    "varieties": [{"suffix": "a", "description": "a made-up flaw"}]}]}}
+    assert answer_graph.card_lines(issue, "es") == [
+        "Emisión: A made-up issue (CR-9)", "puesta a la venta el 3 de febrero de 1901", "anunciada en enero de 1901",
+        "impresa por A printer", "perforación 12", "autorizada por Decree, 7, del 1 de enero de 1901",
+        "sello 1: valor 5 c; color blue; cantidad 1000", "sello 1, número del catálogo Scott: 31",
+        "sello 1, variedad a: a made-up flaw"]
+    for question, lang in (("¿Quién imprimió la emisión de 1901?", "es"), ("sellos de un lugar sobrecargados", "es"),
+                           ("Who printed the 1901 issue?", "en"), ("overprints of a made-up place", "en"),
+                           ("Who printed the stamps of José Pérez?", "en"), ("estampillas José Pérez", "es"),
+                           ("A made-up place 1901", "en"), ("", "en")):
+        assert answer_graph.question_language(question) == lang, question
+    evidence = {"question": "¿Cuándo se puso a la venta?", "issues": [issue], "passages": []}
+    assert answer_graph.sources_of(evidence)[0]["lines"][1] == "puesta a la venta el 3 de febrero de 1901"
+    assert answer_graph.sources_of({**evidence, "question": "When was it placed on sale?"})[0]["lines"][1] == "placed on sale on 3 February 1901"
+
+
+def test_a_date_is_put_in_words_and_anything_else_is_left_as_it_is():
+    assert answer_graph.date_in_words("1940-05-01") == ("on", "1 May 1940")
+    assert answer_graph.date_in_words("1863-12") == ("in", "December 1863")
+    for other in ("1940", "1940-13-01", "c. 1890", "1940-05-01/1940-06-01"):
+        assert answer_graph.date_in_words(other) == (":", other)
 
 
 def test_a_passage_with_no_text_is_not_a_source():
