@@ -36,7 +36,7 @@ OUT_DIR = stores.REPO / "local-data" / "eval" / "results"
 
 def load(name: str) -> list[dict]:
     path = stores.data_file(name)
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()] if path.exists() else []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").split("\n") if line.strip()] if path.exists() else []
 
 
 def ask(question: str, timeout: float = 90.0, attempts: int = 6) -> tuple[dict | None, float, str | None]:

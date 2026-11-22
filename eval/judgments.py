@@ -18,7 +18,7 @@ from pathlib import Path
 
 from eval import stores
 
-OUT = stores.REPO / "local-data" / "eval" / "questions_literature.jsonl"
+OUT = stores.REPO / "local-data" / "eval" / stores.TEST_SET / "questions_literature.jsonl"
 
 
 def gold_sources(pages: list[dict], extra: str = "") -> list[dict]:
