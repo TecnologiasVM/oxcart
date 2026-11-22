@@ -3,12 +3,12 @@
 /*
  * The first screen: what the page does, the question box with the privacy line between
  * the box and its button (read, and reached by keyboard, before a question can be sent),
- * the questions to try, and what was measured.
+ * the questions to try, and the way to how it works and how it was evaluated.
  */
 import type { Example, StoredExample } from "@/lib/ask";
 import { MAX_QUESTION_CHARS } from "@/lib/ask";
 import type { Labels } from "@/lib/i18n";
-import { HOW_URL, PrivacyLine, REPO_URL } from "./parts";
+import { HOW_URL, PrivacyLine } from "./parts";
 
 type Props = {
   t: Labels;
@@ -20,9 +20,10 @@ type Props = {
   examples: Example[];
   stored: StoredExample[];
   pick: (example: Example) => void;
+  onBoxFocus: () => void; // the human check starts here
 };
 
-export default function FirstScreen({ t, draft, setDraft, submit, busy, closed, examples, stored, pick }: Props) {
+export default function FirstScreen({ t, draft, setDraft, submit, busy, closed, examples, stored, pick, onBoxFocus }: Props) {
   const left = MAX_QUESTION_CHARS - draft.length;
   return (
     <div className="first">
@@ -45,6 +46,7 @@ export default function FirstScreen({ t, draft, setDraft, submit, busy, closed, 
             value={draft}
             disabled={closed}
             onChange={(e) => setDraft(e.target.value)}
+            onFocus={onBoxFocus}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
@@ -77,16 +79,7 @@ export default function FirstScreen({ t, draft, setDraft, submit, busy, closed, 
           </section>
         )}
 
-        <section className="proof" aria-labelledby="proof-h">
-          <h2 id="proof-h" className="label">{t.proofTitle}</h2>
-          <ul className="proof__list">
-            {t.proof.map(([n, text]) => (
-              <li key={n}><b className="proof__n">{n}</b><span>{text}</span></li>
-            ))}
-          </ul>
-          <p className="proof__limits">{t.proofLimits}</p>
-          <p className="proof__links"><a href={HOW_URL}>{t.proofLink}</a><a href={REPO_URL}>{t.code}</a></p>
-        </section>
+        <p className="first__how"><a href={HOW_URL}>{t.evalLink}</a></p>
       </div>
     </div>
   );

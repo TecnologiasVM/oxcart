@@ -13,11 +13,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { answerGraph } from "@/lib/answer-graph";
-import type { AnswerGraph, TreeIssue } from "@/lib/answer-graph";
+import type { AnswerGraph, GNode, TreeIssue } from "@/lib/answer-graph";
 import type { AskAnswer, IssueCard, ModelCall } from "@/lib/ask";
-import { actLine } from "@/lib/answer-graph";
 import type { Turn } from "@/lib/conversation";
-import type { Labels } from "@/lib/i18n";
+import { actLine, formatDate, sourceTitle } from "@/lib/evidence-text";
+import type { Labels, Lang } from "@/lib/i18n";
 import { answered, PANEL_ID, sourceId, Warn } from "./parts";
 
 export type TabKey = "graph" | "sources" | "found" | "made";
@@ -26,6 +26,7 @@ export type PanelFocus = { source?: number; nonce: number };
 type Props = {
   turn: Turn;
   t: Labels;
+  lang: Lang;
   tab: TabKey;
   onTab: (tab: TabKey) => void;
   onClose: () => void;
@@ -34,6 +35,7 @@ type Props = {
   storedNote: string | null;
 };
 
+const cardId = (turnId: string, index: number) => `ev-card-${turnId}-${index}`;
 const FOCUSABLE = 'button:not([disabled]), [href], summary, input:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** The tabs a turn has: Sources only when the answer cites something. */
@@ -41,7 +43,7 @@ export function tabsOf(turn: Turn): TabKey[] {
   return !turn.writing && answered(turn.written) ? ["graph", "sources", "found", "made"] : ["graph", "found", "made"];
 }
 
-export default function EvidencePanel({ turn, t, tab, onTab, onClose, sheet, focus, storedNote }: Props) {
+export default function EvidencePanel({ turn, t, lang, tab, onTab, onClose, sheet, focus, storedNote }: Props) {
   const panel = useRef<HTMLElement | null>(null);
   const tabs = tabsOf(turn);
   const current = tabs.includes(tab) ? tab : "graph";
@@ -58,8 +60,30 @@ export default function EvidencePanel({ turn, t, tab, onTab, onClose, sheet, foc
     // only a new request to open moves focus; a tab change by keyboard moves it itself
   }, [focus.nonce, turn.id]);
 
+  // a node of the graph leads to its source or its card, inside the panel
+  const [jump, setJump] = useState<{ id: string; seq: number } | null>(null);
+  const jumped = useRef(false);
+  const go = (target: NonNullable<GNode["target"]>) => {
+    jumped.current = true;
+    onTab(target.tab);
+    const id = target.tab === "sources" ? sourceId(turn.id, target.n) : cardId(turn.id, target.index);
+    setJump((j) => ({ id, seq: (j?.seq ?? 0) + 1 }));
+  };
+  useEffect(() => {
+    if (!jump) return;
+    const el = document.getElementById(jump.id);
+    if (el instanceof HTMLDetailsElement) el.open = true;
+    const target = el?.querySelector<HTMLElement>(":scope > summary") ?? el;
+    target?.focus();
+    el?.scrollIntoView({ block: "start" });
+  }, [jump]);
+
   // another answer or another tab starts at its top
   useEffect(() => {
+    if (jumped.current) {
+      jumped.current = false; // a jump scrolls to its own target
+      return;
+    }
     if (focus.source === undefined && panel.current) panel.current.scrollTop = 0;
   }, [turn.id, current]);
 
@@ -138,9 +162,9 @@ export default function EvidencePanel({ turn, t, tab, onTab, onClose, sheet, foc
       </div>
       <div className="evp__body">
         <section className="ev" role="tabpanel" id={`ev-panel-${current}`} aria-labelledby={`ev-tab-${current}`} tabIndex={0} data-testid={`ev-${current}`}>
-          {current === "graph" && <GraphTab turn={turn} t={t} ok={ok} />}
+          {current === "graph" && <GraphTab turn={turn} t={t} lang={lang} ok={ok} go={go} />}
           {current === "sources" && <SourcesTab turn={turn} t={t} />}
-          {current === "found" && <FoundTab turn={turn} t={t} storedNote={storedNote} />}
+          {current === "found" && <FoundTab turn={turn} t={t} lang={lang} storedNote={storedNote} />}
           {current === "made" && <MadeTab turn={turn} t={t} ok={ok} />}
         </section>
       </div>
@@ -150,11 +174,11 @@ export default function EvidencePanel({ turn, t, tab, onTab, onClose, sheet, foc
 
 // ---------------------------------------------------------------- Graph
 
-function GraphTab({ turn, t, ok }: { turn: Turn; t: Labels; ok: boolean }) {
+function GraphTab({ turn, t, lang, ok, go }: { turn: Turn; t: Labels; lang: Lang; ok: boolean; go: (target: NonNullable<GNode["target"]>) => void }) {
   const evidence = turn.answer!;
   const [view, setView] = useState<"graph" | "list">("graph");
   const title = ok ? t.evGraph : t.evGraphFound;
-  const graph = answerGraph(evidence, ok ? turn.written : undefined, t);
+  const graph = answerGraph(evidence, ok ? turn.written : undefined, { ...t, lang });
   const empty = !ok && evidence.issues.length === 0;
   return (
     <>
@@ -169,7 +193,7 @@ function GraphTab({ turn, t, ok }: { turn: Turn; t: Labels; ok: boolean }) {
             <button type="button" aria-pressed={view === "list"} onClick={() => setView("list")} data-testid="view-list">{t.asList}</button>
           </div>
           <div className={`ev-graphbox ev-graphbox--${view}`}>
-            <GraphDrawing graph={graph} title={title} />
+            <GraphDrawing graph={graph} title={title} go={go} />
             <GraphList graph={graph} t={t} />
           </div>
         </>
@@ -179,7 +203,7 @@ function GraphTab({ turn, t, ok }: { turn: Turn; t: Labels; ok: boolean }) {
 }
 
 /** The drawing: its box takes the data's proportions before anything is drawn, so nothing shifts. */
-function GraphDrawing({ graph, title }: { graph: AnswerGraph; title: string }) {
+function GraphDrawing({ graph, title, go }: { graph: AnswerGraph; title: string; go: (target: NonNullable<GNode["target"]>) => void }) {
   return (
     <div className="ev-graph" style={{ aspectRatio: `${graph.width} / ${graph.height}` }} data-testid="graph-drawing">
       <svg className="ev-graph__svg" viewBox={`0 0 ${graph.width} ${graph.height}`} role="group" aria-label={title}>
@@ -192,8 +216,23 @@ function GraphDrawing({ graph, title }: { graph: AnswerGraph; title: string }) {
         ))}
         {graph.nodes.map((n) => {
           const tx = n.x + 12 + (n.mark ? 30 : 0);
+          const target = n.target;
+          // only a node that does something takes focus; the others are read, and the List says the same
+          const act = target
+            ? {
+                tabIndex: 0,
+                role: "button",
+                onClick: () => go(target),
+                onKeyDown: (e: KeyboardEvent<SVGGElement>) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    go(target);
+                  }
+                },
+              }
+            : { role: "img" };
           return (
-            <g key={n.key} className={`g-node g-node--${n.kind}${n.found ? " g-node--found" : ""}`} tabIndex={0} role="img" aria-label={n.name} data-testid="graph-node">
+            <g key={n.key} className={`g-node g-node--${n.kind}${n.found ? " g-node--found" : ""}${target ? " g-node--go" : ""}`} aria-label={n.name} data-testid="graph-node" {...act}>
               <rect x={n.x} y={n.y} width={n.w} height={n.h} rx={n.kind === "stamp" ? 2 : 3} />
               {n.mark !== undefined && (
                 <>
@@ -273,7 +312,7 @@ function SourcesTab({ turn, t }: { turn: Turn; t: Labels }) {
       <ol className="src">
         {(turn.written?.sources ?? []).map((source) => (
           <li key={source.n} id={sourceId(turn.id, source.n)} tabIndex={-1} data-testid="ev-source">
-            <div className="src__head"><b className="mark mark--solid">{source.n}</b><span className="src__title">{source.title}</span></div>
+            <div className="src__head"><b className="mark mark--solid">{source.n}</b><span className="src__title">{sourceTitle(source, turn.answer, t)}</span></div>
             {source.quotes.length > 0 && <p className="src__for">{t.citedFor}</p>}
             {source.quotes.map((quote, i) => <blockquote key={i}>{quote}</blockquote>)}
           </li>
@@ -287,7 +326,7 @@ function SourcesTab({ turn, t }: { turn: Turn; t: Labels }) {
 
 const present = (v: unknown) => v !== null && v !== undefined && v !== "";
 
-function CardFacts({ card, t }: { card: IssueCard; t: Labels }) {
+function CardFacts({ card, t, lang }: { card: IssueCard; t: Labels; lang: Lang }) {
   const dates = Object.entries(card.dates ?? {}).filter(([, v]) => present(v));
   const printers = (card.printers ?? []).filter(Boolean);
   const acts = card.acts ?? [];
@@ -299,12 +338,12 @@ function CardFacts({ card, t }: { card: IssueCard; t: Labels }) {
           {dates.length > 0 && (
             <>
               <dt>{t.dates}</dt>
-              <dd className="stack">{dates.map(([k, v]) => <span key={k}>{k.replace(/_/g, " ")}: {v}</span>)}</dd>
+              <dd className="stack">{dates.map(([k, v]) => <span key={k}>{k.replace(/_/g, " ")}: {formatDate(String(v), lang)}</span>)}</dd>
             </>
           )}
           {printers.length > 0 && <><dt>{t.printers}</dt><dd>{printers.join("; ")}</dd></>}
           {card.perforation && <><dt>{t.perforation}</dt><dd>{card.perforation}</dd></>}
-          {acts.length > 0 && <><dt>{t.acts}</dt><dd className="stack">{acts.map((a, i) => <span key={i}>{actLine(a)}</span>)}</dd></>}
+          {acts.length > 0 && <><dt>{t.acts}</dt><dd className="stack">{acts.map((a, i) => <span key={i}>{actLine(a, lang)}</span>)}</dd></>}
         </dl>
       )}
       {stamps.length > 0 && (
@@ -331,7 +370,7 @@ function CardFacts({ card, t }: { card: IssueCard; t: Labels }) {
   );
 }
 
-function FoundTab({ turn, t, storedNote }: { turn: Turn; t: Labels; storedNote: string | null }) {
+function FoundTab({ turn, t, lang, storedNote }: { turn: Turn; t: Labels; lang: Lang; storedNote: string | null }) {
   const evidence = turn.answer!;
   const sources = !turn.writing && answered(turn.written) ? turn.written?.sources ?? [] : [];
   const cited = (kind: string, index: number) => sources.find((s) => s.kind === kind && s.index === index)?.n;
@@ -358,12 +397,12 @@ function FoundTab({ turn, t, storedNote }: { turn: Turn; t: Labels; storedNote: 
           );
           const hasFacts = card && (Object.values(card.dates ?? {}).some(present) || (card.printers ?? []).length || card.perforation || (card.acts ?? []).length || (card.stamps ?? []).length);
           return hasFacts ? (
-            <details key={issue.issue_id} className="ev-card" open={n !== undefined} data-testid="card">
+            <details key={issue.issue_id} id={cardId(turn.id, i)} className="ev-card" open={n !== undefined} data-testid="card">
               <summary>{head}</summary>
-              <div className="ev-card__body"><CardFacts card={card!} t={t} /></div>
+              <div className="ev-card__body"><CardFacts card={card!} t={t} lang={lang} /></div>
             </details>
           ) : (
-            <div key={issue.issue_id} className="ev-card ev-card--flat" data-testid="card"><div className="ev-card__head">{head}</div></div>
+            <div key={issue.issue_id} id={cardId(turn.id, i)} tabIndex={-1} className="ev-card ev-card--flat" data-testid="card"><div className="ev-card__head">{head}</div></div>
           );
         })
       )}

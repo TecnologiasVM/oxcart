@@ -2363,52 +2363,13 @@ html:has(main.ask) .masthead__bar {
 .example:hover:not(:disabled) {
   background: var(--color-paper-2);
 }
-.proof {
-  margin-top: 48px;
-  border-top: 1px solid var(--color-ink);
-  padding-top: 20px;
+.first__how {
+  margin: 32px 0 0;
 }
-.proof__list {
-  list-style: none;
-  margin: 16px 0 0;
-  padding: 0;
-  display: grid;
-  gap: 20px;
-}
-.proof__list li {
-  display: grid;
-  gap: 4px;
-  font-size: 18px;
-  line-height: 1.45;
-}
-.proof__n {
-  font-family: var(--font-serif);
-  font-weight: 300;
-  font-size: 40px;
-  line-height: 1;
-  color: var(--color-cobalt);
-}
-.proof__limits {
-  font-size: 18px;
-  margin: 20px 0 8px;
-  border-left: 3px solid var(--color-ink);
-  padding-left: 12px;
-}
-.proof__links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 28px;
-  margin: 12px 0 0;
-}
-.proof__links a {
+.first__how a {
+  display: inline-block;
   padding: 8px 0;
   font-weight: 500;
-}
-@media (min-width: 720px) {
-  .proof__list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 32px;
-  }
 }
 @media (max-width: 479px) {
   .ask textarea {
@@ -2512,6 +2473,15 @@ html:has(main.ask) .masthead__bar {
 @media (prefers-reduced-motion: reduce) {
   .wait-bar span { animation: none; }
   .wait__sign--run { animation: none; border-right-color: var(--color-cobalt); border-style: dotted; }
+}
+/* the human check before a question is sent: rendered, so Cloudflare can run it, and out of sight */
+.check-host {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  width: 300px;
+  height: 65px;
+  overflow: hidden;
 }
 /* the room Cloudflare's widget takes, kept so nothing moves when it comes or goes */
 .turnstile {
@@ -2914,11 +2884,18 @@ button.mark:hover {
     --gutter: 32px;
     grid-template-columns: minmax(0, 1fr) var(--evp-w);
   }
+  /* fixed under the header, not sticky: a sticky panel was pushed up under the header
+     whenever the footer came into view, so its head lost its room */
   .ask--ev .evp {
-    position: sticky;
+    position: fixed;
     top: var(--masthead-h, 0px);
-    height: calc(100vh - var(--masthead-h, 0px));
+    right: 0;
+    bottom: 0;
+    width: var(--evp-w);
     overflow: auto;
+  }
+  html:has(.ask--ev) footer.site-foot {
+    margin-right: 700px; /* --evp-w: the footer stays clear of the panel */
   }
 }
 .evp--sheet {
@@ -3123,6 +3100,8 @@ html.evp-lock {
 .g-edge--cites { stroke: var(--color-cobalt); stroke-width: 2; }
 .g-rule { stroke: var(--color-hairline-strong); stroke-dasharray: 5 4; }
 .g-node { cursor: default; }
+.g-node--go { cursor: pointer; }
+.g-node--go:hover > rect:first-child { fill: var(--color-paper-3); }
 .g-node:focus { outline: none; }
 .g-node:focus-visible > rect:first-child { stroke: var(--color-cobalt); stroke-width: 3; }
 .tree,

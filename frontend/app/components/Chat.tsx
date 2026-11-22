@@ -16,8 +16,9 @@
  *   and over it below that (components/ask/EvidencePanel.tsx).
  * - Stored examples ship with the page (a static file): a visitor sees real evidence while
  *   the service wakes up, and when it is asleep or gone. They are marked as stored.
- * - Before the first question a human check (Cloudflare Turnstile) runs once per session,
- *   standing in the turn that waits for it.
+ * - A human check (Cloudflare Turnstile) runs once per session. It starts, out of sight, when
+ *   the question box first takes focus; only a question sent before it has passed shows it,
+ *   standing in that question's turn.
  * - The service sleeps when nobody uses it. While it wakes the page says so in short lines
  *   that follow one another, with a count of seconds.
  */
@@ -257,7 +258,7 @@ export default function Chat() {
       <main className={`ask${turns.length ? " ask--thread" : ""}${docked ? " ask--ev" : ""}`}>
         {turns.length === 0 ? (
           <>
-            <FirstScreen t={t} draft={draft} setDraft={setDraft} submit={submit} busy={busy} closed={closed} examples={examples} stored={stored} pick={pick} />
+            <FirstScreen t={t} draft={draft} setDraft={setDraft} submit={submit} busy={busy} closed={closed} examples={examples} stored={stored} pick={pick} onBoxFocus={check.warm} />
             {status && <div className="wake-pin">{status}</div>}
           </>
         ) : (
@@ -305,6 +306,7 @@ export default function Chat() {
                     value={draft}
                     disabled={closed}
                     onChange={(e) => setDraft(e.target.value)}
+                    onFocus={check.warm}
                     data-testid="composer-input"
                   />
                   <button type="submit" className="ask-btn ask-btn--primary" disabled={busy || closed || !draft.trim()}>
@@ -317,12 +319,14 @@ export default function Chat() {
             </div>
           </div>
         )}
+        {check.needsCheck && <div className="check-host" ref={check.host} inert aria-hidden="true" data-testid="check-host" />}
         {evTurn && (
           <>
             {sheet && <div className="evp-backdrop" onClick={closeEvidence} aria-hidden="true" />}
             <EvidencePanel
               turn={evTurn}
               t={t}
+              lang={lang}
               tab={tab}
               onTab={setTab}
               onClose={closeEvidence}

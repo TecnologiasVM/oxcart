@@ -1,12 +1,15 @@
 import { test, expect, Page } from "@playwright/test";
+import { formatDate } from "../lib/evidence-text";
 
 /*
  * The question page, with the backend's answers mocked in the browser. No live backend,
  * no network, no window: Chromium runs headless. Every fixture is made up.
  *
- * The human check needs a site key, and the test build has none: the tests that cover it
- * set `window.__OXCART_TEST_TURNSTILE_KEY__` and stub `window.turnstile` before the page
- * loads (see `stubHumanCheck`), so Cloudflare's script is never fetched.
+ * The site under test is built with Cloudflare's documented test site key that always passes
+ * (NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA), so the human check is on. Every test
+ * routes Cloudflare's script to a stub (TURNSTILE_STUB: no network) and mocks /api/session. The
+ * stub passes on its own unless a test sets another mode with `checkMode`.
+ * A build with no site key (no human check) is not covered by these tests.
  */
 
 const ISSUE = {
@@ -15,7 +18,7 @@ const ISSUE = {
   score: 4,
   matched_by: ["vector", "year"],
   card: {
-    dates: { placed_on_sale: "1889-09-20" },
+    dates: { placed_on_sale: "1889-09-20", issued: "1889-09", withdrawn: "about 1890" },
     printers: ["A printer"],
     perforation: "12",
     acts: [{ type: "decree", id: "Test decree 1", date: "1889-01-02" }],
@@ -30,7 +33,7 @@ const OTHER_ISSUE = {
   title: "Another test issue",
   score: 2.123456,
   matched_by: ["vector"],
-  card: { printers: ["Another printer"], stamps: [{ catalog_no: "T9", value: 1, unit: "c", color: "green", quantity: null }] },
+  card: { printers: ["Another printer"], acts: [{ type: "law", id: "Act 7", date: "1890-05" }], stamps: [{ catalog_no: "T9", value: 1, unit: "c", color: "green", quantity: null }] },
 };
 const ANSWER = {
   question: "When was it placed on sale?",
@@ -82,7 +85,59 @@ const lines = (written: object, evidence: object = ANSWER, rewritten = false, ca
 
 type Mock = { health?: number; ask?: object; askStatus?: number; stored?: object | null; written?: object; chatStatus?: number; examples?: object[] };
 
+/*
+ * Cloudflare's script, stubbed. Modes (set before the page loads with `checkMode`):
+ *   pass   the check passes on its own a moment after it is drawn (the default)
+ *   hold   the check runs until the test settles it (`settleCheck`)
+ *   click  the check asks for a click on its own button
+ */
+const TURNSTILE_STUB = `(() => {
+  let n = 0;
+  window.__checks = [];
+  window.turnstile = {
+    render(el, o) {
+      const id = "w" + (++n);
+      const mode = window.__checkMode || "pass";
+      const widget = document.createElement("div");
+      widget.dataset.widget = id;
+      widget.style.cssText = "width:300px;height:65px;box-sizing:border-box;border:1px dashed";
+      el.appendChild(widget);
+      const entry = { id, el, o, removed: false };
+      window.__checks.push(entry);
+      if (mode === "pass") setTimeout(() => { if (!entry.removed) o.callback("token-" + id); }, 20);
+      if (mode === "click") {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = "Verify you are human";
+        button.onclick = () => o.callback("token-" + id);
+        widget.appendChild(button);
+      }
+      return id;
+    },
+    reset() {},
+    remove(id) {
+      const entry = window.__checks.find((c) => c.id === id);
+      if (entry) { entry.removed = true; entry.el.replaceChildren(); }
+    },
+  };
+})();`;
+
+async function checkMode(page: Page, mode: "pass" | "hold" | "click") {
+  await page.addInitScript((m) => Object.assign(window, { __checkMode: m }), mode);
+}
+type CheckEntry = { id: string; removed: boolean; el: HTMLElement; o: { callback: (t: string) => void } };
+const checks = (page: Page) =>
+  page.evaluate(() => ((window as unknown as { __checks?: CheckEntry[] }).__checks ?? []).map((c) => ({ id: c.id, removed: c.removed, inHost: Boolean(c.el.closest("[data-testid=check-host]")) })));
+const settleCheck = (page: Page) =>
+  page.evaluate(() => {
+    const live = ((window as unknown as { __checks: CheckEntry[] }).__checks).filter((c) => !c.removed);
+    live[live.length - 1].o.callback("token-held");
+  });
+
 async function mock(page: Page, options: Mock = {}) {
+  await page.route(/^https:\/\/challenges\.cloudflare\.com\/turnstile\//, (route) =>
+    route.fulfill({ contentType: "text/javascript", body: TURNSTILE_STUB }));
+  await page.route("**/api/session", (route) => route.fulfill({ json: { session: "test-session", expires_in: 600 } }));
   await page.route("**/api/health", (route) =>
     options.health === 0 ? route.abort() : route.fulfill({ status: options.health ?? 200, json: { status: "ok" } }));
   await page.route("**/api/ask/examples", (route) =>
@@ -148,26 +203,6 @@ async function noOverflow(page: Page, where: string) {
   expect(over.panel, `${where}: panel`).toBeLessThanOrEqual(0);
 }
 
-async function stubHumanCheck(page: Page) {
-  await page.addInitScript(() => {
-    const w = window as unknown as Record<string, unknown>;
-    w.__OXCART_TEST_TURNSTILE_KEY__ = "test-site-key";
-    w.turnstile = {
-      render(el: HTMLElement, options: Record<string, unknown>) {
-        w.__check = options;
-        const stub = document.createElement("div");
-        stub.textContent = "Stub of the check";
-        stub.style.cssText = "width:300px;height:65px;border:1px dashed";
-        el.appendChild(stub);
-        return "widget-1";
-      },
-      reset() {},
-      remove() {},
-    };
-  });
-}
-const passCheck = (page: Page) => page.evaluate(() => ((window as unknown as { __check: { callback: (t: string) => void } }).__check.callback("token")));
-
 // ===================================================================== the first screen
 
 test("the site opens directly on the question box", async ({ page }) => {
@@ -178,6 +213,9 @@ test("the site opens directly on the question box", async ({ page }) => {
   await expect(page.locator("header.masthead")).toContainText("Oxcart");
   await expect(page.getByTestId("demo-tag")).toBeVisible();
   await expect(page.getByRole("button", { name: "A live example question?" })).toBeVisible();
+  // the evaluation is one link away; no figure is written on the page
+  await expect(page.locator("main").getByRole("link", { name: "How it works and how it was evaluated" })).toHaveAttribute("href", /\/oxcart\/blob\/main\/EVALUATION\.md$/);
+  await expect(page.locator("main")).not.toContainText(/For engineers| of 41| of 32| of 357/);
 });
 
 test("the privacy line stands by the box, and Details unfolds the full paragraph", async ({ page }) => {
@@ -393,42 +431,81 @@ test("a question answered at once shows no waiting lines", async ({ page }) => {
   await expect(page.getByTestId("waiting")).toHaveCount(0);
 });
 
-test("the human check stands in the turn, with its room kept, and the question goes on once it passes", async ({ page }) => {
-  await stubHumanCheck(page);
+test("the human check, case 1: it starts when the box takes focus and passes before the question is sent; nothing about it is drawn", async ({ page }) => {
   await mock(page, { written: WRITTEN });
+  await page.addInitScript(() => {
+    // remember whether the check was ever drawn in a turn
+    new MutationObserver(() => {
+      if (document.querySelector(".thread [data-testid=human-check]")) Object.assign(window, { __sawCheck: true });
+    }).observe(document, { childList: true, subtree: true });
+  });
   const sessions: string[] = [];
-  await page.route("**/api/session", (route) => route.fulfill({ json: { session: "test-session", expires_in: 600 } }));
   page.on("request", (request) => {
     if (request.url().endsWith("/api/chat")) sessions.push(request.headers()["x-oxcart-session"] ?? "");
   });
   await page.goto("/");
-  await ask(page, "A question that needs the check?");
+  await expect(page.getByRole("button", { name: "A live example question?" })).toBeVisible();
+  expect(await checks(page)).toEqual([]);                              // not at page load
+  const traded = page.waitForRequest("**/api/session");
+  await box(page).focus();
+  await traded;                                                        // the token is traded at once
+  const host = page.getByTestId("check-host");
+  expect((await checks(page))[0].inHost).toBe(true);                   // drawn off screen, in its own room
+  const room = (await host.boundingBox())!;
+  expect([Math.round(room.width), Math.round(room.height)]).toEqual([300, 65]);
+  expect(room.x + room.width).toBeLessThan(0);
+  await ask(page, "A question asked after the check passed?");
+  await expect(newest(page).getByTestId("written-answer")).toBeVisible();
+  expect(await page.evaluate(() => Boolean((window as unknown as { __sawCheck?: boolean }).__sawCheck))).toBe(false);
+  expect(sessions).toEqual(["test-session"]);
+  // once per session: the next question asks no check either
+  await ask(page, "And the next one?");
+  await expect(page.getByTestId("turn")).toHaveCount(2);
+  await expect(newest(page).getByTestId("evidence-button")).toBeVisible();
+  expect((await checks(page)).length).toBe(1);
+});
+
+test("the human check, case 2: still running when the question is sent, it stands in the turn with its room kept", async ({ page }) => {
+  await checkMode(page, "hold");
+  await mock(page, { written: WRITTEN });
+  await page.goto("/");
+  await box(page).focus();
+  await expect.poll(async () => (await checks(page)).length).toBe(1);
+  await ask(page, "A question sent before the check passed?");
   const turn = newest(page);
   await expect(turn).toContainText(/A quick check that you are a person|Una comprobación rápida/);
   await expect(turn).toContainText(/Waiting for the human check to finish|Esperando a que termine la comprobación/);
   const room = (await turn.getByTestId("human-check").boundingBox())!;
-  expect(Math.round(room.width)).toBe(300);
-  expect(Math.round(room.height)).toBe(65);
-  await passCheck(page);
+  expect([Math.round(room.width), Math.round(room.height)]).toEqual([300, 65]);
+  // the off-screen check gave way to one drawn in the turn
+  await expect.poll(() => checks(page)).toEqual([{ id: "w1", removed: true, inHost: true }, { id: "w2", removed: false, inHost: false }]);
+  await expect(turn.locator("[data-widget=w2]")).toBeVisible();
+  await settleCheck(page);
   await expect(turn.getByTestId("written-answer")).toBeVisible();
   await expect(turn.getByTestId("human-check")).toHaveCount(0);
-  expect(sessions).toEqual(["test-session"]);
-  // once per session: the next question asks no check
-  await ask(page, "And the next one?");
-  await expect(page.getByTestId("turn")).toHaveCount(2);
-  await expect(newest(page).getByTestId("evidence-button")).toBeVisible();
-  await expect(newest(page).getByTestId("human-check")).toHaveCount(0);
+});
+
+test("the human check, case 3: when it asks for a click, the visitor sees it in the turn and clicks there", async ({ page }) => {
+  await checkMode(page, "click");
+  await mock(page, { written: WRITTEN });
+  await page.goto("/");
+  await box(page).focus();
+  await expect.poll(async () => (await checks(page)).length).toBe(1);
+  await expect(page.getByRole("button", { name: "Verify you are human" })).toHaveCount(0);   // off screen it is out of reach
+  await ask(page, "A question whose check needs a click?");
+  const turn = newest(page);
+  const click = turn.getByRole("button", { name: "Verify you are human" });
+  await expect(click).toBeVisible();
+  await click.click();
+  await expect(turn.getByTestId("written-answer")).toBeVisible();
 });
 
 test("a human check that does not pass is said in the turn, and the question stays in the box", async ({ page }) => {
-  await stubHumanCheck(page);
   await mock(page);
   await page.route("**/api/session", (route) => route.fulfill({ status: 403, json: { error: "human_check_failed", message: "The human check did not pass." } }));
   await page.goto("/");
   await ask(page, "A question that fails the check?");
   const turn = newest(page);
-  await expect(turn.getByTestId("human-check")).toBeVisible();
-  await passCheck(page);
   await expect(turn.getByTestId("turn-error")).toContainText(/The human check did not pass|La comprobación no pasó/);
   await expect(turn.getByTestId("human-check")).toBeVisible();        // the widget stays, for another try
   await expect(box(page)).toHaveValue("A question that fails the check?");
@@ -847,16 +924,34 @@ test("Evidence, Graph: the answer, its sources, the cited card's printer, act an
   expect(names).toContain("Source 1: A test issue (CR-TEST-ISSUE)");
   expect(names).toContain("Source 2: A TEST DOCUMENT, page 12");
   expect(names).toContain("A test issue, printed by: A printer");
-  expect(names).toContain("A test issue, authorized by: Test decree 1 (decree, 1889-01-02)");
+  expect(names).toContain("A test issue, authorized by: Test decree 1, 2 January 1889");   // dates in words, no repeated word
+  expect(names).toContain("Another test issue, authorized by: Act 7 (law), May 1890");
   expect(names).toContain("A test issue, stamp T1");
   expect(names).toContain("Found, not cited by the answer: Another test issue (CR-OTHER-TEST-ISSUE)");
   await expect(panel(page).locator(".g-node--found")).not.toHaveCount(0);
-  // every node is reachable by keyboard
-  for (const node of await nodes.all()) await expect(node).toHaveAttribute("tabindex", "0");
-  await nodes.first().focus();
-  await expect(nodes.first()).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(nodes.nth(1)).toBeFocused();
+  // only a node that does something takes focus: the cited sources and the card found and not cited
+  const acting = panel(page).locator("[data-testid=graph-node][tabindex='0']");
+  expect(await acting.evaluateAll((all) => all.map((n) => n.getAttribute("aria-label")))).toEqual([
+    "Source 1: A test issue (CR-TEST-ISSUE)",
+    "Source 2: A TEST DOCUMENT, page 12",
+    "Found, not cited by the answer: Another test issue (CR-OTHER-TEST-ISSUE)",
+  ]);
+  for (const node of await acting.all()) await expect(node).toHaveAttribute("role", "button");
+  await expect(panel(page).locator(".g-node--stamp[tabindex], .g-node--leaf[tabindex], .g-node--answer[tabindex]")).toHaveCount(0);
+  await expect(panel(page).locator(".g-node--stamp").first()).toHaveAttribute("role", "img");
+  // Enter on a cited source opens Sources at it
+  await acting.nth(1).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("tab-sources")).toHaveAttribute("aria-selected", "true");
+  await expect(panel(page).getByTestId("ev-source").nth(1)).toBeFocused();
+  // a click on the card found and not cited opens it under Cards and passages
+  await page.getByTestId("tab-graph").click();
+  await panel(page).locator("[data-testid=graph-node][tabindex='0']").nth(2).click();
+  await expect(page.getByTestId("tab-found")).toHaveAttribute("aria-selected", "true");
+  const other = panel(page).getByTestId("card").nth(1);
+  await expect(other).toHaveAttribute("open", "");
+  await expect(other.locator("summary")).toBeFocused();
+  await page.getByTestId("tab-graph").click();
   // the same as a list
   await panel(page).getByTestId("view-list").click();
   await expect(drawing).toBeHidden();
@@ -891,8 +986,10 @@ test("Evidence, Cards and passages: what the answer cites starts open, the rest 
   const cards = panel(page).getByTestId("card");
   await expect(cards).toHaveCount(2);
   await expect(cards.first()).toHaveAttribute("open", "");
-  await expect(cards.first()).toContainText("1889-09-20");
-  await expect(cards.first()).toContainText("Test decree 1");
+  await expect(cards.first()).toContainText("placed on sale: 20 September 1889");
+  await expect(cards.first()).toContainText("issued: September 1889");
+  await expect(cards.first()).toContainText("withdrawn: about 1890");     // not a date: as it is
+  await expect(cards.first()).toContainText("Test decree 1, 2 January 1889");
   await expect(cards.first().locator("table.stamps tbody tr")).toHaveCount(2);
   await expect(cards.nth(1)).not.toHaveAttribute("open", "");
   const passages = panel(page).getByTestId("passage");
@@ -1099,3 +1196,69 @@ test("the question page does not load Cytoscape", async ({ page }) => {
   expect(scripts.some((s) => s.includes("cytoscape"))).toBe(false);
 });
 
+
+test("docked Evidence keeps its head's room under the site header, with a short thread and with a long one scrolled", async ({ page }) => {
+  const gap = (p: Page) => p.evaluate(() => {
+    const header = document.querySelector("header.masthead")!.getBoundingClientRect();
+    const head = document.getElementById("evp-label")!.getBoundingClientRect();
+    return Math.round(head.top - header.bottom);
+  });
+  const open = async (p: Page, turns: SeedTurn[]) => {
+    await p.setViewportSize({ width: 1440, height: 900 });
+    await seed(p, turns);
+    await mock(p);
+    await p.goto("/");
+    await expect(p.getByTestId("turn")).toHaveCount(turns.length);
+    await newest(p).getByTestId("evidence-button").click();
+    await expect(panel(p)).toBeVisible();
+  };
+  await open(page, [THREAD[0]]);
+  const short = await gap(page);
+  const long = await page.context().newPage();                        // another tab: its own seed
+  await open(long, [...THREAD, ...THREAD, ...THREAD]);
+  const gaps: number[] = [];
+  for (const y of [0, 600, 1_000_000]) {                               // the top, the middle, the very foot
+    await long.evaluate((top) => window.scrollTo(0, top), y);
+    await long.waitForTimeout(100);
+    gaps.push(await gap(long));
+  }
+  expect(short).toBeGreaterThanOrEqual(12);                           // the bar's own top padding, under the header
+  expect(gaps).toEqual([short, short, short]);
+});
+
+test("dates the page builds from card data are written in words, in the visitor's language", () => {
+  expect(formatDate("1889-09-14", "en")).toBe("14 September 1889");
+  expect(formatDate("1889-09-14", "es")).toBe("14 de septiembre de 1889");
+  expect(formatDate("1889-09", "en")).toBe("September 1889");
+  expect(formatDate("1889-09", "es")).toBe("septiembre de 1889");
+  expect(formatDate("1889-01-02", "en")).toBe("2 January 1889");
+  for (const value of ["1889", "about 1890", "1889-13-01", "1889-02-40", "14/09/1889", ""]) {
+    expect(formatDate(value, "en")).toBe(value);                        // not a date: as it is
+  }
+});
+
+test("in Spanish, the sources are named in Spanish from their evidence, and Evidence speaks Spanish", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.addInitScript(() => window.localStorage.setItem("oxcart-lang", "es"));
+  const english = {
+    ...WRITTEN,
+    sentences: [...WRITTEN.sentences, { text: "Una frase de prueba.", cites: [3] }],
+    sources: [...WRITTEN.sources, { n: 3, kind: "passage", index: 9, title: "AN ENGLISH TITLE, page 1", quotes: [] }],
+  };
+  await mock(page, { written: english });
+  await page.goto("/");
+  await ask(page, "¿Cuándo se puso a la venta?");
+  const sources = newest(page).getByTestId("answer-source");
+  // the third points at evidence that is not there: the backend's own title stands
+  await expect(sources).toHaveText(["1Ficha del catálogo: A test issue", "2A TEST DOCUMENT, página 12", "3AN ENGLISH TITLE, page 1"]);
+  await newest(page).getByTestId("evidence-button").click();
+  await page.getByTestId("tab-sources").click();
+  await expect(panel(page).getByTestId("ev-source").nth(1)).toContainText("A TEST DOCUMENT, página 12");
+  await expect(panel(page).getByTestId("ev-source").first()).toContainText("Texto citado");
+  await page.getByTestId("tab-found").click();
+  await expect(panel(page).getByTestId("card").first()).toContainText("placed on sale: 20 de septiembre de 1889");
+  await expect(panel(page).getByTestId("card").first()).toContainText("Test decree 1, 2 de enero de 1889");
+  await page.getByTestId("tab-made").click();
+  await expect(panel(page)).toContainText("Cómo se encontró cada emisión");
+  await expect(panel(page)).toContainText("Son puntuaciones brutas de coincidencia. No son un porcentaje ni una medida de confianza.");
+});

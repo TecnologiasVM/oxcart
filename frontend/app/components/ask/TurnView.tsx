@@ -15,6 +15,7 @@
 import type { ReactNode } from "react";
 import type { AnswerSentence } from "@/lib/ask";
 import type { Turn } from "@/lib/conversation";
+import { sourceTitle } from "@/lib/evidence-text";
 import type { Labels } from "@/lib/i18n";
 import type { Service } from "./hooks";
 import { WAIT_LINES_AFTER_SECONDS } from "./hooks";
@@ -148,7 +149,7 @@ function Answered({ turn, t, newest, open, storedNote, busy, onEvidence, onAskNo
                 <p className="label">{t.sources}</p>
                 <ol className="srcnames">
                   {sources.map((source) => (
-                    <li key={source.n} data-testid="answer-source">{mark(source.n)}<span>{source.title}</span></li>
+                    <li key={source.n} data-testid="answer-source">{mark(source.n)}<span>{sourceTitle(source, evidence, t)}</span></li>
                   ))}
                 </ol>
               </div>

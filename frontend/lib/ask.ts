@@ -90,19 +90,6 @@ export type StoredExamples = { generated: string | null; examples: StoredExample
 export const MAX_QUESTION_CHARS = 300;
 export const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 
-declare global {
-  interface Window {
-    /** Set by the browser tests only, to run the human check against a stubbed widget in a build that has no key. */
-    __OXCART_TEST_TURNSTILE_KEY__?: string;
-  }
-}
-
-/** The human check's site key: the build's, or the one a browser test set. Empty: no check. */
-export function turnstileSiteKey(): string {
-  if (TURNSTILE_SITE_KEY) return TURNSTILE_SITE_KEY;
-  return typeof window !== "undefined" ? window.__OXCART_TEST_TURNSTILE_KEY__ || "" : "";
-}
-
 /** A refusal from the backend: a code the page can translate, and a wait when there is one. */
 export class AskError extends Error {
   code: string;

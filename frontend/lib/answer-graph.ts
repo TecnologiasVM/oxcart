@@ -8,9 +8,14 @@
  *
  * The same content is also returned as a tree, for the list view (and for small screens).
  */
-import type { AskAnswer, IssueCard, Issue, WrittenAnswer } from "./ask";
+import type { AskAnswer, Issue, WrittenAnswer } from "./ask";
+import { actLine, sourceTitle } from "./evidence-text";
+import type { Lang } from "./i18n";
 
 export type GraphWords = {
+  lang: Lang;
+  page: string;
+  catalogueCard: string;
   gAnswer: string;
   gPrinter: string;
   gAct: string;
@@ -33,6 +38,9 @@ export type GNode = {
   mark?: number;
   mono?: string;
   name: string; // what a screen reader says for it
+  // what Enter or a click on it does: a cited source opens at Sources, a card found and not
+  // cited opens at Cards and passages. A node without one takes no focus.
+  target?: { tab: "sources"; n: number } | { tab: "found"; index: number };
 };
 export type GEdge = { key: string; d: string; cites: boolean; found: boolean };
 export type GLabel = { key: string; x: number; y: number; text: string; head: boolean };
@@ -78,20 +86,14 @@ export function wrap(text: string, width: number): string[] {
 
 const cut = (text: string, chars: number) => (text.length > chars ? `${text.slice(0, Math.max(1, chars - 1))}…` : text);
 
-/** An act as one line: its id, then its type and date. */
-export function actLine(act: NonNullable<IssueCard["acts"]>[number]): string {
-  const rest = [act.type, act.date].filter(Boolean).join(", ");
-  return [act.id, rest ? `(${rest})` : ""].filter(Boolean).join(" ") || "–";
-}
-
-function treeIssue(issue: Issue, mark?: number): TreeIssue {
+function treeIssue(issue: Issue, lang: Lang, mark?: number): TreeIssue {
   const card = issue.card ?? {};
   return {
     mark,
     title: issue.title || issue.issue_id,
     id: issue.issue_id,
     printers: (card.printers ?? []).filter(Boolean),
-    acts: (card.acts ?? []).map(actLine),
+    acts: (card.acts ?? []).map((act) => actLine(act, lang)),
     stamps: (card.stamps ?? []).map((s) => String(s.catalog_no ?? "")).filter(Boolean).slice(0, 24),
   };
 }
@@ -115,8 +117,8 @@ export function answerGraph(evidence: AskAnswer, written: WrittenAnswer | undefi
   };
 
   /** An issue with its printers, acts and stamps. Returns its height and the middle of its node. */
-  const issueBlock = (issue: Issue, key: string, top: number, found: boolean, mark?: number) => {
-    const item = treeIssue(issue, mark);
+  const issueBlock = (issue: Issue, index: number, key: string, top: number, found: boolean, mark?: number) => {
+    const item = treeIssue(issue, words.lang, mark);
     const kids: { rel: string; lines?: string[]; chips?: string[]; names: string[] }[] = [];
     for (const p of item.printers) kids.push({ rel: words.gPrinter, lines: wrap(p, g.kid), names: [`${item.title}, ${words.gPrinter}: ${p}`] });
     for (const a of item.acts) kids.push({ rel: words.gAct, lines: wrap(a, g.kid), names: [`${item.title}, ${words.gAct}: ${a}`] });
@@ -152,7 +154,8 @@ export function answerGraph(evidence: AskAnswer, written: WrittenAnswer | undefi
     const name = mark
       ? `${words.source} ${mark}: ${item.title} (${item.id})`
       : `${found && ok ? words.gFound : words.gFoundOnly}: ${item.title} (${item.id})`;
-    node({ key, kind: "issue", found, x: g.XS, y: sy, w: g.WS, lines: titleLines, mark, mono: cut(item.id, Math.floor((g.WS - 24) / MONO_CHAR)), name });
+    const target = mark !== undefined ? { tab: "sources" as const, n: mark } : { tab: "found" as const, index };
+    node({ key, kind: "issue", found, x: g.XS, y: sy, w: g.WS, lines: titleLines, mark, mono: cut(item.id, Math.floor((g.WS - 24) / MONO_CHAR)), name, target });
     const mid = sy + titleH / 2;
     kidMids.forEach((km, k) => edge(`${key}-e-${k}`, g.XS + g.WS, mid, g.XC - 6, km, false, found));
     return { h: blockH, mid, item };
@@ -168,15 +171,16 @@ export function answerGraph(evidence: AskAnswer, written: WrittenAnswer | undefi
       const issue = source.kind === "issue" ? evidence.issues[source.index] : undefined;
       if (issue) {
         citedIssues.add(source.index);
-        const block = issueBlock(issue, `src-${source.n}`, y, false, source.n);
+        const block = issueBlock(issue, source.index, `src-${source.n}`, y, false, source.n);
         mids.push(block.mid);
         tree.cited.push({ kind: "issue", issue: block.item });
         y += block.h + 22;
       } else {
-        const lines = wrap(source.title, g.title);
-        const h = node({ key: `src-${source.n}`, kind: "doc", found: false, x: g.XS, y, w: g.WS, lines, mark: source.n, name: `${words.source} ${source.n}: ${source.title}` });
+        const title = sourceTitle(source, evidence, words);
+        const lines = wrap(title, g.title);
+        const h = node({ key: `src-${source.n}`, kind: "doc", found: false, x: g.XS, y, w: g.WS, lines, mark: source.n, name: `${words.source} ${source.n}: ${title}`, target: { tab: "sources", n: source.n } });
         mids.push(y + h / 2);
-        tree.cited.push({ kind: "doc", mark: source.n, title: source.title });
+        tree.cited.push({ kind: "doc", mark: source.n, title });
         y += h + 22;
       }
     }
@@ -197,7 +201,7 @@ export function answerGraph(evidence: AskAnswer, written: WrittenAnswer | undefi
       y += 40;
     }
     for (const { issue, i } of rest) {
-      const block = issueBlock(issue, `found-${i}`, y, true, undefined);
+      const block = issueBlock(issue, i, `found-${i}`, y, true, undefined);
       tree.found.push(block.item);
       y += block.h + 22;
     }
