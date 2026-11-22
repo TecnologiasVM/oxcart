@@ -164,8 +164,10 @@ Not done yet: a person's check of the model-judged gold and of the grades of the
 
 ### 5. What is in place for running it as a service
 
-- The explorer's query path calls no language model. The written answer of the question page does: one call per
-  question and one more for a follow-up, measured at 0.0007 USD a question on average and 0.0013 USD at most
+- The explorer's query path calls no language model. The written answer of the question page does: one call to
+  write it, measured at 0.0007 USD a question on average and 0.0013 USD at most, and for every question after a
+  conversation's first one small call before the search, about 0.0001 USD, which says whether the question
+  needs the earlier turns and rewrites it only then
   ([EVALUATION.md](EVALUATION.md#written-answers)). Without a key the page works and shows the evidence only.
 - Both stores are used read-only.
 - One Neo4j connection pool is shared by all requests. Against a hosted Neo4j this took the demo questions from
@@ -191,7 +193,8 @@ cannot be reached the page shows what the other returned and says which one is m
 
 **What the limits are, and what they are not.** A visitor may ask 10 questions a minute and 100 a day; the
 service takes 2,000 questions a day and makes at most 200 model calls a day (about 4 USD a month at the measured
-average). All of these counts live in the server's memory and start again whenever the service restarts, which on
+average). The page has one question box, so every question after a conversation's first takes two of those
+calls: the day's allowance is between 100 and 200 written answers. All of these counts live in the server's memory and start again whenever the service restarts, which on
 a host that puts an idle service to sleep happens many times a day. They slow down a running service; they are
 not a budget. The one limit that cannot be passed is the monthly spend limit of the model key's workspace at the
 provider. It is set there, not in this repository (9 USD for November 2026); when it is reached the page shows

@@ -199,7 +199,8 @@ citation that holds), `empty`, `stopped`, `failed`. In every one of those the ev
 
 The route stands behind the same guard as `/api/ask`: the session token, both visitor counts (a question here
 counts as a question there), the service's daily limit, and the eval's way in. On top of that, the whole service
-makes at most `ANSWER_LIMIT_PER_DAY` model calls a day (200; the rewrite of a follow-up counts); the eval's way in
+makes at most `ANSWER_LIMIT_PER_DAY` model calls a day (200; the call that reads a later question against its
+conversation counts, so a question after the first takes two); the eval's way in
 does not skip it. Past it the route answers with the evidence only.
 
 **Every one of these counts lives in the process's memory and starts again when the process does**, and on a
