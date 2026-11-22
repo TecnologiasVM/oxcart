@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import operator
 import re
+import unicodedata
 from dataclasses import dataclass
 from typing import Annotated, Any, Callable, Literal
 
@@ -107,68 +108,115 @@ def _call(purpose: str, reply: Reply) -> dict:
 
 
 # --------------------------------------------------------------------------- the evidence as sources
-_MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
-           "November", "December")
 _ISO_DATE = re.compile(r"(\d{4})-(\d{2})(?:-(\d{2}))?")
+_WORD = re.compile(r"[^\W\d_]+")
+# Words that tell a question in Spanish from one in English. A question that opens with "¿" or "¡", or has
+# more words of the first kind, is Spanish; anything else is English, the language the catalogue is written in.
+_SPANISH = frozenset("""el la los las de del un una unos unas y que cual cuales cuando cuanto cuantos cuantas donde
+quien quienes como por para con sin sobre entre fue fueron es son se su sus al sello sellos estampilla estampillas
+emision emisiones emitio emitieron imprimio correo aereo sobrecarga sobrecargado sobrecargados resello ano primera
+primer primeros salio salieron tiene hay catalogo valor valores""".split())
+_ENGLISH = frozenset("""the of and what when which who whom whose how was were is are did does do in on for with
+stamp stamps issue issued issues printed printer overprint overprints first many much have has its""".split())
+
+# The words of a card's lines, by language. Titles, names and values stay as the catalogue writes them.
+_CARD_WORDS = {
+    "en": {"issue": "Issue", "on": "on", "in": "in", "of": "of", "printed": "printed by", "perforation": "perforation",
+           "authorized": "authorized by", "stamp": "stamp", "value": "value", "colour": "colour", "quantity": "quantity",
+           "scott": "Scott catalogue number", "variety": "variety",
+           "dates": {"placed_on_sale": "placed on sale", "probable_first_circulation": "probable first circulation",
+                     "announced": "announced", "demonetized": "demonetized", "second_plate_sale": "second plate sale"},
+           "months": ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
+                      "November", "December")},
+    "es": {"issue": "Emisión", "on": "el", "in": "en", "of": "del", "printed": "impresa por", "perforation": "perforación",
+           "authorized": "autorizada por", "stamp": "sello", "value": "valor", "colour": "color", "quantity": "cantidad",
+           "scott": "número del catálogo Scott", "variety": "variedad",
+           "dates": {"placed_on_sale": "puesta a la venta", "probable_first_circulation": "primera circulación probable",
+                     "announced": "anunciada", "demonetized": "desmonetizada", "second_plate_sale": "venta de la segunda plancha"},
+           "months": ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre",
+                      "noviembre", "diciembre")},
+}
 
 
-def date_in_words(value: Any) -> tuple[str, str]:
-    """("on", "1 May 1940") for 1940-05-01, ("in", "May 1940") for 1940-05; anything else as it is, after ":"."""
+def question_language(question: str) -> str:
+    """"es" or "en", from the question's own words. No model."""
+    text = (question or "").lower()
+    if "¿" in text or "¡" in text:
+        return "es"
+    plain = "".join(c for c in unicodedata.normalize("NFKD", text) if not unicodedata.combining(c))
+    words = _WORD.findall(plain)
+    spanish, english = sum(w in _SPANISH for w in words), sum(w in _ENGLISH for w in words)
+    if spanish == english:              # a name can carry an accent in an English question: it decides only a tie
+        return "es" if any(c in text for c in "ñáéíóú") else "en"
+    return "es" if spanish > english else "en"
+
+
+def date_in_words(value: Any, lang: str = "en") -> tuple[str, str]:
+    """("on", "1 May 1940") for 1940-05-01, ("in", "May 1940") for 1940-05; in Spanish ("el", "1 de mayo de 1940")
+    and ("en", "mayo de 1940"). Anything else as it is, after ":"."""
+    words = _CARD_WORDS[lang]
     text = str(value).strip()
     match = _ISO_DATE.fullmatch(text)
     if not match or not 1 <= int(match.group(2)) <= 12:
         return ":", text
-    month = _MONTHS[int(match.group(2)) - 1]
+    month, year = words["months"][int(match.group(2)) - 1], match.group(1)
+    month_year = f"{month} de {year}" if lang == "es" else f"{month} {year}"
     if match.group(3) and 1 <= int(match.group(3)) <= 31:
-        return "on", f"{int(match.group(3))} {month} {match.group(1)}"
-    return "in", f"{month} {match.group(1)}"
+        day = int(match.group(3))
+        return words["on"], f"{day} de {month_year}" if lang == "es" else f"{day} {month_year}"
+    return words["in"], month_year
 
 
-def card_lines(issue: dict) -> list:
-    """A catalogue card as fact lines, one fact per line.
+def card_lines(issue: dict, lang: str = "en") -> list:
+    """A catalogue card as fact lines, one fact per line, in the language of the question.
 
     The model cites a line and at times sets it inside its own sentence. So a line is a phrase
-    that can stand there ("placed on sale on 1 May 1940", "printed by ..."), not a label, a
-    colon and a value, and a date is in words, not in the form 1940-05-01."""
+    that can stand there ("placed on sale on 1 May 1940", "puesta a la venta el 1 de mayo de 1940"),
+    not a label, a colon and a value; a date is in words, not in the form 1940-05-01; and the words
+    are in the language the answer will be in."""
+    words = _CARD_WORDS[lang]
     card = issue.get("card") or {}
-    lines = [f"Issue: {issue.get('title') or issue.get('issue_id')} ({issue.get('issue_id')})"]
+    lines = [f"{words['issue']}: {issue.get('title') or issue.get('issue_id')} ({issue.get('issue_id')})"]
     for key, value in (card.get("dates") or {}).items():
         if value:
-            word, date = date_in_words(value)
-            name = str(key).replace("_", " ")
+            word, date = date_in_words(value, lang)
+            name = words["dates"].get(str(key), str(key).replace("_", " "))
             lines.append(f"{name}: {date}" if word == ":" else f"{name} {word} {date}")
     if card.get("printers"):
-        lines.append("printed by " + "; ".join(str(p) for p in card["printers"]))
+        lines.append(f"{words['printed']} " + "; ".join(str(p) for p in card["printers"]))
     if card.get("perforation"):
-        lines.append(f"perforation {card['perforation']}")
+        lines.append(f"{words['perforation']} {card['perforation']}")
     for act in card.get("acts") or []:
         parts = [str(act[k]) for k in ("type", "id") if act.get(k)]
         if act.get("date"):
-            word, date = date_in_words(act["date"])
-            parts.append(date if word == ":" else f"of {date}")
+            word, date = date_in_words(act["date"], lang)
+            parts.append(date if word == ":" else f"{words['of']} {date}")
         if parts:
-            lines.append("authorized by " + ", ".join(parts))
+            lines.append(f"{words['authorized']} " + ", ".join(parts))
     for stamp in (card.get("stamps") or [])[:STAMPS_ON_A_CARD]:
         value = " ".join(str(stamp[k]) for k in ("value", "unit") if stamp.get(k) not in (None, ""))
-        facts = [("value", value), ("colour", stamp.get("color")), ("quantity", stamp.get("quantity"))]
+        facts = [(words["value"], value), (words["colour"], stamp.get("color")), (words["quantity"], stamp.get("quantity"))]
         told = "; ".join(f"{name} {fact}" for name, fact in facts if fact not in (None, ""))
-        lines.append(f"stamp {stamp.get('catalog_no')}: {told}" if told else f"stamp {stamp.get('catalog_no')}")
-        scott = [str(number) for number in stamp.get("scott") or [] if number]
+        number = f"{words['stamp']} {stamp.get('catalog_no')}"
+        lines.append(f"{number}: {told}" if told else number)
+        scott = [str(n) for n in stamp.get("scott") or [] if n]
         if scott:
-            lines.append(f"stamp {stamp.get('catalog_no')}, Scott catalogue number: {', '.join(scott)}")
+            lines.append(f"{number}, {words['scott']}: {', '.join(scott)}")
         for variety in (stamp.get("varieties") or [])[:VARIETIES_OF_A_STAMP]:
             told = ": ".join(str(variety[k]) for k in ("suffix", "description") if variety.get(k))
             if told:
-                lines.append(f"stamp {stamp.get('catalog_no')}, variety {told}")
+                lines.append(f"{number}, {words['variety']} {told}")
     return lines
 
 
 def sources_of(evidence: dict) -> list:
     """The shown cards and passages, in the order the model is given them. A passage with
-    no text (a figure only) is not a source."""
+    no text (a figure only) is not a source. A card's lines are in the language of the question the
+    evidence was found for, the same in ``write`` and in ``check``."""
     sources = []
+    lang = question_language(evidence.get("question") or "")
     for index, issue in enumerate(evidence.get("issues") or []):
-        sources.append({"kind": "issue", "index": index, "lines": card_lines(issue),
+        sources.append({"kind": "issue", "index": index, "lines": card_lines(issue, lang),
                         "title": f"Catalogue card: {issue.get('title') or issue.get('issue_id')}"})
     for index, passage in enumerate(evidence.get("passages") or []):
         if (passage.get("text") or "").strip():

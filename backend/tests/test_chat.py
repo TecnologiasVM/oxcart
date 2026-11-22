@@ -430,6 +430,27 @@ def test_a_card_becomes_the_fact_lines_the_page_prints():
     assert answer_graph.card_lines({"issue_id": "CR-7", "title": "No card", "card": None}) == ["Issue: No card (CR-7)"]
 
 
+def test_a_card_is_given_in_the_language_of_the_question():
+    issue = {"issue_id": "CR-9", "title": "A made-up issue", "card": {
+        "dates": {"placed_on_sale": "1901-02-03", "announced": "1901-01"}, "printers": ["A printer"], "perforation": "12",
+        "acts": [{"type": "Decree", "id": "7", "date": "1901-01-01"}],
+        "stamps": [{"catalog_no": "1", "value": 5, "unit": "c", "color": "blue", "quantity": 1000, "scott": ["31"],
+                    "varieties": [{"suffix": "a", "description": "a made-up flaw"}]}]}}
+    assert answer_graph.card_lines(issue, "es") == [
+        "Emisión: A made-up issue (CR-9)", "puesta a la venta el 3 de febrero de 1901", "anunciada en enero de 1901",
+        "impresa por A printer", "perforación 12", "autorizada por Decree, 7, del 1 de enero de 1901",
+        "sello 1: valor 5 c; color blue; cantidad 1000", "sello 1, número del catálogo Scott: 31",
+        "sello 1, variedad a: a made-up flaw"]
+    for question, lang in (("¿Quién imprimió la emisión de 1901?", "es"), ("sellos de un lugar sobrecargados", "es"),
+                           ("Who printed the 1901 issue?", "en"), ("overprints of a made-up place", "en"),
+                           ("Who printed the stamps of José Pérez?", "en"), ("estampillas José Pérez", "es"),
+                           ("A made-up place 1901", "en"), ("", "en")):
+        assert answer_graph.question_language(question) == lang, question
+    evidence = {"question": "¿Cuándo se puso a la venta?", "issues": [issue], "passages": []}
+    assert answer_graph.sources_of(evidence)[0]["lines"][1] == "puesta a la venta el 3 de febrero de 1901"
+    assert answer_graph.sources_of({**evidence, "question": "When was it placed on sale?"})[0]["lines"][1] == "placed on sale on 3 February 1901"
+
+
 def test_a_date_is_put_in_words_and_anything_else_is_left_as_it_is():
     assert answer_graph.date_in_words("1940-05-01") == ("on", "1 May 1940")
     assert answer_graph.date_in_words("1863-12") == ("in", "December 1863")
