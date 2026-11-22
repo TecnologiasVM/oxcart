@@ -13,7 +13,6 @@ export const LABELS = {
     question: "Your question",
     ask: "Ask",
     asking: "Searching…",
-    clear: "Clear conversation",
     examples: "Questions to try",
     stored: "Stored example",
     storedNote: (date: string | null) =>
@@ -68,7 +67,7 @@ export const LABELS = {
     privLine: "Your question goes to outside services. The server does not store it.",
     privMore: "Details",
     privFull:
-      "Your conversation is kept in this browser only; the server does not store your questions. Until it restarts it holds in memory the numbers computed from the last 256 questions to search by meaning (their vectors), with no text, and it writes nothing to disk. To answer, your question is sent to OpenAI (to search by meaning), and your question, the evidence shown and, for a follow-up, the turns it follows are sent to Anthropic (to write the answer). On your first question, Cloudflare (Turnstile) checks that you are a person.",
+      "Your conversations are kept in this browser only; the server does not store your questions. Until it restarts it holds in memory the numbers computed from the last 256 questions to search by meaning (their vectors), with no text, and it writes nothing to disk. To answer, your question is sent to OpenAI (to search by meaning), and your question, the evidence shown and, for a follow-up, the turns it follows are sent to Anthropic (to write the answer). On your first question, Cloudflare (Turnstile) checks that you are a person.",
     how: "How it works",
     code: "Source code",
     storedAll: "Stored examples: they work while the service wakes.",
@@ -143,6 +142,29 @@ export const LABELS = {
     scoreNote: "Scores are raw match scores. They are not a percent and not a confidence.",
     left: (n: number) => `${n} characters left`,
     language: "Español",
+    convs: "Your conversations",
+    convsBtn: "Conversations",
+    newConv: "New conversation",
+    newShort: "New",
+    kept: "Kept in this browser only.",
+    current: "open now",
+    allConvs: "All conversations",
+    hideRail: "Hide",
+    today: "Today",
+    earlier: "Earlier",
+    delOne: "Delete this conversation",
+    delAsk: "Delete this conversation? It is kept only in this browser and cannot be recovered.",
+    delYes: "Delete",
+    delNo: "Keep it",
+    delAll: "Delete all",
+    delAllAsk: (n: number) =>
+      n === 1
+        ? "Delete the one conversation? It is kept only in this browser and cannot be recovered."
+        : `Delete all ${n} conversations? They are kept only in this browser and cannot be recovered.`,
+    delAllYes: "Delete all",
+    delAllNo: "Keep them",
+    notKept: "This browser is not keeping conversations. This one will be gone when you close the page.",
+    noRoom: "There is no room left in this browser to keep new conversations. This one will be gone when you close the page. Delete some to keep the next.",
     errors: {
       visitor_minute_limit: "Too many questions in a minute. Please wait a little and ask again.",
       visitor_daily_limit: "You have reached today's limit of questions. Please come back tomorrow.",
@@ -163,7 +185,6 @@ export const LABELS = {
     question: "Su pregunta",
     ask: "Preguntar",
     asking: "Buscando…",
-    clear: "Borrar la conversación",
     examples: "Preguntas para probar",
     stored: "Ejemplo guardado",
     storedNote: (date: string | null) =>
@@ -217,7 +238,7 @@ export const LABELS = {
     privLine: "Su pregunta va a servicios externos. El servidor no la guarda.",
     privMore: "Detalles",
     privFull:
-      "Su conversación se guarda solo en este navegador; el servidor no almacena sus preguntas. Hasta que se reinicia mantiene en memoria los números calculados de las últimas 256 preguntas para buscar por significado (sus vectores), sin texto, y no escribe nada en disco. Para responder, su pregunta se envía a OpenAI (para buscar por significado), y su pregunta, la evidencia mostrada y, en una pregunta de seguimiento, los turnos a los que sigue se envían a Anthropic (para redactar la respuesta). En su primera pregunta, Cloudflare (Turnstile) comprueba que es una persona.",
+      "Sus conversaciones se guardan solo en este navegador; el servidor no almacena sus preguntas. Hasta que se reinicia mantiene en memoria los números calculados de las últimas 256 preguntas para buscar por significado (sus vectores), sin texto, y no escribe nada en disco. Para responder, su pregunta se envía a OpenAI (para buscar por significado), y su pregunta, la evidencia mostrada y, en una pregunta de seguimiento, los turnos a los que sigue se envían a Anthropic (para redactar la respuesta). En su primera pregunta, Cloudflare (Turnstile) comprueba que es una persona.",
     how: "Cómo funciona",
     code: "Código fuente",
     storedAll: "Ejemplos guardados: funcionan mientras el servicio despierta.",
@@ -292,6 +313,29 @@ export const LABELS = {
     scoreNote: "Son puntuaciones brutas de coincidencia. No son un porcentaje ni una medida de confianza.",
     left: (n: number) => `Quedan ${n} caracteres`,
     language: "English",
+    convs: "Sus conversaciones",
+    convsBtn: "Conversaciones",
+    newConv: "Conversación nueva",
+    newShort: "Nueva",
+    kept: "Se guardan solo en este navegador.",
+    current: "abierta ahora",
+    allConvs: "Todas las conversaciones",
+    hideRail: "Ocultar",
+    today: "Hoy",
+    earlier: "Antes",
+    delOne: "Borrar esta conversación",
+    delAsk: "¿Borrar esta conversación? Solo se guarda en este navegador y no se puede recuperar.",
+    delYes: "Borrar",
+    delNo: "Conservarla",
+    delAll: "Borrar todas",
+    delAllAsk: (n: number) =>
+      n === 1
+        ? "¿Borrar la única conversación? Solo se guarda en este navegador y no se puede recuperar."
+        : `¿Borrar las ${n} conversaciones? Solo se guardan en este navegador y no se pueden recuperar.`,
+    delAllYes: "Borrar todas",
+    delAllNo: "Conservarlas",
+    notKept: "Este navegador no está guardando conversaciones. Esta se perderá al cerrar la página.",
+    noRoom: "No queda espacio en este navegador para guardar conversaciones nuevas. Esta se perderá al cerrar la página. Borre algunas para guardar la siguiente.",
     errors: {
       visitor_minute_limit: "Demasiadas preguntas en un minuto. Espere un poco y pregunte de nuevo.",
       visitor_daily_limit: "Llegó al límite de preguntas de hoy. Vuelva mañana, por favor.",
