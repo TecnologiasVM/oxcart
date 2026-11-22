@@ -12,7 +12,7 @@ it is asked to (``use_short``; the backend's setting is ``ASK_SHORT_VECTOR``).
 What ``apply`` writes, and nothing else:
     Issue.short_text        the text that was embedded
     Issue.embedding_short   its text-embedding-3-large vector, 3,072 numbers
-    index issue_short_vec_idx on Issue.embedding_short (cosine)
+    index issue_short_vec_idx on Issue.embedding_short (cosine, without compression)
 It embeds only issues whose stored ``short_text`` is missing or no longer what the issue's
 title, years and section give, so it can be run again after it was interrupted.
 
@@ -22,8 +22,10 @@ was written, so nothing else is touched.
 Both verbs change nothing without ``--write``: they print what they would do. With it, each
 proves what it did: a digest of every other property of every issue is taken before and
 after and must be equal, the counts of nodes and relationships must be equal, and ``apply``
-asks the new index for every issue by its own vector, forty hits as the lookup asks, and expects
-each back among the first three (two issues can share a title).
+asks the new index for every issue by its own vector, the way the lookup asks it, and compares
+the forty hits with exact cosine computed by the graph: at least 39 of the 40 must be the same
+(two scores can tie at the fortieth place) and the issue itself among the first three (two
+issues can share a title).
 
 The graph's address and login come from the environment, set for this process only
 (``scripts/with-key.sh`` does that from the machine's secret store):
@@ -45,7 +47,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from oxcart.catalogue_lookup import short_text  # noqa: E402
+from oxcart.catalogue_lookup import SHORT_INDEX_ASK, short_text  # noqa: E402
 
 MODEL, DIMENSIONS = "text-embedding-3-large", 3072
 INDEX, VECTOR, TEXT = "issue_short_vec_idx", "embedding_short", "short_text"
@@ -59,34 +61,38 @@ ORDER BY issue_id
 """
 _CREATE_INDEX = f"""
 CREATE VECTOR INDEX {INDEX} IF NOT EXISTS FOR (i:Issue) ON (i.{VECTOR})
-OPTIONS {{indexConfig: {{`vector.dimensions`: {DIMENSIONS}, `vector.similarity_function`: 'cosine'}}}}
+OPTIONS {{indexConfig: {{`vector.dimensions`: {DIMENSIONS}, `vector.similarity_function`: 'cosine',
+                         `vector.quantization.enabled`: false}}}}
 """
 _SET = f"UNWIND $rows AS row MATCH (i:Issue {{issue_id: row.issue_id}}) SET i.{VECTOR} = row.vector, i.{TEXT} = row.text"
 _REMOVE = f"MATCH (i:Issue) WHERE i.{VECTOR} IS NOT NULL OR i.{TEXT} IS NOT NULL REMOVE i.{VECTOR}, i.{TEXT} RETURN count(i) AS n"
-# The index is approximate, and what it returns depends on how many hits are asked for. So it is
-# checked the way the lookup asks it: forty hits. (Asked for one hit, the scratch copy returned an
-# issue's own vector for 712 of 819; asked for forty, 818 first and one second, a twin title.)
-_SELF = f"""
-MATCH (i:Issue)
-CALL (i) {{
-  CALL db.index.vector.queryNodes('{INDEX}', 40, i.{VECTOR}) YIELD node, score
-  WITH node ORDER BY score DESC, node.issue_id
-  RETURN collect(node.issue_id) AS found
-}}
-RETURN i.issue_id AS issue_id, found
+# The index is approximate; it is made and asked so that it gives what exact cosine gives (see
+# oxcart/catalogue_lookup.py), and apply checks that on every issue.
+_IDS = f"MATCH (i:Issue) WHERE i.{VECTOR} IS NOT NULL RETURN i.issue_id AS issue_id ORDER BY issue_id"
+_FROM_INDEX = f"""
+MATCH (i:Issue {{issue_id: $issue_id}})
+CALL db.index.vector.queryNodes('{INDEX}', $ask, i.{VECTOR}) YIELD node, score
+RETURN node.issue_id AS issue_id ORDER BY score DESC, issue_id LIMIT 40
+"""
+_EXACT = f"""
+MATCH (i:Issue {{issue_id: $issue_id}})
+MATCH (other:Issue) WHERE other.{VECTOR} IS NOT NULL
+WITH other, vector.similarity.cosine(other.{VECTOR}, i.{VECTOR}) AS score
+RETURN other.issue_id AS issue_id ORDER BY score DESC, issue_id LIMIT 40
 """
 
 
-def own_places(session) -> tuple:
-    """Each issue asked for by its own short vector: how many come back first, second or third, or not at all."""
-    first = near = 0
-    total = 0
-    for record in session.run(_SELF):
-        total += 1
-        place = record["found"].index(record["issue_id"]) + 1 if record["issue_id"] in record["found"] else None
-        first += place == 1
-        near += place in (2, 3)
-    return total, first, near
+def index_against_exact(session) -> dict:
+    """Every issue asked for by its own short vector, from the index and by exact cosine."""
+    out = {"issues": 0, "same_40": 0, "same_39": 0, "fewer": 0, "own_in_three": 0}
+    for issue_id in [record["issue_id"] for record in session.run(_IDS)]:
+        found = [r["issue_id"] for r in session.run(_FROM_INDEX, issue_id=issue_id, ask=SHORT_INDEX_ASK)]
+        exact = [r["issue_id"] for r in session.run(_EXACT, issue_id=issue_id)]
+        shared = len(set(found) & set(exact))
+        out["issues"] += 1
+        out["same_40" if shared == len(exact) else "same_39" if shared == len(exact) - 1 else "fewer"] += 1
+        out["own_in_three"] += issue_id in found[:3]
+    return out
 
 
 def plain(value):
@@ -180,13 +186,15 @@ def apply(session, write: bool) -> int:
     session.run("CALL db.awaitIndex($name, 300)", name=INDEX).consume()
     after, size_after = rest_digest(session), sizes(session)
     left = plan(session)["todo"]
-    total, first, near = own_places(session)
-    ok = not left and before == after and size_before == size_after and first + near == total and index_state(session) == "ONLINE"
+    check = index_against_exact(session)
+    ok = (not left and before == after and size_before == size_after and index_state(session) == "ONLINE"
+          and check["fewer"] == 0 and check["own_in_three"] == check["issues"] == len(found["issues"]))
     print(f"written: {len(todo)} issues; without a current short vector now: {len(left)}; index {INDEX}: {index_state(session)}")
     print(f"every other issue property: digest {before} before, {after} after ({'equal' if before == after else 'DIFFERENT'})")
     print(f"nodes and relationships: {size_before} before, {size_after} after")
-    print(f"asked the index for each of {total} issues by its own vector: {first} came back first, "
-          f"{near} second or third, {total - first - near} not among the first three")
+    print(f"the index against exact cosine, each of {check['issues']} issues asked for by its own vector: the same 40 for "
+          f"{check['same_40']}, 39 of the 40 for {check['same_39']}, fewer for {check['fewer']}; "
+          f"the issue itself among the first three for {check['own_in_three']}")
     print("OK" if ok else "FAILED: run `undo --write` to take the change away")
     return 0 if ok else 1
 

@@ -140,10 +140,17 @@ CALL db.index.vector.queryNodes('issue_vec_idx', $limit, $vector) YIELD node AS 
 RETURN i.issue_id AS issue_id, i.title AS title, i.issue_dates AS issue_dates, score
 ORDER BY score DESC
 """
+# A vector index is approximate, and how near it comes depends on how many hits it is asked for.
+# Measured on a copy of the graph, 96 questions, against exact cosine: asked for 40 hits, an index
+# with Neo4j's default compression returned 37 of the exact 40 on average and another first three
+# for 15 questions. Made without compression and asked for more hits than there are issues, it
+# returned the exact 40 in the exact order for all 96, in about 9 ms. So the short index is made
+# that way (scripts/issue_short_vectors.py) and asked that way: SHORT_INDEX_ASK hits, the best kept.
+SHORT_INDEX_ASK = 2000
 _BY_SHORT_VECTOR = """
-CALL db.index.vector.queryNodes('issue_short_vec_idx', $limit, $vector) YIELD node AS i, score
+CALL db.index.vector.queryNodes('issue_short_vec_idx', $ask, $vector) YIELD node AS i, score
 RETURN i.issue_id AS issue_id, i.title AS title, i.issue_dates AS issue_dates, score
-ORDER BY score DESC
+ORDER BY score DESC, issue_id LIMIT $limit
 """
 _BY_YEAR = """
 MATCH (i:Issue)
@@ -185,10 +192,10 @@ def find_issues(session, question: str, k: int = 3, text_limit: int = 40,
     words are left out when the meaning is available.
 
     ``use_short``: also use the short vector index, with the same question vector. Its hits
-    are named "title" in ``matched_by``. Measured offline before it was built: on 15
-    questions a collector would type, a wanted issue first for 11 against 9, and among the
-    first three for 13 against 12; on the 80 catalogue questions, first for 75 against 78
-    and among the first three for all 80 either way."""
+    are named "title" in ``matched_by``. Measured on a copy of the graph: on 15 questions a
+    collector would type, a wanted issue first for 11 against 9, and among the first three
+    for 13 against 12; on the 80 catalogue questions, first for 75 against 78 and among the
+    first three for all 80 either way."""
     if use_text is None:
         use_text = question_vector is None
     parsed = parse(question)
@@ -225,7 +232,8 @@ def find_issues(session, question: str, k: int = 3, text_limit: int = 40,
     if question_vector and use_short:
         indexes.append((_BY_SHORT_VECTOR, SHORT_VECTOR_WEIGHT, "title"))
     for query, weight, reason in indexes:
-        rows = list(session.run(query, vector=question_vector, limit=text_limit))
+        more = {"ask": SHORT_INDEX_ASK} if query is _BY_SHORT_VECTOR else {}
+        rows = list(session.run(query, vector=question_vector, limit=text_limit, **more))
         scores = [r["score"] for r in rows]
         top, low = max(scores, default=0.0), min(scores, default=0.0)
         for r in rows:
