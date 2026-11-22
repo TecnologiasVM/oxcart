@@ -157,6 +157,19 @@ def test_each_step_is_given_only_what_it_declares():
     assert result["answer"] == {"state": "not_covered"}
 
 
+def test_a_question_that_stands_alone_is_searched_in_the_visitors_own_words(chat_client, model, fakes):
+    # the page has one box: a new subject typed there comes with the earlier turns too
+    client = chat_client()
+    for word in ("UNCHANGED", " unchanged. ", '"Unchanged"', "It names its subject, so it can stand alone. UNCHANGED"):
+        model.standalone = word
+        evidence, answer = lines_of(ask(client, "Who printed the 1901 made-up issue?", THREAD))
+        assert evidence["rewritten"] is False                              # so the page says no "Searched as"
+        assert evidence["evidence"]["question"] == "Who printed the 1901 made-up issue?"
+        assert fakes.seen["embed"] == "Who printed the 1901 made-up issue?" and model.writes[-1][0] == "Who printed the 1901 made-up issue?"
+        assert answer["answer"]["state"] == "ok"
+    assert "stands_alone" in answer_model.REWRITE_INSTRUCTIONS and "Never add the country" in answer_model.REWRITE_INSTRUCTIONS
+
+
 def test_a_rewrite_that_fails_or_is_too_long_leaves_the_question_as_written(chat_client, model, fakes):
     client = chat_client()
     model.standalone = "w" * (settings.ASK_MAX_QUESTION_CHARS + 1)
@@ -537,9 +550,16 @@ def test_the_request_has_the_settings_asked_for_and_keeps_the_evidence_out_of_th
 
 def test_the_rewrite_request_is_small_and_has_no_evidence(monkeypatch):
     monkeypatch.setattr(settings, "ANSWER_THINKING", "disabled")
-    model = claude(response(content=[text_block(STANDALONE)]))
+    model = claude(response(content=[text_block(json.dumps({"stands_alone": False, "question": STANDALONE}))]))
     reply = model.rewrite("And its perforation?", THREAD)
     request = model._client.messages.requests[0]
+    # the reply is held to a shape: a flag and a question, so no reasons can stand before what is searched
+    assert request["output_config"] == {"effort": "low", "format": {"type": "json_schema", "schema": answer_model.REWRITE_SCHEMA}}
+    alone = claude(response(content=[text_block(json.dumps({"stands_alone": True, "question": ""}))])).rewrite("Who printed it?", THREAD)
+    assert alone.state == "ok" and alone.text == answer_model.UNCHANGED
+    empty = claude(response(content=[text_block(json.dumps({"stands_alone": False, "question": " "}))])).rewrite("Who printed it?", THREAD)
+    assert empty.text == answer_model.UNCHANGED
+    assert claude(response(content=[text_block("not the shape asked for")])).rewrite("Who printed it?", THREAD).state == "unreadable"
     assert request["max_tokens"] == settings.REWRITE_MAX_TOKENS and model._client.timeouts == [settings.REWRITE_TIMEOUT_SECONDS]
     assert isinstance(request["messages"][0]["content"], str) and EARLIER in request["messages"][0]["content"]
     assert EARLIER not in request["system"] and reply.text == STANDALONE
