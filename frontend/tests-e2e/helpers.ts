@@ -1,4 +1,5 @@
 import { expect, Page } from "@playwright/test";
+import { deflateSync } from "node:zlib";
 
 /*
  * What the browser tests of the question page share: made-up fixtures, the service mocked in
@@ -175,7 +176,53 @@ export async function checkInReach(page: Page) {
   expect(problems).toEqual([]);
 }
 
+/*
+ * The figures host the browser tests are built against (NEXT_PUBLIC_FIGURES_BASE in the build: CI
+ * and playwright.config.ts set it). Nothing is fetched from it: every request to it is routed, and
+ * without a test's own route it answers 404, so the first screen has no plate.
+ */
+export const FIGURES_HOST = "https://figures.invalid";
+
+const CRC = Array.from({ length: 256 }, (_, n) => {
+  let c = n;
+  for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  return c >>> 0;
+});
+const crc32 = (buf: Buffer) => {
+  let c = 0xffffffff;
+  for (const byte of buf) c = CRC[(c ^ byte) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+};
+const chunk = (type: string, data: Buffer) => {
+  const head = Buffer.alloc(4);
+  head.writeUInt32BE(data.length);
+  const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(body));
+  return Buffer.concat([head, body, crc]);
+};
+/** A made-up picture: a plain PNG of this many pixels, in one colour. */
+export function png(width: number, height: number, rgb: [number, number, number] = [180, 160, 120]): Buffer {
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr.set([8, 2, 0, 0, 0], 8); // 8 bits, RGB
+  const row = Buffer.concat([Buffer.from([0]), Buffer.from(Array.from({ length: width }, () => rgb).flat())]);
+  const raw = Buffer.concat(Array.from({ length: height }, () => row));
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))]);
+}
+
+/** Serve made-up pictures from the figures host: `<id>.png` at the size given for that id. */
+export async function serveFigures(page: Page, sizes: Record<string, [number, number]>) {
+  await page.route(`${FIGURES_HOST}/*.png`, (route) => {
+    const id = new URL(route.request().url()).pathname.slice(1, -4);
+    const size = sizes[id];
+    return size ? route.fulfill({ contentType: "image/png", body: png(size[0], size[1]) }) : route.fulfill({ status: 404, body: "" });
+  });
+}
+
 export async function mock(page: Page, options: Mock = {}) {
+  await page.route(`${FIGURES_HOST}/**`, (route) => route.fulfill({ status: 404, body: "" }));
   await page.route(/^https:\/\/challenges\.cloudflare\.com\/turnstile\//, (route) =>
     route.fulfill({ contentType: "text/javascript", body: TURNSTILE_STUB }));
   await page.route("**/api/session", (route) => route.fulfill({ json: { session: "test-session", expires_in: 600 } }));

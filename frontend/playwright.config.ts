@@ -9,6 +9,9 @@ import { defineConfig, devices } from "@playwright/test";
 // OXCART_TEST_PORT: another port for the site under test, when 3000 is taken on the machine.
 const port = Number(process.env.OXCART_TEST_PORT || 3000);
 const site = `http://localhost:${port}`;
+// The figures host the browser tests route (tests-e2e/helpers.ts). A dev server started here takes it
+// from this; a built site (CI) must be built with the same value.
+process.env.NEXT_PUBLIC_FIGURES_BASE ??= "https://figures.invalid";
 
 export default defineConfig({
   testDir: "./tests-e2e",
