@@ -318,6 +318,121 @@ Per-question outcomes of the five runs: `eval/outcomes/answers_thinking-off.json
 `answers_thinking-on-first.json`, `answers_thinking-on.json`, `answers_hosted.json`, `answers_hosted-2.json` (ids, how each ended, sentence and citation counts,
 token counts, the judge's marks; no answer and no passage).
 
+## What was tried to raise the literature answers
+
+After the answers above were served, the literature part was the weak one: about 10 of 41 answers agree with
+the reference in full. This part reports everything that was tried on it, with what did not help.
+
+### Read this first
+
+- **These are the development questions.** Answers to them were read while the instructions were revised, so
+  nothing here is a held-out result. A sealed set of 50 questions was made before any change
+  (`eval/data/sealed/`); it has not been run yet.
+- **Marks are a model's** (`gpt-6.1-sol`, high effort). No person has checked them. A second model marked a part
+  of them again; that is reported below.
+- **Three runs a setting** unless a row says otherwise, because the writer's answers change from run to run. The
+  first row shows by how much: five runs of one setting. A difference inside that spread is not a finding.
+- **Two marks of an answer.** "In full" is the mark used above: the answer agrees with the reference in full. A
+  second mark was added, in a separate pass of the judge with its own instructions: **does the answer give what
+  the question asks** (the date, the name, the reason, the list it requests), and does that agree with the
+  reference? Leaving out further detail the question did not ask for does not lower it. The first pass was not
+  changed; a test pins its instructions.
+- **Rows marked "not a system"** give the writer passages from pages already known to answer the question. No
+  search can know that. They measure what the writer does with the right evidence.
+- Costs are from the token counts the API returned, at the list prices of the day, for a literature question.
+
+### One writer, different evidence and settings
+
+The writer is Claude Haiku 5.5 at effort `low`, as served, in every row but one. Counts of 41 questions.
+
+| Setting | Supported | In full | Gives what is asked | USD a question |
+|---|---|---|---|---|
+| As served: five passages, the first 700 characters of each (five runs) | 27, 24, 27, 31, 24 | 10, 9, 8, 9, 12 | 17, 19, 14, 16, 16 | 0.00089 |
+| The 700 characters of a passage nearest the question | 25, 29, 30 | 10, 12, 10 | 18, 21, 20 | 0.00087 |
+| Eight passages | 26, 28, 27 | 10, 9, 10 | 19, 18, 18 | 0.00100 |
+| Nearest excerpt and eight passages | 26, 27, 27 | 12, 10, 13 | 21, 19, 19 | 0.00101 |
+| A step that grades 15 passages, keeps up to 8, and may search once more | 27, 26, 30 | 12, 12, 14 | 21, 18, 21 | 0.00144 |
+| That step with the nearest excerpt | 20, 24, 27 | 14, 15, 12 | 21, 23, 19 | 0.00143 |
+| A rebuilt collection, five passages | 25, 32, 30 | 10, 9, 9 | 14, 14, 16 | 0.00090 |
+| The rebuilt collection, ten passages | 29, 24, 24 | 12, 13, 12 | 18, 17, 18 | 0.00109 |
+| Nearest excerpt; the writer reads up to 2,000 characters of a passage | 25, 23, 26 | 10, 9, 11 | 20, 19, 17 | 0.00100 |
+| Nearest excerpt; the writer reads up to 4,000 characters | 26, 27, 21 | 12, 10, 14 | 19, 17, 20 | 0.00108 |
+| Nearest excerpt; the writer at effort `high` | 21, 26, 31 | 10, 11, 10 | 20, 18, 20 | 0.00127 |
+| Not a system: five passages of pages known to answer, 700 characters | 28, 30, 31 | 13, 14, 14 | 20, 19, 22 | 0.00091 |
+| Not a system: the same passages, up to 4,000 characters | 30, 26, 30 | 17, 14, 13 | 27, 21, 25 | 0.00125 |
+
+- **No setting that could be served moves the answers out of the spread of the first row.** The grading step
+  comes nearest (about three more answers in full) for 60% more cost and a later first line on the page.
+- **The search is not the limit by itself.** Five passages of pages known to answer, each cut to the 700
+  characters nearest the question, against the second row (the found passages, cut the same way): about three
+  more answers in full (13, 14, 14 against 10, 12, 10) and about as many that give what is asked (20, 19, 22
+  against 18, 21, 20). Against the first row, as served, it is about four more of each (means of 9.6 in full
+  and 16.4 that give what is asked).
+- **More text is not the limit by itself.** Reading 2,000 or 4,000 characters of the passages the search finds
+  changes nothing.
+- **Both together move it:** the right passages and up to 4,000 characters of each give what is asked in 21 to
+  27 of 41. A question has about two pages that answer it among the five passages the search shows.
+- **The rebuilt collection** (the full text of each passage instead of its first 12,000 characters, repeated
+  lines cut, pieces of about 1,000 characters, new vectors) ranks better: a page that answers is first for 63% of
+  the questions against 51%. The written answers did not follow. It is not served.
+- 13 of the 41 questions never get "gives what is asked" in 14 runs of the served writer on the found passages.
+  With the known passages at 700 characters 12 of them still do not; at 4,000 characters, 9.
+
+### A stronger writer, and a second judge
+
+Same instructions, same effort (`low`), same evidence; only the model that writes changes. None of this is
+served.
+
+The two stronger writers were given more room than the served one: 4,000 tokens for thinking on top of the
+answer's limit (1,500 as served) and 60 seconds for a reply (12 as served). No answer of theirs was cut by the
+limit.
+
+| Writer and evidence | Runs | Written | Supported | In full | Gives what is asked | USD a question |
+|---|---|---|---|---|---|---|
+| Haiku 5.5, nearest excerpt | 3 | 41, 41, 41 | 25, 29, 30 | 10, 12, 10 | 18, 21, 20 | 0.00087 |
+| Sonnet 5.5, nearest excerpt | 3 | 40, 40, 40 | 37, 34, 32 | 16, 16, 15 | 21, 21, 22 | 0.0130 |
+| Opus 5.5, nearest excerpt | 2 | 38, 35 | 26, 28 | 10, 13 | 15, 17 | 0.0291 |
+| Haiku 5.5, known passages at 4,000 characters (not a system) | 3 | 41, 41, 41 | 30, 26, 30 | 17, 14, 13 | 27, 21, 25 | 0.00125 |
+| Sonnet 5.5, known passages at 4,000 characters (not a system) | 2 | 41, 41 | 35, 35 | 17, 19 | 25, 29 | 0.0200 |
+| Opus 5.5, known passages at 4,000 characters (not a system) | 1 | 39 | 27 | 23 | 27 | 0.0426 |
+
+- **The writer is not what holds back "gives what is asked".** On the same evidence Sonnet gives it for 21 or 22
+  questions where Haiku gives it for 18 to 21; Opus for fewer, because for 3 and 6 questions every sentence it
+  wrote lacked a citation and nothing was shown. On that evidence neither answers any of the 13 questions above.
+- **Sonnet's answers are more often supported and more often complete** (about 16 in full against about 11), at
+  15 times the cost of a question.
+- With the known passages the three writers are close on "gives what is asked" (21 to 29); one run of Opus is
+  the most complete (23 in full).
+
+**A second judge.** Claude Opus 5.5 marked "gives what the question asks" again on the 205 literature answers of
+the five runs of the first row, from the same instructions and the same inputs as the usual judge.
+
+| Usual judge, by row; second judge, by column | yes | partly | no |
+|---|---|---|---|
+| yes | 73 | 9 | 0 |
+| partly | 10 | 71 | 3 |
+| no | 0 | 6 | 33 |
+
+The two give the same mark for 177 of 205 answers (86%), and stand on the same side of yes against not-yes for
+186 (91%). No answer is "yes" for one and "no" for the other. Totals: 82 and 83 "yes". Cohen's kappa, which
+takes out the agreement two judges would reach by chance: 0.78 over the three marks, 0.81 on yes against
+not-yes. Two models agreeing is not a person checking; it says the mark does not rest on one vendor's reading.
+
+### What was kept
+
+- **The nearest excerpt**, behind a setting (`ASK_EXCERPT=nearest`): it costs nothing and nothing falls. It is
+  not a measured gain: its rows are inside the spread.
+- **A catalogue card's lines as phrases, in the language of the question, with dates in words.** The model sets
+  a cited line into its own sentence, so answers held "placed on sale: 1999-11-05" and, in Spanish answers, the
+  line in English. Three runs of all 151 questions with the change: catalogue answers holding a date in that
+  form 0 of 75, 75 and 76 (11 of 74 before); answers the judge marks as in another language 1, 0 and 1 (3
+  before); catalogue supported 56, 58 and 66 of 80 and correct 72, 73 and 72 (before: 59 to 65 and 69 to 76 in
+  five runs); out of scope with no answer 28, 27 and 28 of 30.
+- **Not kept:** eight passages, the grading step (measured above; its code is not in this repository), the
+  rebuilt collection, a longer reading limit, a higher effort, a stronger writer.
+
+Counts of every run, with no text: `eval/outcomes/answers_literature_settings.json`.
+
 ## Other limits
 
 - The pool that produced the gold was built from keyword, vector and hybrid search, so those arms are favoured

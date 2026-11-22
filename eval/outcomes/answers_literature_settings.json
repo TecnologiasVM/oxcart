@@ -1,0 +1,983 @@
+{
+ "what": "Literature part of the development questions (41). Marks by the judge model gpt-6.1-sol; no person checked them. supported: every shown sentence is stated by the sources it cites. in_full: agrees with the reference in full. asked_yes: gives what the question asks (a second pass of the judge).",
+ "groups": [
+  {
+   "setting": "served",
+   "what": "The served graph (main d27e269): five passages, each passage's first 700 characters",
+   "model": "claude-haiku-5-5",
+   "usd_per_mtok": {
+    "input": 0.1,
+    "output": 0.5
+   },
+   "runs": [
+    {
+     "run": "thinking-on",
+     "questions": 41,
+     "written": 41,
+     "supported": 27,
+     "in_full": 10,
+     "in_part": 29,
+     "not": 2,
+     "asked_yes": 17,
+     "asked_partly": 18,
+     "asked_no": 6,
+     "input_tokens_mean": 4523,
+     "output_tokens_mean": 881,
+     "usd_a_question": 0.00089
+    },
+    {
+     "run": "hosted",
+     "questions": 41,
+     "written": 41,
+     "supported": 24,
+     "in_full": 9,
+     "in_part": 32,
+     "not": 0,
+     "asked_yes": 19,
+     "asked_partly": 13,
+     "asked_no": 9,
+     "input_tokens_mean": 4523,
+     "output_tokens_mean": 867,
+     "usd_a_question": 0.00089
+    },
+    {
+     "run": "base-2",
+     "questions": 41,
+     "written": 41,
+     "supported": 27,
+     "in_full": 8,
+     "in_part": 31,
+     "not": 2,
+     "asked_yes": 14,
+     "asked_partly": 18,
+     "asked_no": 9,
+     "input_tokens_mean": 4523,
+     "output_tokens_mean": 892,
+     "usd_a_question": 0.0009
+    },
+    {
+     "run": "base-3",
+     "questions": 41,
+     "written": 41,
+     "supported": 31,
+     "in_full": 9,
+     "in_part": 30,
+     "not": 2,
+     "asked_yes": 16,
+     "asked_partly": 17,
+     "asked_no": 8,
+     "input_tokens_mean": 4523,
+     "output_tokens_mean": 871,
+     "usd_a_question": 0.00089
+    },
+    {
+     "run": "base-4",
+     "questions": 41,
+     "written": 41,
+     "supported": 24,
+     "in_full": 12,
+     "in_part": 26,
+     "not": 3,
+     "asked_yes": 16,
+     "asked_partly": 18,
+     "asked_no": 7,
+     "input_tokens_mean": 4523,
+     "output_tokens_mean": 882,
+     "usd_a_question": 0.00089
+    }
+   ]
+  },
+  {
+   "setting": "nearest_excerpt",
+   "what": "The 700 characters of a passage nearest the question",
+   "model": "claude-haiku-5-5",
+   "usd_per_mtok": {
+    "input": 0.1,
+    "output": 0.5
+   },
+   "runs": [
+    {
+     "run": "v1b-1",
+     "questions": 41,
+     "written": 41,
+     "supported": 25,
+     "in_full": 10,
+     "in_part": 29,
+     "not": 2,
+     "asked_yes": 18,
+     "asked_partly": 15,
+     "asked_no": 8,
+     "input_tokens_mean": 4526,
+     "output_tokens_mean": 821,
+     "usd_a_question": 0.00086
+    },
+    {
+     "run": "v1b-2",
+     "questions": 41,
+     "written": 41,
+     "supported": 29,
+     "in_full": 12,
+     "in_part": 28,
+     "not": 1,
+     "asked_yes": 21,
+     "asked_partly": 15,
+     "asked_no": 5,
+     "input_tokens_mean": 4526,
+     "output_tokens_mean": 842,
+     "usd_a_question": 0.00087
+    },
+    {
+     "run": "v1b-3",
+     "questions": 41,
+     "written": 41,
+     "supported": 30,
+     "in_full": 10,
+     "in_part": 30,
+     "not": 1,
+     "asked_yes": 20,
+     "asked_partly": 16,
+     "asked_no": 5,
+     "input_tokens_mean": 4526,
+     "output_tokens_mean": 829,
+     "usd_a_question": 0.00087
+    }
+   ]
+  },
+  {
+   "setting": "eight_passages",
+   "what": "Eight passages in place of five",
+   "model": "claude-haiku-5-5",
+   "usd_per_mtok": {
+    "input": 0.1,
+    "output": 0.5
+   },
+   "runs": [
+    {
+     "run": "v1c-1",
+     "questions": 41,
+     "written": 41,
+     "supported": 26,
+     "in_full": 10,
+     "in_part": 30,
+     "not": 1,
+     "asked_yes": 19,
+     "asked_partly": 17,
+     "asked_no": 5,
+     "input_tokens_mean": 5593,
+     "output_tokens_mean": 890,
+     "usd_a_question": 0.001
+    },
+    {
+     "run": "v1c-2",
+     "questions": 41,
+     "written": 41,
+     "supported": 28,
+     "in_full": 9,
+     "in_part": 32,
+     "not": 0,
+     "asked_yes": 18,
+     "asked_partly": 15,
+     "asked_no": 8,
+     "input_tokens_mean": 5593,
+     "output_tokens_mean": 901,
+     "usd_a_question": 0.00101
+    },
+    {
+     "run": "v1c-3",
+     "questions": 41,
+     "written": 40,
+     "supported": 27,
+     "in_full": 10,
+     "in_part": 30,
+     "not": 0,
+     "asked_yes": 18,
+     "asked_partly": 16,
+     "asked_no": 6,
+     "input_tokens_mean": 5593,
+     "output_tokens_mean": 878,
+     "usd_a_question": 0.001
+    }
+   ]
+  },
+  {
+   "setting": "nearest_excerpt_eight_passages",
+   "what": "Nearest excerpt and eight passages",
+   "model": "claude-haiku-5-5",
+   "usd_per_mtok": {
+    "input": 0.1,
+    "output": 0.5
+   },
+   "runs": [
+    {
+     "run": "v1bc-1",
+     "questions": 41,
+     "written": 41,
+     "supported": 26,
+     "in_full": 12,
+     "in_part": 29,
+     "not": 0,
+     "asked_yes": 21,
+     "asked_partly": 14,
+     "asked_no": 6,
+     "input_tokens_mean": 5601,
+     "output_tokens_mean": 882,
+     "usd_a_question": 0.001
+    },
+    {
+     "run": "v1bc-2",
+     "questions": 41,
+     "written": 41,
+     "supported": 27,
+     "in_full": 10,
+     "in_part": 31,
+     "not": 0,
+     "asked_yes": 19,
+     "asked_partly": 16,
+     "asked_no": 6,
+     "input_tokens_mean": 5601,
+     "output_tokens_mean": 913,
+     "usd_a_question": 0.00102
+    },
+    {
+     "run": "v1bc-3",
+     "questions": 41,
+     "written": 41,
+     "supported": 27,
+     "in_full": 13,
+     "in_part": 28,
+     "not": 0,
+     "asked_yes": 19,
+     "asked_partly": 18,
+     "asked_no": 4,
+     "input_tokens_mean": 5601,
+     "output_tokens_mean": 894,
+     "usd_a_question": 0.00101
+    }
+   ]
+  },
+  {
+   "setting": "grade",
+   "what": "A step that grades 15 passages, keeps at most 8, and may search once more",
+   "model": "claude-haiku-5-5",
+   "usd_per_mtok": {
+    "input": 0.1,
+    "output": 0.5
+   },
+   "runs": [
+    {
+     "run": "v3-1",
+     "questions": 41,
+     "written": 41,
+     "supported": 27,
+     "in_full": 12,
+     "in_part": 29,
+     "not": 0,
+     "asked_yes": 21,
+     "asked_partly": 17,
+     "asked_no": 3,
+     "input_tokens_mean": 9077,
+     "output_tokens_mean": 1092,
+     "usd_a_question": 0.00145
+    },
+    {
+     "run": "v3-2",
+     "questions": 41,
+     "written": 41,
+     "supported": 26,
+     "in_full": 12,
+     "in_part": 29,
+     "not": 0,
+     "asked_yes": 18,
+     "asked_partly": 19,
+     "asked_no": 4,
+     "input_tokens_mean": 9163,
+     "output_tokens_mean": 1057,
+     "usd_a_question": 0.00144
+    },
+    {
+     "run": "v3-3",
+     "questions": 41,
+     "written": 41,
+     "supported": 30,
+     "in_full": 14,
+     "in_part": 26,
+     "not": 1,
+     "asked_yes": 21,
+     "asked_partly": 15,
+     "asked_no": 5,
+     "input_tokens_mean": 9124,
+     "output_tokens_mean": 1020,
+     "usd_a_question": 0.00142
+    }
+   ]
+  },
+  {
+   "setting": "grade_nearest_excerpt",
+   "what": "The grading step with the nearest excerpt",
+   "model": "claude-haiku-5-5",
+   "usd_per_mtok": {
+    "input": 0.1,
+    "output": 0.5
+   },
+   "runs": [
+    {
+     "run": "v3b-1",
+     "questions": 41,
+     "written": 41,
+     "supported": 20,
+     "in_full": 14,
+     "in_part": 27,
+     "not": 0,
+     "asked_yes": 21,
+     "asked_partly": 16,
+     "asked_no": 4,
+     "input_tokens_mean": 9159,
+     "output_tokens_mean": 1005,
+     "usd_a_question": 0.00142
+    },
+    {
+     "run": "v3b-2",
+     "questions": 41,
+     "written": 41,
+     "supported": 24,
+     "in_full": 15,
+     "in_part": 26,
+     "not": 0,
+     "asked_yes": 23,
+     "asked_partly": 15,
+     "asked_no": 3,
+     "input_tokens_mean": 9187,
+     "output_tokens_mean": 1039,
+     "usd_a_question": 0.00144
+    },
+    {
+     "run": "v3b-3",
+     "questions": 41,
+     "written": 41,
+     "supported": 27,
+     "in_full": 12,
+     "in_part": 27,
+     "not": 2,
+     "asked_yes": 19,
+     "asked_partly": 18,
+     "asked_no": 4,
+     "input_tokens_mean": 9171,
+     "output_tokens_mean": 1031,
+     "usd_a_question": 0.00143
+    }
+   ]
+  },
+  {
+   "setting": "rebuilt_collection",
+   "what": "A rebuilt collection (full text, repeats cut, pieces of about 1,000 characters), five passages, nearest excerpt",
+   "model": "claude-haiku-5-5",
+   "usd_per_mtok": {
+    "input": 0.1,
+    "output": 0.5
+   },
+   "runs": [
+    {
+     "run": "r1-1",
+     "questions": 41,
+     "written": 39,
+     "supported": 25,
+     "in_full": 10,
+     "in_part": 27,
+     "not": 2,
+     "asked_yes": 14,
+     "asked_partly": 15,
+     "asked_no": 10,
+     "input_tokens_mean": 4682,
+     "output_tokens_mean": 855,
+     "usd_a_question": 0.0009
+    },
+    {
+     "run": "r1-2",
+     "questions": 41,
+     "written": 41,
+     "supported": 32,
+     "in_full": 9,
+     "in_part": 30,
+     "not": 2,
+     "asked_yes": 14,
+     "asked_partly": 15,
+     "asked_no": 12,
+     "input_tokens_mean": 4682,
+     "output_tokens_mean": 869,
+     "usd_a_question": 0.0009
+    },
+    {
+     "run": "r1-3",
+     "questions": 41,
+     "written": 40,
+     "supported": 30,
+     "in_full": 9,
+     "in_part": 30,
+     "not": 1,
+     "asked_yes": 16,
+     "asked_partly": 16,
+     "asked_no": 8,
+     "input_tokens_mean": 4682,
+     "output_tokens_mean": 877,
+     "usd_a_question": 0.00091
+    }
+   ]
+  },
+  {
+   "setting": "rebuilt_collection_ten",
+   "what": "The rebuilt collection, ten passages",
+   "model": "claude-haiku-5-5",
+   "usd_per_mtok": {
+    "input": 0.1,
+    "output": 0.5
+   },
+   "runs": [
+    {
+     "run": "r1p10-1",
+     "questions": 41,
+     "written": 41,
+     "supported": 29,
+     "in_full": 12,
+     "in_part": 28,
+     "not": 1,
+     "asked_yes": 18,
+     "asked_partly": 17,
+     "asked_no": 6,
+     "input_tokens_mean": 6538,
+     "output_tokens_mean": 878,
+     "usd_a_question": 0.00109
+    },
+    {
+     "run": "r1p10-2",
+     "questions": 41,
+     "written": 40,
+     "supported": 24,
+     "in_full": 13,
+     "in_part": 27,
+     "not": 0,
+     "asked_yes": 17,
+     "asked_partly": 18,
+     "asked_no": 5,
+     "input_tokens_mean": 6538,
+     "output_tokens_mean": 851,
+     "usd_a_question": 0.00108
+    },
+    {
+     "run": "r1p10-3",
+     "questions": 41,
+     "written": 41,
+     "supported": 24,
+     "in_full": 12,
+     "in_part": 26,
+     "not": 3,
+     "asked_yes": 18,
+     "asked_partly": 15,
+     "asked_no": 8,
+     "input_tokens_mean": 6538,
+     "output_tokens_mean": 896,
+     "usd_a_question": 0.0011
+    }
+   ]
+  },
+  {
+   "setting": "reads_2000",
+   "what": "Nearest excerpt; the writer reads up to 2,000 characters of a passage",
+   "model": "claude-haiku-5-5",
+   "usd_per_mtok": {
+    "input": 0.1,
+    "output": 0.5
+   },
+   "runs": [
+    {
+     "run": "t2k-1",
+     "questions": 41,
+     "written": 40,
+     "supported": 25,
+     "in_full": 10,
+     "in_part": 29,
+     "not": 1,
+     "asked_yes": 20,
+     "asked_partly": 14,
+     "asked_no": 6,
+     "input_tokens_mean": 5468,
+     "output_tokens_mean": 895,
+     "usd_a_question": 0.00099
+    },
+    {
+     "run": "t2k-2",
+     "questions": 41,
+     "written": 40,
+     "supported": 23,
+     "in_full": 9,
+     "in_part": 31,
+     "not": 0,
+     "asked_yes": 19,
+     "asked_partly": 14,
+     "asked_no": 7,
+     "input_tokens_mean": 5468,
+     "output_tokens_mean": 942,
+     "usd_a_question": 0.00102
+    },
+    {
+     "run": "t2k-3",
+     "questions": 41,
+     "written": 41,
+     "supported": 26,
+     "in_full": 11,
+     "in_part": 29,
+     "not": 1,
+     "asked_yes": 17,
+     "asked_partly": 16,
+     "asked_no": 8,
+     "input_tokens_mean": 5468,
+     "output_tokens_mean": 881,
+     "usd_a_question": 0.00099
+    }
+   ]
+  },
+  {
+   "setting": "reads_4000",
+   "what": "Nearest excerpt; the writer reads up to 4,000 characters of a passage",
+   "model": "claude-haiku-5-5",
+   "usd_per_mtok": {
+    "input": 0.1,
+    "output": 0.5
+   },
+   "runs": [
+    {
+     "run": "t4k-1",
+     "questions": 41,
+     "written": 41,
+     "supported": 26,
+     "in_full": 12,
+     "in_part": 29,
+     "not": 0,
+     "asked_yes": 19,
+     "asked_partly": 14,
+     "asked_no": 8,
+     "input_tokens_mean": 6213,
+     "output_tokens_mean": 913,
+     "usd_a_question": 0.00108
+    },
+    {
+     "run": "t4k-2",
+     "questions": 41,
+     "written": 41,
+     "supported": 27,
+     "in_full": 10,
+     "in_part": 30,
+     "not": 1,
+     "asked_yes": 17,
+     "asked_partly": 18,
+     "asked_no": 6,
+     "input_tokens_mean": 6213,
+     "output_tokens_mean": 936,
+     "usd_a_question": 0.00109
+    },
+    {
+     "run": "t4k-3",
+     "questions": 41,
+     "written": 41,
+     "supported": 21,
+     "in_full": 14,
+     "in_part": 27,
+     "not": 0,
+     "asked_yes": 20,
+     "asked_partly": 15,
+     "asked_no": 6,
+     "input_tokens_mean": 6213,
+     "output_tokens_mean": 898,
+     "usd_a_question": 0.00107
+    }
+   ]
+  },
+  {
+   "setting": "effort_high",
+   "what": "Nearest excerpt; the writer at effort high",
+   "model": "claude-haiku-5-5",
+   "usd_per_mtok": {
+    "input": 0.1,
+    "output": 0.5
+   },
+   "runs": [
+    {
+     "run": "hh-1",
+     "questions": 41,
+     "written": 41,
+     "supported": 21,
+     "in_full": 10,
+     "in_part": 29,
+     "not": 2,
+     "asked_yes": 20,
+     "asked_partly": 16,
+     "asked_no": 5,
+     "input_tokens_mean": 4526,
+     "output_tokens_mean": 1579,
+     "usd_a_question": 0.00124
+    },
+    {
+     "run": "hh-2",
+     "questions": 41,
+     "written": 41,
+     "supported": 26,
+     "in_full": 11,
+     "in_part": 28,
+     "not": 2,
+     "asked_yes": 18,
+     "asked_partly": 16,
+     "asked_no": 7,
+     "input_tokens_mean": 4526,
+     "output_tokens_mean": 1703,
+     "usd_a_question": 0.0013
+    },
+    {
+     "run": "hh-3",
+     "questions": 41,
+     "written": 41,
+     "supported": 31,
+     "in_full": 10,
+     "in_part": 29,
+     "not": 2,
+     "asked_yes": 20,
+     "asked_partly": 16,
+     "asked_no": 5,
+     "input_tokens_mean": 4526,
+     "output_tokens_mean": 1630,
+     "usd_a_question": 0.00127
+    }
+   ]
+  },
+  {
+   "setting": "known_passages_700",
+   "what": "Not a system: five passages of pages known to answer, 700 characters each",
+   "model": "claude-haiku-5-5",
+   "usd_per_mtok": {
+    "input": 0.1,
+    "output": 0.5
+   },
+   "runs": [
+    {
+     "run": "ceil-1",
+     "questions": 41,
+     "written": 41,
+     "supported": 28,
+     "in_full": 13,
+     "in_part": 27,
+     "not": 1,
+     "asked_yes": 20,
+     "asked_partly": 18,
+     "asked_no": 3,
+     "input_tokens_mean": 4720,
+     "output_tokens_mean": 886,
+     "usd_a_question": 0.00092
+    },
+    {
+     "run": "ceil-2",
+     "questions": 41,
+     "written": 40,
+     "supported": 30,
+     "in_full": 14,
+     "in_part": 26,
+     "not": 0,
+     "asked_yes": 19,
+     "asked_partly": 20,
+     "asked_no": 1,
+     "input_tokens_mean": 4720,
+     "output_tokens_mean": 857,
+     "usd_a_question": 0.0009
+    },
+    {
+     "run": "ceil-3",
+     "questions": 41,
+     "written": 41,
+     "supported": 31,
+     "in_full": 14,
+     "in_part": 27,
+     "not": 0,
+     "asked_yes": 22,
+     "asked_partly": 14,
+     "asked_no": 5,
+     "input_tokens_mean": 4720,
+     "output_tokens_mean": 862,
+     "usd_a_question": 0.0009
+    }
+   ]
+  },
+  {
+   "setting": "known_passages_4000",
+   "what": "Not a system: the same passages, up to 4,000 characters each",
+   "model": "claude-haiku-5-5",
+   "usd_per_mtok": {
+    "input": 0.1,
+    "output": 0.5
+   },
+   "runs": [
+    {
+     "run": "cfull-1",
+     "questions": 41,
+     "written": 41,
+     "supported": 30,
+     "in_full": 17,
+     "in_part": 24,
+     "not": 0,
+     "asked_yes": 27,
+     "asked_partly": 13,
+     "asked_no": 1,
+     "input_tokens_mean": 7747,
+     "output_tokens_mean": 932,
+     "usd_a_question": 0.00124
+    },
+    {
+     "run": "cfull-2",
+     "questions": 41,
+     "written": 41,
+     "supported": 26,
+     "in_full": 14,
+     "in_part": 27,
+     "not": 0,
+     "asked_yes": 21,
+     "asked_partly": 19,
+     "asked_no": 1,
+     "input_tokens_mean": 7747,
+     "output_tokens_mean": 966,
+     "usd_a_question": 0.00126
+    },
+    {
+     "run": "cfull-3",
+     "questions": 41,
+     "written": 41,
+     "supported": 30,
+     "in_full": 13,
+     "in_part": 28,
+     "not": 0,
+     "asked_yes": 25,
+     "asked_partly": 16,
+     "asked_no": 0,
+     "input_tokens_mean": 7747,
+     "output_tokens_mean": 929,
+     "usd_a_question": 0.00124
+    }
+   ]
+  },
+  {
+   "setting": "sonnet",
+   "what": "Nearest excerpt; the writer is claude-sonnet-5-5",
+   "model": "claude-sonnet-5-5",
+   "usd_per_mtok": {
+    "input": 2.0,
+    "output": 10.0
+   },
+   "runs": [
+    {
+     "run": "son-1",
+     "questions": 41,
+     "written": 40,
+     "supported": 37,
+     "in_full": 16,
+     "in_part": 22,
+     "not": 2,
+     "asked_yes": 21,
+     "asked_partly": 13,
+     "asked_no": 6,
+     "input_tokens_mean": 4609,
+     "output_tokens_mean": 384,
+     "usd_a_question": 0.01306
+    },
+    {
+     "run": "son-2",
+     "questions": 41,
+     "written": 40,
+     "supported": 34,
+     "in_full": 16,
+     "in_part": 22,
+     "not": 2,
+     "asked_yes": 21,
+     "asked_partly": 13,
+     "asked_no": 6,
+     "input_tokens_mean": 4609,
+     "output_tokens_mean": 372,
+     "usd_a_question": 0.01293
+    },
+    {
+     "run": "son-3",
+     "questions": 41,
+     "written": 40,
+     "supported": 32,
+     "in_full": 15,
+     "in_part": 23,
+     "not": 2,
+     "asked_yes": 22,
+     "asked_partly": 13,
+     "asked_no": 5,
+     "input_tokens_mean": 4609,
+     "output_tokens_mean": 371,
+     "usd_a_question": 0.01293
+    }
+   ]
+  },
+  {
+   "setting": "opus",
+   "what": "Nearest excerpt; the writer is claude-opus-5-5",
+   "model": "claude-opus-5-5",
+   "usd_per_mtok": {
+    "input": 4.0,
+    "output": 20.0
+   },
+   "runs": [
+    {
+     "run": "opu-1",
+     "questions": 41,
+     "written": 38,
+     "supported": 26,
+     "in_full": 10,
+     "in_part": 27,
+     "not": 1,
+     "asked_yes": 15,
+     "asked_partly": 18,
+     "asked_no": 5,
+     "input_tokens_mean": 4526,
+     "output_tokens_mean": 559,
+     "usd_a_question": 0.02927
+    },
+    {
+     "run": "opu-2",
+     "questions": 41,
+     "written": 35,
+     "supported": 28,
+     "in_full": 13,
+     "in_part": 21,
+     "not": 1,
+     "asked_yes": 17,
+     "asked_partly": 13,
+     "asked_no": 5,
+     "input_tokens_mean": 4526,
+     "output_tokens_mean": 536,
+     "usd_a_question": 0.02883
+    }
+   ]
+  },
+  {
+   "setting": "sonnet_known_passages_4000",
+   "what": "Not a system: known passages at 4,000 characters; the writer is claude-sonnet-5-5",
+   "model": "claude-sonnet-5-5",
+   "usd_per_mtok": {
+    "input": 2.0,
+    "output": 10.0
+   },
+   "runs": [
+    {
+     "run": "sonc-1",
+     "questions": 41,
+     "written": 41,
+     "supported": 35,
+     "in_full": 17,
+     "in_part": 24,
+     "not": 0,
+     "asked_yes": 25,
+     "asked_partly": 16,
+     "asked_no": 0,
+     "input_tokens_mean": 7830,
+     "output_tokens_mean": 435,
+     "usd_a_question": 0.02001
+    },
+    {
+     "run": "sonc-2",
+     "questions": 41,
+     "written": 41,
+     "supported": 35,
+     "in_full": 19,
+     "in_part": 22,
+     "not": 0,
+     "asked_yes": 29,
+     "asked_partly": 11,
+     "asked_no": 1,
+     "input_tokens_mean": 7830,
+     "output_tokens_mean": 435,
+     "usd_a_question": 0.02001
+    }
+   ]
+  },
+  {
+   "setting": "opus_known_passages_4000",
+   "what": "Not a system: known passages at 4,000 characters; the writer is claude-opus-5-5",
+   "model": "claude-opus-5-5",
+   "usd_per_mtok": {
+    "input": 4.0,
+    "output": 20.0
+   },
+   "runs": [
+    {
+     "run": "opuc-1",
+     "questions": 41,
+     "written": 39,
+     "supported": 27,
+     "in_full": 23,
+     "in_part": 16,
+     "not": 0,
+     "asked_yes": 27,
+     "asked_partly": 12,
+     "asked_no": 0,
+     "input_tokens_mean": 7747,
+     "output_tokens_mean": 582,
+     "usd_a_question": 0.04263
+    }
+   ]
+  },
+  {
+   "setting": "card_lines",
+   "what": "Nearest excerpt; a card's lines as phrases in the question's language (the kept setting)",
+   "model": "claude-haiku-5-5",
+   "usd_per_mtok": {
+    "input": 0.1,
+    "output": 0.5
+   },
+   "runs": [
+    {
+     "run": "wr3-1",
+     "questions": 41,
+     "written": 41,
+     "supported": 28,
+     "in_full": 14,
+     "in_part": 27,
+     "not": 0,
+     "asked_yes": 20,
+     "asked_partly": 14,
+     "asked_no": 7,
+     "input_tokens_mean": 4611,
+     "output_tokens_mean": 929,
+     "usd_a_question": 0.00093
+    },
+    {
+     "run": "wr3-2",
+     "questions": 41,
+     "written": 41,
+     "supported": 26,
+     "in_full": 12,
+     "in_part": 27,
+     "not": 2,
+     "asked_yes": 20,
+     "asked_partly": 16,
+     "asked_no": 5,
+     "input_tokens_mean": 4611,
+     "output_tokens_mean": 943,
+     "usd_a_question": 0.00093
+    },
+    {
+     "run": "wr3-3",
+     "questions": 41,
+     "written": 41,
+     "supported": 32,
+     "in_full": 12,
+     "in_part": 27,
+     "not": 2,
+     "asked_yes": 18,
+     "asked_partly": 17,
+     "asked_no": 6,
+     "input_tokens_mean": 4611,
+     "output_tokens_mean": 942,
+     "usd_a_question": 0.00093
+    }
+   ]
+  }
+ ]
+}
