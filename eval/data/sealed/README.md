@@ -11,6 +11,8 @@ the written answers: their answers were read while the instructions were revised
   that work chooses. Both results are published, whatever they say.
 - Its scoring prints counts. Nobody reads the answers written for it, and nothing is changed after its numbers
   are seen.
+- Before a run is scored, every page it showed that the judge has not graded yet is graded, by the same judge
+  with the same instructions. So a page no earlier search brought up is not counted as a miss unread.
 
 ## How it was made
 
@@ -28,10 +30,20 @@ the written answers: their answers were read while the instructions were revised
   3 about Costa Rican stamps but asking for what no publication could hold. For those last 3 the judge graded
   the pooled pages too: none answers them.
 
+## How close it sits to the development set
+
+Measured on 2026-11-21 by a script that prints numbers and no question:
+
+- Of the 20 literature questions, 4 share a gold page graded "answers" with a development question (3, 2, 1 and
+  1 pages), 6 share a gold page of any grade, and 15 share a document.
+- Content words in common with the nearest of the 49 development drafts: at most 25% of a sealed question's
+  words (median 11%); no pair reaches half. Jaccard index: at most 0.20.
+- No catalogue question is about an issue the development set uses.
+
 ## Limits
 
-- The gold is a model's; no person has checked it. A page outside the pool was never graded and counts as a
-  miss if a later search brings it up.
+- The gold is a model's; no person has checked it. A page outside the pool has no grade until a run shows it
+  (see the rule above).
 - The questions were written by a model and were not edited by a person. The assistant that builds the system
   did not write them and has not read them.
 - 50 questions, one run each: small counts.
