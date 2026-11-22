@@ -99,6 +99,7 @@ class Embedder(WarmedInBackground):
         # The last vectors, so a repeated question is not embedded twice. They are kept under a
         # digest of the question, keyed with a value made at start and held nowhere else: the
         # text of a question does not stay in this process after its request.
+        # The page's privacy paragraph names this size (256): change both together.
         self._cache: "collections.OrderedDict[bytes, list]" = collections.OrderedDict()
         self._digest_key = os.urandom(32)
         self._size = cache_size

@@ -60,7 +60,7 @@ export const LABELS = {
     privLine: "Your question goes to outside services. The server does not store it.",
     privMore: "Details",
     privFull:
-      "Your conversation is kept in this browser only; the server does not store your questions. To answer, your question is sent to OpenAI (to search by meaning), and your question, the evidence shown and, for a follow-up, the turns it follows are sent to Anthropic (to write the answer). On your first question, Cloudflare (Turnstile) checks that you are a person.",
+      "Your conversation is kept in this browser only; the server does not store your questions. Until it restarts it holds in memory the numbers computed from the last 256 questions to search by meaning (their vectors), with no text, and it writes nothing to disk. To answer, your question is sent to OpenAI (to search by meaning), and your question, the evidence shown and, for a follow-up, the turns it follows are sent to Anthropic (to write the answer). On your first question, Cloudflare (Turnstile) checks that you are a person.",
     how: "How it works",
     code: "Source code",
     storedAll: "Stored examples: they work while the service wakes.",
@@ -208,7 +208,7 @@ export const LABELS = {
     privLine: "Su pregunta va a servicios externos. El servidor no la guarda.",
     privMore: "Detalles",
     privFull:
-      "Su conversación se guarda solo en este navegador; el servidor no almacena sus preguntas. Para responder, su pregunta se envía a OpenAI (para buscar por significado), y su pregunta, la evidencia mostrada y, en una pregunta de seguimiento, los turnos a los que sigue se envían a Anthropic (para redactar la respuesta). En su primera pregunta, Cloudflare (Turnstile) comprueba que es una persona.",
+      "Su conversación se guarda solo en este navegador; el servidor no almacena sus preguntas. Hasta que se reinicia mantiene en memoria los números calculados de las últimas 256 preguntas para buscar por significado (sus vectores), sin texto, y no escribe nada en disco. Para responder, su pregunta se envía a OpenAI (para buscar por significado), y su pregunta, la evidencia mostrada y, en una pregunta de seguimiento, los turnos a los que sigue se envían a Anthropic (para redactar la respuesta). En su primera pregunta, Cloudflare (Turnstile) comprueba que es una persona.",
     how: "Cómo funciona",
     code: "Código fuente",
     storedAll: "Ejemplos guardados: funcionan mientras el servicio despierta.",

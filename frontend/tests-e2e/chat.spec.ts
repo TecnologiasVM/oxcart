@@ -198,6 +198,9 @@ test("the privacy line stands by the box, and Details unfolds the full paragraph
   await expect(full).toBeVisible();
   for (const name of ["OpenAI", "Anthropic", "Cloudflare"]) await expect(full).toContainText(name);
   await expect(full).not.toContainText("Tavily");                     // the web branch is not served
+  // what the server holds of a question: the vectors of the last 256, in memory, with no text (backend: Embedder)
+  await expect(full).toContainText("last 256 questions");
+  await expect(full).toContainText("writes nothing to disk");
   // the footer is one line, with no company name, and both links lead to the repository
   const footer = page.locator("footer.site-foot");
   await expect(footer).not.toContainText(/OpenAI|Anthropic|Cloudflare/);
