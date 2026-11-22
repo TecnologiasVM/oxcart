@@ -4,7 +4,7 @@
  * that ship with the page.
  *
  * Nothing here stores a question on a server. The conversation is kept by the
- * page in this browser's local storage (see Chat.tsx).
+ * page in this browser's local storage (see lib/conversation.ts).
  */
 import { API_BASE, stripVectors } from "./api";
 
@@ -66,7 +66,18 @@ export type AnswerSource = { n: number; kind: "issue" | "passage"; index: number
  * The written answer. `state` is "ok" (with sentences and sources), "not_covered" (the
  * evidence does not answer the question), or the reason nothing was written.
  */
-export type WrittenAnswer = { state: string; sentences?: AnswerSentence[]; sources?: AnswerSource[] };
+export type WrittenAnswer = { state: string; sentences?: AnswerSentence[]; sources?: AnswerSource[]; counts?: AnswerCounts };
+/** What the check of the citations found: sentences written and removed, citations given and not holding. */
+export type AnswerCounts = {
+  sentences: number;
+  sentences_without_citation: number;
+  citations: number;
+  citations_that_do_not_hold: number;
+};
+/** One model call made for a question: what it was for, how it ended, its tokens and its seconds. */
+export type ModelCall = { purpose: string; state: string; input_tokens: number; output_tokens: number; seconds: number };
+/** What the chat route resolves to: the written answer and the model calls made for it. */
+export type ChatResult = { answer: WrittenAnswer; calls: ModelCall[] };
 /** An earlier turn of a conversation, sent with a follow-up. */
 export type ThreadTurn = { question: string; answer: string };
 export const THREAD_TURNS = 3;
@@ -78,6 +89,19 @@ export type StoredExamples = { generated: string | null; examples: StoredExample
 
 export const MAX_QUESTION_CHARS = 300;
 export const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
+
+declare global {
+  interface Window {
+    /** Set by the browser tests only, to run the human check against a stubbed widget in a build that has no key. */
+    __OXCART_TEST_TURNSTILE_KEY__?: string;
+  }
+}
+
+/** The human check's site key: the build's, or the one a browser test set. Empty: no check. */
+export function turnstileSiteKey(): string {
+  if (TURNSTILE_SITE_KEY) return TURNSTILE_SITE_KEY;
+  return typeof window !== "undefined" ? window.__OXCART_TEST_TURNSTILE_KEY__ || "" : "";
+}
 
 /** A refusal from the backend: a code the page can translate, and a wait when there is one. */
 export class AskError extends Error {
@@ -172,8 +196,8 @@ export async function ask(question: string, session: string | null): Promise<Ask
 /**
  * One question through the route that also writes an answer. The response is lines of
  * JSON sent as they are ready: the evidence first (`onEvidence` is called with it, and with
- * whether a follow-up was rewritten before it was searched), then the written answer,
- * which is what this resolves to.
+ * whether a follow-up was rewritten before it was searched), then the written answer and
+ * the model calls made for it, which is what this resolves to.
  *
  * `thread` holds the earlier turns of the conversation when the question is a follow-up;
  * it is kept by this browser and is the only memory the conversation has.
@@ -186,7 +210,7 @@ export async function chat(
   thread: ThreadTurn[],
   session: string | null,
   onEvidence: (answer: AskAnswer, rewritten: boolean) => void,
-): Promise<WrittenAnswer> {
+): Promise<ChatResult> {
   let res: Response;
   try {
     res = await fetch(`${API_BASE}/api/chat`, {
@@ -202,14 +226,16 @@ export async function chat(
 
   let seen = false;
   let written: WrittenAnswer | null = null;
+  let calls: ModelCall[] = [];
   const take = (line: string) => {
     if (!line.trim()) return;
-    const data = JSON.parse(line) as { type?: string; evidence?: AskAnswer; rewritten?: boolean; answer?: WrittenAnswer };
+    const data = JSON.parse(line) as { type?: string; evidence?: AskAnswer; rewritten?: boolean; answer?: WrittenAnswer; calls?: ModelCall[] };
     if (data.type === "evidence" && data.evidence) {
       seen = true;
       onEvidence(clean(data.evidence), Boolean(data.rewritten));
     } else if (data.type === "answer" && data.answer) {
       written = data.answer;
+      calls = Array.isArray(data.calls) ? data.calls : [];
     }
   };
   try {
@@ -233,7 +259,7 @@ export async function chat(
     /* the connection broke: what arrived before it stands */
   }
   if (!seen) throw new AskError("unreachable", "The service could not be reached.", 0);
-  return written ?? { state: "failed" };
+  return { answer: written ?? { state: "failed" }, calls };
 }
 
 /**
