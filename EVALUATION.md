@@ -344,7 +344,9 @@ the reference in full. This part reports everything that was tried on it, with w
 - **Marks are a model's** (`gpt-6.1-sol`, high effort). No person has checked them. A second model marked a part
   of them again; that is reported below.
 - **Three runs a setting** unless a row says otherwise, because the writer's answers change from run to run. The
-  first row shows by how much: five runs of one setting. A difference inside that spread is not a finding.
+  first row shows by how much: five runs of one setting (a sixth run of it, the repeat through the public
+  host on 2026-11-22, was not given the second mark and is not in the row). A difference inside that spread
+  is not a finding.
 - **Two marks of an answer.** "In full" is the mark used above: the answer agrees with the reference in full. A
   second mark was added, in a separate pass of the judge with its own instructions: **does the answer give what
   the question asks** (the date, the name, the reason, the list it requests), and does that agree with the
