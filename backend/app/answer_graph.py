@@ -107,21 +107,47 @@ def _call(purpose: str, reply: Reply) -> dict:
 
 
 # --------------------------------------------------------------------------- the evidence as sources
+_MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
+           "November", "December")
+_ISO_DATE = re.compile(r"(\d{4})-(\d{2})(?:-(\d{2}))?")
+
+
+def date_in_words(value: Any) -> tuple[str, str]:
+    """("on", "1 May 1940") for 1940-05-01, ("in", "May 1940") for 1940-05; anything else as it is, after ":"."""
+    text = str(value).strip()
+    match = _ISO_DATE.fullmatch(text)
+    if not match or not 1 <= int(match.group(2)) <= 12:
+        return ":", text
+    month = _MONTHS[int(match.group(2)) - 1]
+    if match.group(3) and 1 <= int(match.group(3)) <= 31:
+        return "on", f"{int(match.group(3))} {month} {match.group(1)}"
+    return "in", f"{month} {match.group(1)}"
+
+
 def card_lines(issue: dict) -> list:
-    """A catalogue card as fact lines, one fact per line: what the page prints of the card."""
+    """A catalogue card as fact lines, one fact per line.
+
+    The model cites a line and at times sets it inside its own sentence. So a line is a phrase
+    that can stand there ("placed on sale on 1 May 1940", "printed by ..."), not a label, a
+    colon and a value, and a date is in words, not in the form 1940-05-01."""
     card = issue.get("card") or {}
     lines = [f"Issue: {issue.get('title') or issue.get('issue_id')} ({issue.get('issue_id')})"]
     for key, value in (card.get("dates") or {}).items():
         if value:
-            lines.append(f"{str(key).replace('_', ' ')}: {value}")
+            word, date = date_in_words(value)
+            name = str(key).replace("_", " ")
+            lines.append(f"{name}: {date}" if word == ":" else f"{name} {word} {date}")
     if card.get("printers"):
-        lines.append("printers: " + "; ".join(str(p) for p in card["printers"]))
+        lines.append("printed by " + "; ".join(str(p) for p in card["printers"]))
     if card.get("perforation"):
-        lines.append(f"perforation: {card['perforation']}")
+        lines.append(f"perforation {card['perforation']}")
     for act in card.get("acts") or []:
-        parts = [str(act[k]) for k in ("type", "id", "date") if act.get(k)]
+        parts = [str(act[k]) for k in ("type", "id") if act.get(k)]
+        if act.get("date"):
+            word, date = date_in_words(act["date"])
+            parts.append(date if word == ":" else f"of {date}")
         if parts:
-            lines.append("legal act: " + ", ".join(parts))
+            lines.append("authorized by " + ", ".join(parts))
     for stamp in (card.get("stamps") or [])[:STAMPS_ON_A_CARD]:
         value = " ".join(str(stamp[k]) for k in ("value", "unit") if stamp.get(k) not in (None, ""))
         facts = [("value", value), ("colour", stamp.get("color")), ("quantity", stamp.get("quantity"))]
