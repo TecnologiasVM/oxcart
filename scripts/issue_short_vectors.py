@@ -22,7 +22,8 @@ was written, so nothing else is touched.
 Both verbs change nothing without ``--write``: they print what they would do. With it, each
 proves what it did: a digest of every other property of every issue is taken before and
 after and must be equal, the counts of nodes and relationships must be equal, and ``apply``
-asks the new index for a sample of issues by their own vector and expects each back first.
+asks the new index for every issue by its own vector, forty hits as the lookup asks, and expects
+each back among the first three (two issues can share a title).
 
 The graph's address and login come from the environment, set for this process only
 (``scripts/with-key.sh`` does that from the machine's secret store):
@@ -62,11 +63,30 @@ OPTIONS {{indexConfig: {{`vector.dimensions`: {DIMENSIONS}, `vector.similarity_f
 """
 _SET = f"UNWIND $rows AS row MATCH (i:Issue {{issue_id: row.issue_id}}) SET i.{VECTOR} = row.vector, i.{TEXT} = row.text"
 _REMOVE = f"MATCH (i:Issue) WHERE i.{VECTOR} IS NOT NULL OR i.{TEXT} IS NOT NULL REMOVE i.{VECTOR}, i.{TEXT} RETURN count(i) AS n"
+# The index is approximate, and what it returns depends on how many hits are asked for. So it is
+# checked the way the lookup asks it: forty hits. (Asked for one hit, the scratch copy returned an
+# issue's own vector for 712 of 819; asked for forty, 818 first and one second, a twin title.)
 _SELF = f"""
-MATCH (i:Issue {{issue_id: $issue_id}})
-CALL db.index.vector.queryNodes('{INDEX}', 1, i.{VECTOR}) YIELD node, score
-RETURN node.{TEXT} = i.{TEXT} AS same
+MATCH (i:Issue)
+CALL (i) {{
+  CALL db.index.vector.queryNodes('{INDEX}', 40, i.{VECTOR}) YIELD node, score
+  WITH node ORDER BY score DESC, node.issue_id
+  RETURN collect(node.issue_id) AS found
+}}
+RETURN i.issue_id AS issue_id, found
 """
+
+
+def own_places(session) -> tuple:
+    """Each issue asked for by its own short vector: how many come back first, second or third, or not at all."""
+    first = near = 0
+    total = 0
+    for record in session.run(_SELF):
+        total += 1
+        place = record["found"].index(record["issue_id"]) + 1 if record["issue_id"] in record["found"] else None
+        first += place == 1
+        near += place in (2, 3)
+    return total, first, near
 
 
 def plain(value):
@@ -139,7 +159,7 @@ def status(session) -> None:
     print(f"graph: {nodes} nodes, {relationships} relationships; digest of every other issue property: {rest_digest(session)}")
 
 
-def apply(session, write: bool, sample: int = 25) -> int:
+def apply(session, write: bool) -> int:
     found = plan(session)
     todo = found["todo"]
     distinct = list(dict.fromkeys(i["text"] for i in todo))
@@ -160,14 +180,13 @@ def apply(session, write: bool, sample: int = 25) -> int:
     session.run("CALL db.awaitIndex($name, 300)", name=INDEX).consume()
     after, size_after = rest_digest(session), sizes(session)
     left = plan(session)["todo"]
-    step = max(1, len(found["issues"]) // sample)
-    asked = found["issues"][::step]
-    back = sum(bool(r and r["same"]) for r in (session.run(_SELF, issue_id=i["issue_id"]).single() for i in asked))
-    ok = not left and before == after and size_before == size_after and back == len(asked) and index_state(session) == "ONLINE"
+    total, first, near = own_places(session)
+    ok = not left and before == after and size_before == size_after and first + near == total and index_state(session) == "ONLINE"
     print(f"written: {len(todo)} issues; without a current short vector now: {len(left)}; index {INDEX}: {index_state(session)}")
     print(f"every other issue property: digest {before} before, {after} after ({'equal' if before == after else 'DIFFERENT'})")
     print(f"nodes and relationships: {size_before} before, {size_after} after")
-    print(f"asked the index for {len(asked)} issues by their own vector: {back} came back first")
+    print(f"asked the index for each of {total} issues by its own vector: {first} came back first, "
+          f"{near} second or third, {total - first - near} not among the first three")
     print("OK" if ok else "FAILED: run `undo --write` to take the change away")
     return 0 if ok else 1
 
