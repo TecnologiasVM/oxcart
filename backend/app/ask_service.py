@@ -21,8 +21,10 @@ from __future__ import annotations
 
 import collections
 import logging
+import re
 import threading
 import time
+import unicodedata
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
@@ -265,6 +267,51 @@ def clip(text: str, limit: int) -> tuple[str, bool]:
     return text[:limit].rstrip() + "…", True
 
 
+_TERM = re.compile(r"[^\W\d_]{4,}|\d{2,}")
+# Words that are in every question or every passage of this collection: they tell stretches apart badly.
+_COMMON = frozenset("""
+what when where which whom whose were with from that this these those have does about there their
+como cual cuales cuando donde quien quienes para sobre entre desde hasta esta este estos estas fueron
+costa rica rican stamp stamps issue issues sello sellos emision emisiones costarricense costarricenses
+""".split())
+_WINDOWS = 400      # at most this many stretches of one passage are compared
+
+
+def _terms(text: str) -> set:
+    """Words of four letters or more, and numbers: lower case, accents removed, the common ones left out."""
+    plain = "".join(c for c in unicodedata.normalize("NFKD", text.lower()) if not unicodedata.combining(c))
+    return set(_TERM.findall(plain)) - _COMMON
+
+
+def excerpt(text: str, question: str, limit: int) -> tuple[str, bool]:
+    """At most `limit` characters of a passage: the stretch that shares the most words with the question.
+
+    No model: words are compared as written, so a question in one language finds nothing in a
+    passage in the other, and then the passage's start is shown, as `clip` does. The start is
+    also kept whenever it shares as many words as any other stretch. Otherwise the stretch is
+    the middle one of the first run of best stretches, so the shared words sit inside it and
+    not at its edge. A stretch starts at a word.
+    """
+    text = (text or "").strip()
+    if len(text) <= limit:
+        return text, False
+    wanted = _terms(question)
+    starts = [0] + [m.start() for m in re.finditer(r"(?<=\s)\S", text) if m.start() + limit <= len(text)]
+    starts = starts[:: max(1, len(starts) // _WINDOWS)] + [len(text) - limit]
+    best_start = 0
+    if wanted:
+        shared = [len(wanted & _terms(text[start:start + limit])) for start in starts]
+        best = max(shared)
+        if shared[0] < best:
+            first = shared.index(best)
+            last = first
+            while last + 1 < len(shared) and shared[last + 1] == best:
+                last += 1
+            best_start = starts[(first + last) // 2]
+    stretch = text[best_start:best_start + limit].strip()
+    return ("…" if best_start > 0 else "") + stretch + ("…" if best_start + limit < len(text) else ""), True
+
+
 def _without_vectors(value: Any) -> Any:
     """Drop any key that could hold an embedding, at any depth."""
     if isinstance(value, dict):
@@ -314,7 +361,10 @@ def answer(question: str, deps: AskDeps) -> dict:
 
     shown = []
     for p in passages or []:
-        text, clipped = clip(tidy(p.get("text", "")), settings.ASK_TEXT_LIMIT)
+        if settings.ASK_EXCERPT == "nearest":
+            text, clipped = excerpt(tidy(p.get("text", "")), question, settings.ASK_TEXT_LIMIT)
+        else:
+            text, clipped = clip(tidy(p.get("text", "")), settings.ASK_TEXT_LIMIT)
         shown.append({"doc_id": p.get("doc_id"), "page": p.get("page"), "chunk_type": p.get("chunk_type"),
                       "text": text, "clipped": clipped, "score": p.get("score")})
     timings["total_ms"] = int((time.time() - started) * 1000)
