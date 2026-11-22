@@ -26,8 +26,8 @@ type Props = {
 export default function FirstScreen({ t, draft, setDraft, submit, busy, closed, examples, stored, pick, onBoxFocus }: Props) {
   const left = MAX_QUESTION_CHARS - draft.length;
   return (
-    <div className="first">
-      <div className="first__in">
+    <>
+      <div className="first__part first__head">
         <h1>{t.title}</h1>
         <p className="first__what">{t.what}</p>
         <form
@@ -62,7 +62,9 @@ export default function FirstScreen({ t, draft, setDraft, submit, busy, closed, 
             {left <= 60 && <span className="ask-form__left" data-testid="chars-left">{t.left(left)}</span>}
           </div>
         </form>
-
+      </div>
+      {/* the human check's element stands between these two parts (Chat.tsx) */}
+      <div className="first__part first__more">
         {examples.length > 0 && (
           <section className="examples" aria-labelledby="examples-h">
             <h2 id="examples-h" className="label">{t.examples}</h2>
@@ -81,6 +83,6 @@ export default function FirstScreen({ t, draft, setDraft, submit, busy, closed, 
 
         <p className="first__how"><a href={HOW_URL}>{t.evalLink}</a></p>
       </div>
-    </div>
+    </>
   );
 }

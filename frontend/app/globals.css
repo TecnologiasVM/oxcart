@@ -2281,12 +2281,21 @@ html:has(main.ask) .masthead__bar {
 }
 
 /* ---- the first screen ---- */
-.first__in {
+/* two parts in the page's frame, with the human check's element between them (order) */
+.first__part {
+  width: 100%;
   max-width: calc(var(--read) + 2 * var(--gutter));
   margin: 0 auto;
-  padding: 32px var(--gutter) 48px;
+  padding: 0 var(--gutter);
 }
-.first h1 {
+.first__head {
+  padding-top: 32px;
+}
+.first__more {
+  order: 2;
+  padding-bottom: 48px;
+}
+.first__head h1 {
   font-family: var(--font-serif);
   font-weight: 300;
   font-size: clamp(2.5rem, 1.5rem + 4.4vw, 4.25rem);
@@ -2389,7 +2398,7 @@ html:has(main.ask) .masthead__bar {
   background: var(--color-paper-2);
   border-top: 1px solid var(--color-ink);
 }
-.ask:has(.wake-pin) .first__in {
+.ask:has(.wake-pin) .first__more {
   padding-bottom: 200px;
 }
 .wake {
@@ -2474,20 +2483,26 @@ html:has(main.ask) .masthead__bar {
   .wait-bar span { animation: none; }
   .wait__sign--run { animation: none; border-right-color: var(--color-cobalt); border-style: dotted; }
 }
-/* the human check before a question is sent: rendered, so Cloudflare can run it, and out of sight */
-.check-host {
-  position: fixed;
-  left: -10000px;
-  top: 0;
-  width: 300px;
-  height: 65px;
-  overflow: hidden;
+/* the human check: in the flow, under the box on the first screen and under the newest turn in
+   a thread. Invisible and taking no room unless it needs a click or a sent question waits for it */
+.check {
+  order: 1;
+  width: 100%;
+  max-width: calc(var(--read) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: 0 var(--gutter);
 }
-/* the room Cloudflare's widget takes, kept so nothing moves when it comes or goes */
-.turnstile {
+.conv--first .check:has(.check__say) {
+  padding-top: 16px;
+}
+.check--waiting {
+  padding-bottom: 16px;
+}
+/* the room Cloudflare's widget takes, kept while a question waits so nothing moves when it comes or goes */
+.check--waiting .check__widget {
   width: 300px;
   max-width: 100%;
-  height: 65px;
+  min-height: 65px;
   margin: 10px 0 12px;
 }
 
@@ -2503,12 +2518,21 @@ html:has(main.ask) .masthead__bar {
   flex-direction: column;
   min-height: calc(100vh - var(--masthead-h, 0px));
 }
-.conv__in {
-  flex: 1 0 auto;
+.conv__in,
+.conv__foot {
   width: 100%;
   max-width: calc(var(--read) + 2 * var(--gutter));
   margin: 0 auto;
-  padding: 32px var(--gutter) 24px;
+  padding: 32px var(--gutter) 0;
+}
+.conv__foot {
+  order: 2;
+  flex: 1 0 auto;
+  padding-top: 0;
+  padding-bottom: 24px;
+}
+.dock {
+  order: 3;
 }
 .turn + .turn {
   margin-top: 48px;
@@ -2781,6 +2805,9 @@ button.mark:hover {
 /* ---- the box at the foot of the thread, and the privacy line under it ---- */
 .dock {
   display: contents;
+}
+.dock > * {
+  order: 3; /* under 720 px its parts stand in the frame themselves: after the check and the foot */
 }
 .dock > :first-child {
   margin-top: auto;

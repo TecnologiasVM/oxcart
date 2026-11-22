@@ -16,9 +16,9 @@
  *   and over it below that (components/ask/EvidencePanel.tsx).
  * - Stored examples ship with the page (a static file): a visitor sees real evidence while
  *   the service wakes up, and when it is asleep or gone. They are marked as stored.
- * - A human check (Cloudflare Turnstile) runs once per session. It starts, out of sight, when
- *   the question box first takes focus; only a question sent before it has passed shows it,
- *   standing in that question's turn.
+ * - A human check (Cloudflare Turnstile) runs once per session. It starts when the question box
+ *   first takes focus and stays invisible unless it needs a click; only a question sent before
+ *   it has passed shows its words, under that question.
  * - The service sleeps when nobody uses it. While it wakes the page says so in short lines
  *   that follow one another, with a count of seconds.
  */
@@ -185,9 +185,11 @@ export default function Chat() {
             finish({ answer, rewritten, writing: true });
           });
           finish({ written, calls, writing: false });
+          setBusy(false); // with the answer on the page, so the box takes the next question at once
         } catch (e) {
           if (!(e instanceof AskError) || e.code !== "no_chat_route") throw e;
           finish({ answer: await ask(q, session) }); // a backend without the answer step: the evidence, as before
+          setBusy(false);
         }
       };
       const sessionFor = async (again = false) => {
@@ -256,13 +258,16 @@ export default function Chat() {
     <>
       {slot && createPortal(<HeaderNav t={t} lang={lang} setLang={setLang} />, slot)}
       <main className={`ask${turns.length ? " ask--thread" : ""}${docked ? " ask--ev" : ""}`}>
-        {turns.length === 0 ? (
-          <>
-            <FirstScreen t={t} draft={draft} setDraft={setDraft} submit={submit} busy={busy} closed={closed} examples={examples} stored={stored} pick={pick} onBoxFocus={check.warm} />
-            {status && <div className="wake-pin">{status}</div>}
-          </>
-        ) : (
-          <div className="conv" inert={modal}>
+        {/* the first screen and the thread share one frame, so the human check's element, its
+            second child, stays the same element from the box's first focus on: its widget is
+            never moved, and CSS places it under the box or under the newest turn */}
+        <div className={`conv${turns.length ? "" : " conv--first"}`} inert={modal}>
+          {turns.length === 0 ? (
+            <>
+              <FirstScreen t={t} draft={draft} setDraft={setDraft} submit={submit} busy={busy} closed={closed} examples={examples} stored={stored} pick={pick} onBoxFocus={check.warm} />
+              {status && <div className="wake-pin">{status}</div>}
+            </>
+          ) : (
             <div className="conv__in">
               <h1 className="vh">{t.title}</h1>
               <section className="thread" aria-live="polite" aria-relevant="additions">
@@ -277,16 +282,29 @@ export default function Chat() {
                     storedNote={storedNote(turn)}
                     busy={busy}
                     onEvidence={openEvidence}
-                    attachCheck={check.attach}
                     onAskNow={submit}
                   />
                 ))}
               </section>
+            </div>
+          )}
+          {check.needsCheck && (
+            // page 22: the check's words, and its room kept while a sent question waits for it
+            <div className={`check${check.waiting ? " check--waiting" : ""}`} data-testid="check">
+              {(check.waiting || check.asking) && <p className="check__say">{t.humanCheck}</p>}
+              <div className="check__widget" ref={check.host} data-testid="check-host" />
+              {check.waiting && <p className="wait__line" role="status">{t.humanWaiting}</p>}
+            </div>
+          )}
+          {turns.length > 0 && (
+            <div className="conv__foot">
               {turns.some((turn) => answered(turn.written)) && <p className="thread__note" data-testid="ai-note">{t.noteOnce}</p>}
               <p className="conv__end">
                 <button type="button" className="linkbtn" onClick={clearAll} data-testid="clear">{t.clear}</button>
               </p>
             </div>
+          )}
+          {turns.length > 0 && (
             <div className="dock">
               {status}
               <form
@@ -317,9 +335,8 @@ export default function Chat() {
               </form>
               <PrivacyLine t={t} />
             </div>
-          </div>
-        )}
-        {check.needsCheck && <div className="check-host" ref={check.host} inert aria-hidden="true" data-testid="check-host" />}
+          )}
+        </div>
         {evTurn && (
           <>
             {sheet && <div className="evp-backdrop" onClick={closeEvidence} aria-hidden="true" />}

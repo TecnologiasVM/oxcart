@@ -16,7 +16,7 @@ import { answerGraph } from "@/lib/answer-graph";
 import type { AnswerGraph, GNode, TreeIssue } from "@/lib/answer-graph";
 import type { AskAnswer, IssueCard, ModelCall } from "@/lib/ask";
 import type { Turn } from "@/lib/conversation";
-import { actLine, formatDate, sourceTitle } from "@/lib/evidence-text";
+import { actLine, dateLabel, formatDate, sourceTitle } from "@/lib/evidence-text";
 import type { Labels, Lang } from "@/lib/i18n";
 import { answered, PANEL_ID, sourceId, Warn } from "./parts";
 
@@ -338,7 +338,7 @@ function CardFacts({ card, t, lang }: { card: IssueCard; t: Labels; lang: Lang }
           {dates.length > 0 && (
             <>
               <dt>{t.dates}</dt>
-              <dd className="stack">{dates.map(([k, v]) => <span key={k}>{k.replace(/_/g, " ")}: {formatDate(String(v), lang)}</span>)}</dd>
+              <dd className="stack">{dates.map(([k, v]) => <span key={k}>{dateLabel(k, t.dateNames)}: {formatDate(String(v), lang)}</span>)}</dd>
             </>
           )}
           {printers.length > 0 && <><dt>{t.printers}</dt><dd>{printers.join("; ")}</dd></>}

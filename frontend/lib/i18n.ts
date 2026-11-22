@@ -47,6 +47,14 @@ export const LABELS = {
     perforation: "Perforation",
     acts: "Authorizing act",
     dates: "Dates",
+    // the names of a card's dates, as the catalogue's cards name them; any other is shown as the data has it
+    dateNames: {
+      placed_on_sale: "Placed on sale",
+      probable_first_circulation: "Probable first circulation",
+      announced: "Announced",
+      demonetized: "Demonetized",
+      second_plate_sale: "Second plate sale",
+    } as Record<string, string>,
     waitWaking: "Waking the service…",
     waitAwake: "The service is awake.",
     waitConnecting: "Connecting to the catalogue and the literature…",
@@ -189,6 +197,13 @@ export const LABELS = {
     perforation: "Perforación",
     acts: "Acto que la autoriza",
     dates: "Fechas",
+    dateNames: {
+      placed_on_sale: "Puesta a la venta",
+      probable_first_circulation: "Primera circulación probable",
+      announced: "Anunciada",
+      demonetized: "Desmonetizada",
+      second_plate_sale: "Venta de la segunda plancha",
+    } as Record<string, string>,
     waitWaking: "Despertando el servicio…",
     waitAwake: "El servicio está despierto.",
     waitConnecting: "Conectando con el catálogo y la literatura…",

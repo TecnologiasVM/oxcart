@@ -134,20 +134,22 @@ function withTurnstile(ready: () => void, failed: () => void) {
  * The human check (Cloudflare Turnstile), once per session. Its token is traded at once for
  * a short-lived session that is sent with each question.
  *
- * It starts when the question box first takes focus, in a widget kept off screen (rendered,
- * 300 by 65 px, so Cloudflare can run it), so the first question need not wait for it. A
- * question sent after it passed carries the session, and nothing about the check is drawn.
- * A question sent before that (the check still running, failed, or asking for a click that
- * could not be seen off screen) gets the check in its turn: the off-screen widget gives way
- * to a visible one drawn there, in the room the page keeps for it.
+ * One widget, drawn when the question box first takes focus into the one element the page
+ * keeps for it (`host`), and never moved or drawn again: moving its frame would reload it.
+ * It uses Cloudflare's appearance "interaction-only": invisible, and taking no room, unless
+ * the visitor has to click. A question sent after it passed carries the session and nothing
+ * about the check is drawn; one sent before waits for the same widget to finish (`waiting`),
+ * and the page shows the check's words and keeps its room meanwhile.
  */
 export function useHumanCheck() {
   const siteKey = TURNSTILE_SITE_KEY;
   const held = useRef<Held | null>(null);
-  const waiting = useRef<((result: CheckResult) => void) | null>(null);
-  const [warming, setWarming] = useState(false);
-  const [host, setHost] = useState<HTMLDivElement | null>(null); // the off-screen place
-  const [el, setEl] = useState<HTMLDivElement | null>(null); // the place in the turn
+  const resolver = useRef<((result: CheckResult) => void) | null>(null);
+  const widget = useRef<{ id: string; done: boolean } | null>(null);
+  const [started, setStarted] = useState(false);
+  const [host, setHost] = useState<HTMLDivElement | null>(null);
+  const [waiting, setWaiting] = useState(false); // a sent question waits for the check
+  const [asking, setAsking] = useState(false); // the widget asks the visitor for a click
 
   /** The session in hand, if it has more than half a minute left. */
   const current = useCallback((): string | null => {
@@ -162,12 +164,14 @@ export function useHumanCheck() {
   }, []);
 
   const settle = useCallback((result: CheckResult) => {
-    const resolve = waiting.current;
-    waiting.current = null;
+    const resolve = resolver.current;
+    resolver.current = null;
+    setWaiting(false);
     resolve?.(result);
   }, []);
 
   const onToken = useCallback(async (token: string) => {
+    if (widget.current) widget.current.done = true;
     try {
       const { session, expires_in } = await openSession(token);
       held.current = { session, expires: Date.now() + expires_in * 1000 };
@@ -176,53 +180,45 @@ export function useHumanCheck() {
       } catch {
         /* session storage blocked: the page holds the session itself */
       }
-      setWarming(false);
       settle({ session });
     } catch (e) {
       settle({ session: null, code: e instanceof AskError ? e.code : "human_check_unavailable" });
     }
   }, [settle]);
 
-  // off screen, from the box's first focus until it passes or a question is sent
+  // drawn once, into the element the page keeps for it
   useEffect(() => {
-    if (!warming || !host || !siteKey) return;
-    let cancelled = false;
-    let id: string | null = null;
-    withTurnstile(() => {
-      if (cancelled || !window.turnstile) return;
-      // a failure here only means the check will be drawn in the turn when a question is sent
-      id = window.turnstile.render(host, { sitekey: siteKey, callback: onToken, "error-callback": () => true });
-    }, () => {});
-    return () => {
-      cancelled = true;
-      if (id && window.turnstile?.remove) window.turnstile.remove(id);
+    if (!started || !host || !siteKey || widget.current) return;
+    const failed = () => {
+      if (widget.current) widget.current.done = true;
+      setAsking(false);
+      settle({ session: null, code: "human_check_unavailable" });
+      return true; // handled: the page says so in the turn, and a new question tries again
     };
-  }, [warming, host, siteKey, onToken]);
-
-  // in the turn that waits for it
-  useEffect(() => {
-    if (!el || !siteKey) return;
-    let cancelled = false;
-    let id: string | null = null;
-    const failed = () => settle({ session: null, code: "human_check_unavailable" });
     withTurnstile(() => {
-      if (cancelled || !window.turnstile) return;
-      id = window.turnstile.render(el, { sitekey: siteKey, callback: onToken, "error-callback": failed });
+      if (!window.turnstile || widget.current) return;
+      const id = window.turnstile.render(host, {
+        sitekey: siteKey,
+        appearance: "interaction-only",
+        callback: onToken,
+        "error-callback": failed,
+        "timeout-callback": failed,
+        "before-interactive-callback": () => setAsking(true),
+        "after-interactive-callback": () => setAsking(false),
+      });
+      widget.current = { id, done: false };
     }, failed);
-    return () => {
-      cancelled = true;
-      if (id && window.turnstile?.remove) window.turnstile.remove(id);
-    };
-  }, [el, siteKey, onToken, settle]);
+  }, [started, host, siteKey, onToken, settle]);
 
   /** The box took focus: start the check now, unless a session is in hand. */
   const warm = useCallback(() => {
-    if (siteKey && !current()) setWarming(true);
+    if (siteKey && !current()) setStarted(true);
   }, [siteKey, current]);
 
   /**
-   * A session for the next question. When none is in hand, `show` puts the check in the
-   * turn, and this waits for it (at most a minute).
+   * A session for the next question. With none in hand, `show` marks the turn as waiting, and
+   * this waits (at most a minute) for the widget: the one already running goes on; one that
+   * already ended is run again.
    */
   const sessionFor = useCallback((show: () => void, again = false): Promise<CheckResult> => {
     if (!siteKey) return Promise.resolve({ session: null });
@@ -237,16 +233,21 @@ export function useHumanCheck() {
     const session = current();
     if (session) return Promise.resolve({ session });
     return new Promise((resolve) => {
-      waiting.current = resolve;
-      setWarming(false); // a token already on its way still settles this wait
+      resolver.current = resolve;
+      setWaiting(true);
       show();
+      setStarted(true); // a question sent without the box ever taking focus starts it here
+      if (widget.current?.done && window.turnstile) {
+        widget.current.done = false;
+        window.turnstile.reset(widget.current.id);
+      }
       setTimeout(() => {
-        if (waiting.current === resolve) settle({ session: null });
+        if (resolver.current === resolve) settle({ session: null });
       }, 60_000);
     });
   }, [siteKey, current, settle]);
 
-  return { needsCheck: Boolean(siteKey), warm, host: setHost, attach: setEl, sessionFor };
+  return { needsCheck: Boolean(siteKey), warm, host: setHost, waiting, asking, sessionFor };
 }
 
 // ---------------------------------------------------------------- the screen

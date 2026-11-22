@@ -18,7 +18,8 @@ const ISSUE = {
   score: 4,
   matched_by: ["vector", "year"],
   card: {
-    dates: { placed_on_sale: "1889-09-20", issued: "1889-09", withdrawn: "about 1890" },
+    // two names the catalogue uses, and two it does not (shown as the data has them)
+    dates: { placed_on_sale: "1889-09-20", probable_first_circulation: "1889-09-21", issued: "1889-09", withdrawn: "about 1890" },
     printers: ["A printer"],
     perforation: "12",
     acts: [{ type: "decree", id: "Test decree 1", date: "1889-01-02" }],
@@ -86,10 +87,12 @@ const lines = (written: object, evidence: object = ANSWER, rewritten = false, ca
 type Mock = { health?: number; ask?: object; askStatus?: number; stored?: object | null; written?: object; chatStatus?: number; examples?: object[] };
 
 /*
- * Cloudflare's script, stubbed. Modes (set before the page loads with `checkMode`):
- *   pass   the check passes on its own a moment after it is drawn (the default)
+ * Cloudflare's script, stubbed. Like the real one with appearance "interaction-only", the
+ * widget it draws stays out of view (its own display: none) unless it needs a click.
+ * Modes (set before the page loads with `checkMode`):
+ *   pass   the check passes on its own a moment after it runs (the default)
  *   hold   the check runs until the test settles it (`settleCheck`)
- *   click  the check asks for a click on its own button
+ *   click  the check needs a click on its own button
  */
 const TURNSTILE_STUB = `(() => {
   let n = 0;
@@ -101,38 +104,83 @@ const TURNSTILE_STUB = `(() => {
       const widget = document.createElement("div");
       widget.dataset.widget = id;
       widget.style.cssText = "width:300px;height:65px;box-sizing:border-box;border:1px dashed";
+      const show = (on) => { widget.style.display = o.appearance !== "interaction-only" || on ? "block" : "none"; };
       el.appendChild(widget);
-      const entry = { id, el, o, removed: false };
+      const entry = { id, el, o, runs: 0 };
+      entry.run = () => {
+        entry.runs += 1;
+        widget.replaceChildren();
+        show(false);
+        if (mode === "pass") setTimeout(() => o.callback("token-" + id + "-" + entry.runs), 20);
+        if (mode === "click") {
+          if (o["before-interactive-callback"]) o["before-interactive-callback"]();
+          show(true);
+          const button = document.createElement("button");
+          button.type = "button";
+          button.textContent = "Verify you are human";
+          button.onclick = () => {
+            show(false);
+            if (o["after-interactive-callback"]) o["after-interactive-callback"]();
+            o.callback("token-" + id);
+          };
+          widget.appendChild(button);
+        }
+      };
       window.__checks.push(entry);
-      if (mode === "pass") setTimeout(() => { if (!entry.removed) o.callback("token-" + id); }, 20);
-      if (mode === "click") {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.textContent = "Verify you are human";
-        button.onclick = () => o.callback("token-" + id);
-        widget.appendChild(button);
-      }
+      entry.run();
       return id;
     },
-    reset() {},
-    remove(id) {
+    reset(id) {
       const entry = window.__checks.find((c) => c.id === id);
-      if (entry) { entry.removed = true; entry.el.replaceChildren(); }
+      if (entry) entry.run();
     },
+    remove() {},
   };
 })();`;
 
 async function checkMode(page: Page, mode: "pass" | "hold" | "click") {
   await page.addInitScript((m) => Object.assign(window, { __checkMode: m }), mode);
 }
-type CheckEntry = { id: string; removed: boolean; el: HTMLElement; o: { callback: (t: string) => void } };
+type CheckEntry = { id: string; runs: number; el: HTMLElement; o: { callback: (t: string) => void; appearance?: string } };
 const checks = (page: Page) =>
-  page.evaluate(() => ((window as unknown as { __checks?: CheckEntry[] }).__checks ?? []).map((c) => ({ id: c.id, removed: c.removed, inHost: Boolean(c.el.closest("[data-testid=check-host]")) })));
+  page.evaluate(() => ((window as unknown as { __checks?: CheckEntry[] }).__checks ?? []).map((c) => ({
+    id: c.id, runs: c.runs, appearance: c.o.appearance, inHost: c.el.getAttribute("data-testid") === "check-host",
+  })));
 const settleCheck = (page: Page) =>
   page.evaluate(() => {
-    const live = ((window as unknown as { __checks: CheckEntry[] }).__checks).filter((c) => !c.removed);
-    live[live.length - 1].o.callback("token-held");
+    const all = (window as unknown as { __checks: CheckEntry[] }).__checks;
+    all[all.length - 1].o.callback("token-held");
   });
+
+/**
+ * Fails if any element the check is drawn into is off screen, or is put out of view or out of
+ * reach by the page: `inert` or `aria-hidden` on it or above it, `display: none` or
+ * `visibility: hidden` on it or above it. (The widget inside is Cloudflare's to show or hide.)
+ */
+async function checkInReach(page: Page) {
+  const problems = await page.evaluate(() => {
+    const out: string[] = [];
+    const doc = document.documentElement;
+    for (const entry of (window as unknown as { __checks?: CheckEntry[] }).__checks ?? []) {
+      const el = entry.el;
+      if (!el.isConnected) { out.push(`${entry.id}: not in the page`); continue; }
+      const box = el.getBoundingClientRect();
+      const left = box.left + window.scrollX;
+      const top = box.top + window.scrollY;
+      if (left < 0 || left >= doc.scrollWidth || top < 0 || top >= doc.scrollHeight) out.push(`${entry.id}: off screen at ${left},${top}`);
+      for (let node: Element | null = el; node; node = node.parentElement) {
+        const style = getComputedStyle(node);
+        const name = `${node.tagName.toLowerCase()}.${node.className}`;
+        if (node.hasAttribute("inert")) out.push(`${name}: inert`);
+        if (node.getAttribute("aria-hidden") === "true") out.push(`${name}: aria-hidden`);
+        if (style.display === "none") out.push(`${name}: display none`);
+        if (style.visibility === "hidden") out.push(`${name}: visibility hidden`);
+      }
+    }
+    return out;
+  });
+  expect(problems).toEqual([]);
+}
 
 async function mock(page: Page, options: Mock = {}) {
   await page.route(/^https:\/\/challenges\.cloudflare\.com\/turnstile\//, (route) =>
@@ -434,10 +482,10 @@ test("a question answered at once shows no waiting lines", async ({ page }) => {
 test("the human check, case 1: it starts when the box takes focus and passes before the question is sent; nothing about it is drawn", async ({ page }) => {
   await mock(page, { written: WRITTEN });
   await page.addInitScript(() => {
-    // remember whether the check was ever drawn in a turn
+    // remember whether anything of the check was ever drawn
     new MutationObserver(() => {
-      if (document.querySelector(".thread [data-testid=human-check]")) Object.assign(window, { __sawCheck: true });
-    }).observe(document, { childList: true, subtree: true });
+      if (document.querySelector(".check__say, .check--waiting")) Object.assign(window, { __sawCheck: true });
+    }).observe(document, { childList: true, subtree: true, attributes: true });
   });
   const sessions: string[] = [];
   page.on("request", (request) => {
@@ -449,55 +497,89 @@ test("the human check, case 1: it starts when the box takes focus and passes bef
   const traded = page.waitForRequest("**/api/session");
   await box(page).focus();
   await traded;                                                        // the token is traded at once
-  const host = page.getByTestId("check-host");
-  expect((await checks(page))[0].inHost).toBe(true);                   // drawn off screen, in its own room
-  const room = (await host.boundingBox())!;
-  expect([Math.round(room.width), Math.round(room.height)]).toEqual([300, 65]);
-  expect(room.x + room.width).toBeLessThan(0);
+  expect(await checks(page)).toEqual([{ id: "w1", runs: 1, appearance: "interaction-only", inHost: true }]);
+  await checkInReach(page);
+  expect((await page.getByTestId("check-host").boundingBox())!.height).toBe(0);   // invisible, it takes no room
   await ask(page, "A question asked after the check passed?");
   await expect(newest(page).getByTestId("written-answer")).toBeVisible();
   expect(await page.evaluate(() => Boolean((window as unknown as { __sawCheck?: boolean }).__sawCheck))).toBe(false);
   expect(sessions).toEqual(["test-session"]);
-  // once per session: the next question asks no check either
+  // once per session: the next question asks no check either, and the widget is never drawn again
   await ask(page, "And the next one?");
   await expect(page.getByTestId("turn")).toHaveCount(2);
   await expect(newest(page).getByTestId("evidence-button")).toBeVisible();
-  expect((await checks(page)).length).toBe(1);
+  expect(await checks(page)).toEqual([{ id: "w1", runs: 1, appearance: "interaction-only", inHost: true }]);
 });
 
-test("the human check, case 2: still running when the question is sent, it stands in the turn with its room kept", async ({ page }) => {
+test("the human check, case 2: still running when the question is sent, it goes on; its words and room stand under the question", async ({ page }) => {
   await checkMode(page, "hold");
   await mock(page, { written: WRITTEN });
   await page.goto("/");
   await box(page).focus();
   await expect.poll(async () => (await checks(page)).length).toBe(1);
+  const host = await page.getByTestId("check-host").elementHandle();
   await ask(page, "A question sent before the check passed?");
   const turn = newest(page);
-  await expect(turn).toContainText(/A quick check that you are a person|Una comprobación rápida/);
-  await expect(turn).toContainText(/Waiting for the human check to finish|Esperando a que termine la comprobación/);
-  const room = (await turn.getByTestId("human-check").boundingBox())!;
-  expect([Math.round(room.width), Math.round(room.height)]).toEqual([300, 65]);
-  // the off-screen check gave way to one drawn in the turn
-  await expect.poll(() => checks(page)).toEqual([{ id: "w1", removed: true, inHost: true }, { id: "w2", removed: false, inHost: false }]);
-  await expect(turn.locator("[data-widget=w2]")).toBeVisible();
+  const check = page.getByTestId("check");
+  await expect(check).toContainText(/A quick check that you are a person|Una comprobación rápida/);
+  await expect(check).toContainText(/Waiting for the human check to finish|Esperando a que termine la comprobación/);
+  const room = (await page.getByTestId("check-host").boundingBox())!;
+  expect([Math.round(room.width), Math.round(room.height)]).toEqual([300, 65]);   // kept, so nothing moves when it comes or goes
+  // under the question that waits, above the box
+  expect(room.y).toBeGreaterThan((await turn.locator(".turn__text").boundingBox())!.y);
+  expect(room.y + room.height).toBeLessThan((await box(page).boundingBox())!.y);
+  await checkInReach(page);
+  // the same element and the same widget, still running: it was not drawn again nor restarted
+  expect(await page.getByTestId("check-host").evaluate((el, first) => el === first, host)).toBe(true);
+  expect(await checks(page)).toEqual([{ id: "w1", runs: 1, appearance: "interaction-only", inHost: true }]);
   await settleCheck(page);
   await expect(turn.getByTestId("written-answer")).toBeVisible();
-  await expect(turn.getByTestId("human-check")).toHaveCount(0);
+  await expect(check).not.toContainText(/A quick check/);
+  expect((await page.getByTestId("check-host").boundingBox())!.height).toBe(0);
 });
 
-test("the human check, case 3: when it asks for a click, the visitor sees it in the turn and clicks there", async ({ page }) => {
+test("the human check, case 3: when it needs a click, the visitor sees it by the box, and under the question once it is sent", async ({ page }) => {
   await checkMode(page, "click");
   await mock(page, { written: WRITTEN });
   await page.goto("/");
   await box(page).focus();
-  await expect.poll(async () => (await checks(page)).length).toBe(1);
-  await expect(page.getByRole("button", { name: "Verify you are human" })).toHaveCount(0);   // off screen it is out of reach
+  const click = page.getByRole("button", { name: "Verify you are human" });
+  await expect(click).toBeVisible();                                   // on the first screen, under the box
+  await expect(page.getByTestId("check")).toContainText(/A quick check that you are a person/);
+  const first = (await page.getByTestId("check-host").boundingBox())!;
+  expect(first.y).toBeGreaterThan((await box(page).boundingBox())!.y);
+  await checkInReach(page);
+  const host = await page.getByTestId("check-host").elementHandle();
   await ask(page, "A question whose check needs a click?");
-  const turn = newest(page);
-  const click = turn.getByRole("button", { name: "Verify you are human" });
+  await expect(page.getByTestId("check")).toContainText(/Waiting for the human check to finish/);
   await expect(click).toBeVisible();
+  await checkInReach(page);
+  // the first screen gave way to the thread around it: the same element, the same widget
+  expect(await page.getByTestId("check-host").evaluate((el, h) => el === h, host)).toBe(true);
+  expect((await checks(page)).length).toBe(1);
   await click.click();
-  await expect(turn.getByTestId("written-answer")).toBeVisible();
+  await expect(newest(page).getByTestId("written-answer")).toBeVisible();
+  await expect(click).toBeHidden();
+});
+
+test("the human check's element is in the page and in reach, at every width", async ({ page }) => {
+  await checkMode(page, "hold");
+  await mock(page);
+  for (const width of [360, 820, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    await box(page).focus();
+    await expect.poll(async () => (await checks(page)).length).toBe(1);
+    await checkInReach(page);                                          // first screen
+    await ask(page, "A question that waits for the check?");
+    await expect(page.getByTestId("check")).toHaveClass(/check--waiting/);
+    await checkInReach(page);                                          // a thread, waiting
+    await settleCheck(page);
+    await expect(newest(page).getByTestId("evidence-button")).toBeVisible();
+    await checkInReach(page);                                          // a thread, passed
+    await page.getByTestId("clear").click();
+    await page.evaluate(() => window.sessionStorage.clear());
+  }
 });
 
 test("a human check that does not pass is said in the turn, and the question stays in the box", async ({ page }) => {
@@ -507,9 +589,14 @@ test("a human check that does not pass is said in the turn, and the question sta
   await ask(page, "A question that fails the check?");
   const turn = newest(page);
   await expect(turn.getByTestId("turn-error")).toContainText(/The human check did not pass|La comprobación no pasó/);
-  await expect(turn.getByTestId("human-check")).toBeVisible();        // the widget stays, for another try
   await expect(box(page)).toHaveValue("A question that fails the check?");
   await expect(turn.getByTestId("evidence-button")).toHaveCount(0);
+  // the one widget stays, and is run again when the question is sent again
+  const before = (await checks(page))[0].runs;
+  await box(page).press("Enter");
+  await expect(newest(page).getByTestId("turn-error")).toBeVisible();
+  await expect.poll(async () => (await checks(page))[0].runs).toBe(before + 1);
+  expect((await checks(page)).length).toBe(1);
 });
 
 test("writing: 'What was found' opens the evidence before the answer, and becomes 'Evidence' when it arrives", async ({ page }) => {
@@ -986,7 +1073,9 @@ test("Evidence, Cards and passages: what the answer cites starts open, the rest 
   const cards = panel(page).getByTestId("card");
   await expect(cards).toHaveCount(2);
   await expect(cards.first()).toHaveAttribute("open", "");
-  await expect(cards.first()).toContainText("placed on sale: 20 September 1889");
+  // date names in the page's words; a name the list does not hold, as the data has it
+  await expect(cards.first()).toContainText("Placed on sale: 20 September 1889");
+  await expect(cards.first()).toContainText("Probable first circulation: 21 September 1889");
   await expect(cards.first()).toContainText("issued: September 1889");
   await expect(cards.first()).toContainText("withdrawn: about 1890");     // not a date: as it is
   await expect(cards.first()).toContainText("Test decree 1, 2 January 1889");
@@ -1256,7 +1345,9 @@ test("in Spanish, the sources are named in Spanish from their evidence, and Evid
   await expect(panel(page).getByTestId("ev-source").nth(1)).toContainText("A TEST DOCUMENT, página 12");
   await expect(panel(page).getByTestId("ev-source").first()).toContainText("Texto citado");
   await page.getByTestId("tab-found").click();
-  await expect(panel(page).getByTestId("card").first()).toContainText("placed on sale: 20 de septiembre de 1889");
+  await expect(panel(page).getByTestId("card").first()).toContainText("Puesta a la venta: 20 de septiembre de 1889");
+  await expect(panel(page).getByTestId("card").first()).toContainText("Primera circulación probable: 21 de septiembre de 1889");
+  await expect(panel(page).getByTestId("card").first()).toContainText("issued: septiembre de 1889");
   await expect(panel(page).getByTestId("card").first()).toContainText("Test decree 1, 2 de enero de 1889");
   await page.getByTestId("tab-made").click();
   await expect(panel(page)).toContainText("Cómo se encontró cada emisión");

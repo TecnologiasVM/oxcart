@@ -1,6 +1,6 @@
 /*
  * Text the page builds from the evidence's own fields (never from what the model wrote):
- * dates written in the visitor's language, an act as one line, and a source's name.
+ * dates and their names in the visitor's language, an act as one line, and a source's name.
  */
 import type { AnswerSource, AskAnswer, IssueCard } from "./ask";
 import type { Lang } from "./i18n";
@@ -23,6 +23,11 @@ export function formatDate(value: string, lang: Lang): string {
   if (!month || (day !== null && (day < 1 || day > 31))) return value;
   const de = lang === "es" ? " de " : " ";
   return day === null ? `${month}${de}${year}` : `${day}${de}${month}${de}${year}`;
+}
+
+/** A card's date name in the page's words; a name not in the list as the data has it. */
+export function dateLabel(key: string, names: Record<string, string>): string {
+  return Object.hasOwn(names, key) ? names[key] : key.replace(/_/g, " ");
 }
 
 /** An act as one line: its id, its type only when the id does not already say it, and its date. */

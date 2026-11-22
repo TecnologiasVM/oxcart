@@ -30,11 +30,10 @@ type Props = {
   storedNote: string | null;
   busy: boolean;
   onEvidence: (turnId: string, opener: HTMLElement, source?: number) => void;
-  attachCheck: (el: HTMLDivElement | null) => void;
   onAskNow: (question: string) => void;
 };
 
-export default function TurnView({ turn, t, newest, service, open, storedNote, busy, onEvidence, attachCheck, onAskNow }: Props) {
+export default function TurnView({ turn, t, newest, service, open, storedNote, busy, onEvidence, onAskNow }: Props) {
   const errorText = turn.error ? t.errors[turn.error.code] ?? (turn.error.message || t.errors.unreachable) : "";
   return (
     <article className={`turn${newest ? "" : " turn--old"}`} aria-labelledby={`q-${turn.id}`} data-testid="turn" data-turn={turn.id}>
@@ -44,14 +43,11 @@ export default function TurnView({ turn, t, newest, service, open, storedNote, b
         {turn.stored && <span className="ask-chip" data-testid="stored-tag">{t.stored}</span>}
         {turn.rewritten && turn.answer && <p className="turn__as" data-testid="searched-as">{t.searchedAs} “{turn.answer.question}”</p>}
       </header>
-      {turn.check ? (
-        // the human check stands in the turn, with its widget's room kept so nothing moves when it goes
-        <section className="a a--wait">
-          {turn.check === "failed" && <Warn text={errorText} testId="turn-error" />}
-          {turn.check === "waiting" && <p className="check__say">{t.humanCheck}</p>}
-          <div className="turnstile" ref={attachCheck} data-testid="human-check" />
-          {turn.check === "waiting" && <p className="wait__line" role="status">{t.humanWaiting}</p>}
-        </section>
+      {turn.check === "waiting" ? (
+        // the check's words and its room stand right under this question (Chat.tsx, `.check`)
+        null
+      ) : turn.check === "failed" ? (
+        <section className="a a--wait"><Warn text={errorText} testId="turn-error" /></section>
       ) : turn.pending ? (
         <section className="a a--wait">
           <Bar testId="searching-bar" />
@@ -66,7 +62,7 @@ export default function TurnView({ turn, t, newest, service, open, storedNote, b
   );
 }
 
-function Answered({ turn, t, newest, open, storedNote, busy, onEvidence, onAskNow }: Omit<Props, "service" | "attachCheck">) {
+function Answered({ turn, t, newest, open, storedNote, busy, onEvidence, onAskNow }: Omit<Props, "service">) {
   const evidence = turn.answer!;
   const written = turn.written;
   const ok = !turn.writing && answered(written);
