@@ -1,37 +1,48 @@
 import type { Metadata } from "next";
-import { Newsreader, JetBrains_Mono, Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import AppHeader from "./components/AppHeader";
 import AppFooter from "./components/AppFooter";
 
 /*
- * Fonts:
+ * Fonts, served from files in this repository (app/fonts, see its README):
  *   serif display headlines -> Newsreader (300, 400; normal + italic)
  *   mono labels/dates       -> JetBrains Mono (400, 500, 600)
  *   body sans               -> Inter (400, 500)
- * Multi-word Google fonts use an underscore import name.
+ * A build fetches nothing from a font service.
  * CSS variable names below are referenced by globals.css.
  */
-const newsreader = Newsreader({
-  subsets: ["latin"],
-  weight: ["300", "400"],
-  style: ["normal", "italic"],
+const newsreader = localFont({
+  src: [
+    { path: "./fonts/newsreader-latin-300-normal.woff2", weight: "300", style: "normal" },
+    { path: "./fonts/newsreader-latin-300-italic.woff2", weight: "300", style: "italic" },
+    { path: "./fonts/newsreader-latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/newsreader-latin-400-italic.woff2", weight: "400", style: "italic" },
+  ],
   display: "swap",
   variable: "--font-newsreader",
+  adjustFontFallback: "Times New Roman",
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+const jetbrainsMono = localFont({
+  src: [
+    { path: "./fonts/jetbrains-mono-latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/jetbrains-mono-latin-500-normal.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/jetbrains-mono-latin-600-normal.woff2", weight: "600", style: "normal" },
+  ],
   display: "swap",
   variable: "--font-jetbrains-mono",
+  adjustFontFallback: false,
 });
 
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500"],
+const inter = localFont({
+  src: [
+    { path: "./fonts/inter-latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/inter-latin-500-normal.woff2", weight: "500", style: "normal" },
+  ],
   display: "swap",
   variable: "--font-inter",
+  adjustFontFallback: "Arial",
 });
 
 export const metadata: Metadata = {
