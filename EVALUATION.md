@@ -456,7 +456,11 @@ vector, at the same weight as the first (`scripts/issue_short_vectors.py` writes
   compression returned 37 of the exact 40 on average over the 96 questions, and another first three for 15 of
   them. Made without compression and asked for more hits than there are issues, it returned the exact 40 in
   the exact order for all 96, in about 9 ms. The script makes it that way and checks it against exact cosine
-  for every issue. The first vector's index is left as it is served.
+  for every issue.
+- **The first vector's index is left as it is served.** It has Neo4j's default compression and is asked for 40
+  hits. Measured on the copy, over the same 96 questions: 36.8 of the exact 40 on average, the same first issue
+  for 93, the same first three for 85. With exact cosine in its place no count above moves (78 of 80; 9 and 12
+  of the ranking cases).
 
 ## Other limits
 
