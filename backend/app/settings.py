@@ -84,6 +84,9 @@ ASK_TEXT_LIMIT: int = _int("ASK_TEXT_LIMIT", 700)
 # Which part of a passage longer than the limit is shown: "start" (its first characters) or "nearest"
 # (the stretch that shares the most words with the question). The model is given what is shown.
 ASK_EXCERPT: str = "nearest" if os.getenv("ASK_EXCERPT", "").strip().lower() == "nearest" else "start"
+# The catalogue lookup also asks the second, short vector index of the issues (their title, years and
+# section). Off until the graph holds it: scripts/issue_short_vectors.py writes it and can take it away.
+ASK_SHORT_VECTOR: bool = _flag("ASK_SHORT_VECTOR")
 ASK_TIMEOUT_SECONDS: int = _int("ASK_TIMEOUT_SECONDS", 25)
 EMBED_TIMEOUT_SECONDS: int = _int("EMBED_TIMEOUT_SECONDS", 5)
 

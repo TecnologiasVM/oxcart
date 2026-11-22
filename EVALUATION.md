@@ -433,6 +433,35 @@ not-yes. Two models agreeing is not a person checking; it says the mark does not
 
 Counts of every run, with no text: `eval/outcomes/answers_literature_settings.json`.
 
+### The catalogue lookup: a second, short vector for each issue
+
+Built and measured on a copy of the graph; not served yet.
+
+An issue has one vector, made from its title and its whole catalogue text. For "what was the first stamp of
+Costa Rica?" the 1863 issue is 20th: issues that commemorate it tell its story at more length and stand before
+it. A second vector made from a short text (the title, the years, the section) is asked with the same question
+vector, at the same weight as the first (`scripts/issue_short_vectors.py` writes it and can take it away;
+`ASK_SHORT_VECTOR` turns it on).
+
+| Lookup | Catalogue questions (80): issue first | among the three shown | Ranking cases (15): a wanted issue first | among the three shown |
+|---|---|---|---|---|
+| As served | 78 | 80 | 9 | 12 |
+| With the short vector | 75 | 80 | 11 | 13 |
+
+- The ranking cases are 15 questions a collector would type (`eval/data/ranking_cases.jsonl`); their wanted
+  issues were set from the catalogue's titles and no person checked them. Both sets are development questions.
+- **It is a trade:** three catalogue questions lose the first place and keep a place among the three cards
+  shown; two ranking cases gain the first place and the 1863 issue comes into the three.
+- **A vector index is approximate, and it showed.** Asked for 40 hits, a short index made with Neo4j's default
+  compression returned 37 of the exact 40 on average over the 96 questions, and another first three for 15 of
+  them. Made without compression and asked for more hits than there are issues, it returned the exact 40 in
+  the exact order for all 96, in about 9 ms. The script makes it that way and checks it against exact cosine
+  for every issue.
+- **The first vector's index is left as it is served.** It has Neo4j's default compression and is asked for 40
+  hits. Measured on the copy, over the same 96 questions: 36.8 of the exact 40 on average, the same first issue
+  for 93, the same first three for 85. With exact cosine in its place no count above moves (78 of 80; 9 and 12
+  of the ranking cases).
+
 ## Other limits
 
 - The pool that produced the gold was built from keyword, vector and hybrid search, so those arms are favoured

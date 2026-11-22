@@ -58,7 +58,7 @@ def fact_in_card(question: dict, card: dict | None) -> bool:
 MODES = {"text": (True, False), "vector": (False, True), "both": (True, True)}   # (full-text, vector index)
 
 
-def run(which: str, k: int = 3, mode: str = "text", only: list[str] | None = None) -> dict:
+def run(which: str, k: int = 3, mode: str = "text", only: list[str] | None = None, short: bool = False) -> dict:
     questions = [json.loads(line) for line in QUESTIONS.read_text(encoding="utf-8").splitlines()]
     sides = split.assign(questions)
     chosen = [q for q in questions if which == "all" or sides[q["id"]] == which]
@@ -74,7 +74,7 @@ def run(which: str, k: int = 3, mode: str = "text", only: list[str] | None = Non
             t0 = time.time()
             try:
                 hits = graph.read("catalogue_lookup", lambda s: catalogue_lookup.lookup(
-                    s, q["question"], k=k, question_vector=vectors.get(q["question"]), use_text=use_text))
+                    s, q["question"], k=k, question_vector=vectors.get(q["question"]), use_text=use_text, use_short=short))
             except graph_conn.InfrastructureError as exc:
                 rows.append({"id": q["id"], "lang": q["lang"], "fact": q["fact"], "infrastructure_error": str(exc)})
                 continue
@@ -89,7 +89,7 @@ def run(which: str, k: int = 3, mode: str = "text", only: list[str] | None = Non
                 "fact_found_top3": bool(rank and fact_in_card(q, card)),
                 "seconds": round(time.time() - t0, 3),
             })
-    return {"split": which, "k": k, "mode": mode, "embedding": embedded, "rows": rows}
+    return {"split": which, "k": k, "mode": mode + (" + short vector" if short else ""), "embedding": embedded, "rows": rows}
 
 
 def table(result: dict) -> str:
@@ -123,14 +123,16 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--split", choices=["dev", "heldout", "all"], default="dev")
     ap.add_argument("--mode", choices=list(MODES), default="text")
+    ap.add_argument("--short", action="store_true",
+                    help="also ask the short vector index (the graph must hold it: scripts/issue_short_vectors.py)")
     ap.add_argument("--misses", action="store_true", help="list the questions whose issue was not ranked first")
     ap.add_argument("--label", default="", help="added to the result file's name (a run against another instance)")
     ap.add_argument("--only", nargs="+", metavar="ID",
                     help="these questions only: to finish a run whose other questions were already scored")
     args = ap.parse_args()
-    result = run(args.split, mode=args.mode, only=args.only)
+    result = run(args.split, mode=args.mode, only=args.only, short=args.short)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    name = f"catalogue_{args.split}_{args.mode}" + (f"_{args.label}" if args.label else "")
+    name = f"catalogue_{args.split}_{args.mode}" + ("_short" if args.short else "") + (f"_{args.label}" if args.label else "")
     (OUT_DIR / f"{name}.json").write_text(json.dumps(result, indent=1), encoding="utf-8")
     print(table(result))
     if args.misses:

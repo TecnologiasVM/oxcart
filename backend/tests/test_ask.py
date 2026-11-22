@@ -624,3 +624,38 @@ def test_the_vector_store_client_is_never_given_the_openai_key(monkeypatch):
         ask_service.Literature().search("q", None)
     assert captured["cluster_url"] == "https://cluster.example"
     assert "headers" not in captured and "the-openai-key" not in repr(captured)
+
+
+def test_the_short_vector_is_asked_only_when_the_setting_is_on_and_a_refusal_falls_back(monkeypatch):
+    from app import ask_service
+    from oxcart import catalogue_lookup
+
+    asked = []
+
+    class Link:
+        refuse_short = False
+
+        def read(self, fn):
+            return fn("a session")
+
+    def fake_lookup(session, question, k, question_vector, use_short=False):
+        asked.append(use_short)
+        if use_short and Link.refuse_short:
+            raise ask_service.Unavailable("ClientError")   # what the link raises when the graph refuses a query
+        return [{"issue_id": "CR-1901-MADE-UP", "short": use_short}]
+
+    monkeypatch.setattr(catalogue_lookup, "lookup", fake_lookup)
+    lookup = ask_service.make_lookup(Link())
+
+    monkeypatch.setattr(settings, "ASK_SHORT_VECTOR", False)
+    assert lookup("a question", [0.1])[0]["short"] is False and asked == [False]
+
+    asked.clear()
+    monkeypatch.setattr(settings, "ASK_SHORT_VECTOR", True)
+    assert lookup("a question", [0.1])[0]["short"] is True and asked == [True]
+    asked.clear()
+    assert lookup("a question", None)[0]["short"] is False and asked == [False]     # no embedding, no vector index
+
+    asked.clear()
+    Link.refuse_short = True                                                         # the graph has no such index
+    assert lookup("a question", [0.1])[0]["short"] is False and asked == [True, False]
