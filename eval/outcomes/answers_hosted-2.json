@@ -1,7 +1,7 @@
 {
  "label": "hosted-2",
  "model": "claude-haiku-5-5",
- "judge": "gpt-6.1-sol",
+ "judge": "codex gpt-6.1-sol (high)",
  "usd_per_mtok": {
   "input": 0.1,
   "output": 0.5

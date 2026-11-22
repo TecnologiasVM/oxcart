@@ -474,6 +474,11 @@ def test_the_embedding_is_made_here_from_the_question_as_asked(monkeypatch):
     assert kwargs["json"] == {"model": "text-embedding-3-large", "input": "¿Qué es esto?"}
     assert kwargs["headers"] == {"Authorization": "Bearer the-key"}
     assert embed("a second question") == [0.5, 0.25] and len(clients) == 1         # one client: the connection is reused
+    kept = repr(list(embed._cache)) + repr(vars(embed))                            # everything the embedder holds
+    assert "esto" not in kept and "second question" not in kept                    # no question's text among it
+    assert len(embed._cache) == 2 and all(isinstance(slot, bytes) and len(slot) == 16 for slot in embed._cache)
+    other = ask_service.Embedder()
+    assert other._slot("a second question") != embed._slot("a second question")    # the digest's key is each process's own
     assert embed.state == "connected"
 
     def failing(self, url, **kwargs):

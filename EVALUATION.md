@@ -291,7 +291,8 @@ By language, as served:
 - **Retrieval did not move.** Through this route the counts are the question path's: a page that answers in the
   first five for 36 of 41 literature questions (36 of 49 drafts); the issue first with the fact in its card for 78
   of 80 catalogue questions, in the first three for 80 of 80. A first question is searched as it is typed; only a
-  follow-up is rewritten.
+  follow-up is rewritten (in these runs a question was sent with earlier turns only when it was a follow-up; see
+  the note on the one question box under "Cost and waits").
 
 ### Cost and waits
 
@@ -314,6 +315,18 @@ on a smaller machine.
 At the served mean, 200 model calls a day are about 4 USD a month. That count lives in the server's memory and
 starts again when the service restarts, so the limit that holds is the spend limit of the key's workspace.
 
+**Since the page has one question box** (not in the runs above), every question after a conversation's first is
+sent with the earlier turns and takes two model calls: one that says whether it needs those turns, and rewrites
+it only then, and one that writes. The first costs about 0.0001 USD (about 740 tokens in and 12 to 44 out) and
+0.9 s on average before the search starts, measured on 85 questions on the development machine. So 200 calls a
+day are between 100 and 200 written answers, and a question after the first costs about 0.0008 USD on average.
+Asked to repeat a standalone question unchanged, the earlier instructions still added the country to 12 of 20
+development questions and an earlier turn's subject to one; a page that answers was then among the five
+passages for 6 of 10 literature questions against 8 when asked alone. With the reply held to a flag and a
+question, and the instruction to add nothing the question does not point to: none of the 20 is rewritten, 8 of
+10 either way, and the ten follow-ups keep their issue (first for 9, in the first three for 10; all ten
+rewritten). One run of each; development questions.
+
 Per-question outcomes of the five runs: `eval/outcomes/answers_thinking-off.json`,
 `answers_thinking-on-first.json`, `answers_thinking-on.json`, `answers_hosted.json`, `answers_hosted-2.json` (ids, how each ended, sentence and citation counts,
 token counts, the judge's marks; no answer and no passage).
@@ -331,7 +344,9 @@ the reference in full. This part reports everything that was tried on it, with w
 - **Marks are a model's** (`gpt-6.1-sol`, high effort). No person has checked them. A second model marked a part
   of them again; that is reported below.
 - **Three runs a setting** unless a row says otherwise, because the writer's answers change from run to run. The
-  first row shows by how much: five runs of one setting. A difference inside that spread is not a finding.
+  first row shows by how much: five runs of one setting (a sixth run of it, the repeat through the public
+  host on 2026-11-22, was not given the second mark and is not in the row). A difference inside that spread
+  is not a finding.
 - **Two marks of an answer.** "In full" is the mark used above: the answer agrees with the reference in full. A
   second mark was added, in a separate pass of the judge with its own instructions: **does the answer give what
   the question asks** (the date, the name, the reason, the list it requests), and does that agree with the

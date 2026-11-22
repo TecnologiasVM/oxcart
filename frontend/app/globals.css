@@ -2100,272 +2100,1345 @@ button {
   }
 }
 
+
 /* ---------------------------------------------------------------------------
-   The chat page (app/components/Chat.tsx). Plain and readable; the redesign
-   comes in a later stage.
+   The question page (app/components/Chat.tsx and app/components/ask/).
+   One reading column, a thread with the newest turn last and the box at its foot,
+   Evidence docked beside it from 1280 px and a sheet over it below that.
+   One spacing scale: 4 8 12 16 24 32 48 64.
    --------------------------------------------------------------------------- */
-.chat {
-  max-width: 860px;
-  padding-top: var(--space-8);
-  padding-bottom: var(--space-16);
+/* today's muted ink is 4.13:1 on paper-3, under AA; this one holds 4.5:1 or more on all three papers */
+html:has(main.ask) {
+  --color-ink-muted: #55524b;
 }
-.chat__top {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-}
-.chat__title {
-  font-family: var(--font-serif);
-  font-weight: 300;
-  font-size: clamp(1.8rem, 1.2rem + 2.2vw, 2.8rem);
-  margin: 0;
-}
-.chat__lede {
-  font-size: 17px;
-  line-height: 1.55;
-  margin: var(--space-3) 0 var(--space-6);
-}
-.chat__form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.chat__input {
+.ask {
+  --gutter: 20px;
+  --read: 720px;
+  --evp-w: 700px;
+  --epad: 20px;
   font-size: 18px;
-  width: 100%;
-  resize: vertical;
+  line-height: 1.55;
 }
-.chat__actions {
+@media (min-width: 720px) {
+  .ask { --gutter: 32px; --epad: 28px; }
+}
+@media (min-width: 1100px) {
+  .ask { --gutter: 40px; }
+}
+/* one class of weight: above the site's mono buttons, below every control's own class, which comes later */
+.ask :where(button, input, textarea) {
+  font: inherit;
+  color: inherit;
+}
+.ask :focus-visible {
+  outline: 3px solid var(--color-cobalt);
+  outline-offset: 3px;
+}
+.ask a {
+  color: var(--color-cobalt);
+  text-underline-offset: 3px;
+}
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.ask .label {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* ---- the header, on the question page ---- */
+.page-nav {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
-  flex-wrap: wrap;
+  gap: 4px 24px;
 }
-.chat__actions .btn--solid {
-  font-size: 13px;
-  padding: var(--space-3) var(--space-6);
-}
-.chat__clear {
-  margin-left: auto;
-}
-.chat__check {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-.chat__notice {
-  border-left: 3px solid var(--color-cobalt);
-  background: var(--color-paper-2);
-  padding: var(--space-3) var(--space-4);
-  margin: var(--space-3) 0;
-  font-size: 15px;
-  line-height: 1.5;
-}
-.chat__notice--warn {
-  border-left-color: var(--color-amber);
-}
-.chat__wait p,
-.chat__notice p {
-  margin: 0;
-}
-.chat__wait {
-  margin: var(--space-3) 0;
-  font-size: 15px;
-  line-height: 1.6;
-}
-.chat__notice .chat__wait {
-  margin: 0;
-}
-.chat__wait-hint {
-  color: var(--color-ink-muted);
-  font-size: 14px;
-}
-.chat__examples {
-  margin-top: var(--space-8);
-}
-.chat__examples-toggle {
-  display: block;
-  padding: var(--space-2) 0;
-  background: none;
-  border: 0;
-  cursor: pointer;
-  text-align: left;
-}
-.chat__examples-toggle:hover {
+.page-nav__link {
   color: var(--color-ink);
+  font-size: 16px;
+  padding: 10px 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
-.chat__example-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-.chat__example {
-  text-align: left;
+.lang-btn {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  border: 1.5px solid var(--color-ink);
+  padding: 0 16px;
+  min-height: 44px;
   font-family: var(--font-sans);
   font-size: 16px;
-  color: var(--color-ink);
-  background: var(--color-paper);
-  border: 1px solid var(--color-hairline-strong);
-  padding: var(--space-3) var(--space-4);
+  font-weight: 500;
   cursor: pointer;
 }
-.chat__example:hover:not(:disabled) {
+.lang-btn:hover {
+  background: var(--color-paper-3);
+}
+html:has(main.ask) .masthead__bar {
+  flex-wrap: wrap;
+}
+@media (max-width: 599px) {
+  /* the two links stand in the footer as well; the header keeps the language */
+  .page-nav__link,
+  html:has(main.ask) .brand__sub {
+    display: none;
+  }
+}
+@media (max-width: 1099px) {
+  /* on a small screen the header scrolls away: the box at the foot needs the room */
+  html:has(main.ask) .masthead {
+    position: static;
+  }
+}
+.site-foot__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+/* ---- buttons, inputs ---- */
+.ask-btn {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  min-height: 56px;
+  padding: 0 32px;
+  border: 1.5px solid var(--color-ink);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+.ask-btn--primary {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+.ask-btn--primary:hover:not(:disabled) {
+  background: var(--color-cobalt);
   border-color: var(--color-cobalt);
 }
-.chat__stored-chip {
-  margin-left: var(--space-3);
+.ask-btn:disabled {
+  background: var(--color-paper-3);
+  color: var(--color-ink-muted);
+  border-color: var(--color-hairline-strong);
+  cursor: not-allowed;
 }
-.chat__turns {
-  margin-top: var(--space-8);
+.linkbtn {
+  background: none;
+  border: 0;
+  padding: 10px 0;
+  color: var(--color-cobalt);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-size: 18px;
+  cursor: pointer;
 }
-.chat__turn {
-  border-top: 1px solid var(--color-ink);
-  padding: var(--space-5) 0 var(--space-6);
+.ask textarea,
+.ask input[type="text"] {
+  width: 100%;
+  background: var(--color-paper);
+  border: 1.5px solid var(--color-ink);
+  border-radius: 0;
+  padding: 14px 16px;
+  font-family: var(--font-sans);
+  font-size: 20px;
+  line-height: 1.4;
 }
-/* a question that is being searched: a thin moving line under it */
-.chat__progress {
+.ask textarea {
+  resize: vertical;
+  min-height: 88px;
+}
+.ask ::placeholder {
+  color: var(--color-ink-muted);
+  opacity: 1;
+}
+.ask textarea:disabled,
+.ask input:disabled {
+  background: var(--color-paper-3);
+  color: var(--color-ink-muted);
+  border-color: var(--color-hairline-strong);
+  cursor: not-allowed;
+}
+.ask-chip {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid var(--color-ink);
+  padding: 1px 7px;
+  background: var(--color-paper);
+}
+
+/* ---- the first screen ---- */
+/* two parts in the page's frame, with the human check's element between them (order) */
+.first__part {
+  width: 100%;
+  max-width: calc(var(--read) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+.first__head {
+  padding-top: 32px;
+}
+.first__more {
+  order: 2;
+  padding-bottom: 48px;
+}
+.first__head h1 {
+  font-family: var(--font-serif);
+  font-weight: 300;
+  font-size: clamp(2.5rem, 1.5rem + 4.4vw, 4.25rem);
+  line-height: 1.02;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+.first__what {
+  font-size: 20px;
+  line-height: 1.5;
+  max-width: 34em;
+  margin: 20px 0 28px;
+}
+.ask-form {
+  display: grid;
+  gap: 8px;
+  border-left: 4px solid var(--color-amber);
+  padding-left: 16px;
+}
+.ask-form__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 8px;
+}
+.ask-form__left,
+.composer__left {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--color-ink-muted);
+}
+.composer__left {
+  margin: 4px 0 0;
+}
+.examples {
+  margin-top: 36px;
+}
+.examples__note {
+  font-size: 18px;
+  color: var(--color-ink-muted);
+  margin: 4px 0 12px;
+}
+.examples ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--color-hairline-strong);
+}
+.examples li {
+  border-bottom: 1px solid var(--color-hairline-strong);
+}
+.example {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  font-family: var(--font-serif);
+  font-size: 21px;
+  line-height: 1.35;
+  padding: 14px 28px 14px 0;
   position: relative;
-  height: 2px;
-  margin: var(--space-3) 0 var(--space-2);
-  overflow: hidden;
-  background: var(--color-hairline-strong);
+  cursor: pointer;
 }
-.chat__progress::after {
-  content: "";
+.example::after {
+  content: "→";
+  position: absolute;
+  right: 2px;
+  top: 14px;
+  font-family: var(--font-sans);
+  color: var(--color-cobalt);
+}
+.example:hover:not(:disabled) {
+  background: var(--color-paper-2);
+}
+.first__how {
+  margin: 32px 0 0;
+}
+.first__how a {
+  display: inline-block;
+  padding: 8px 0;
+  font-weight: 500;
+}
+@media (max-width: 479px) {
+  .ask textarea {
+    min-height: 124px;
+    font-size: 19px;
+  }
+}
+
+/* ---- waiting: the service waking, a question on its way ---- */
+.wake-pin {
+  /* on the first screen the status is pinned to the bottom edge, so nothing on the page moves */
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  background: var(--color-paper-2);
+  border-top: 1px solid var(--color-ink);
+}
+.ask:has(.wake-pin) .first__more {
+  padding-bottom: 200px;
+}
+.wake {
+  padding: 12px max(var(--gutter), calc((100% - var(--read)) / 2)) 14px;
+  background: var(--color-paper-2);
+}
+.dock .wake {
+  border-top: 1px solid var(--color-hairline-strong);
+}
+.wake .warn {
+  font-size: 18px;
+}
+.wait__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 18px;
+}
+.wait__steps li {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+.wait__sign {
+  display: inline-block;
+  width: 18px;
+  flex: none;
+  font-weight: 700;
+}
+.wait__sign--run {
+  height: 12px;
+  width: 12px;
+  margin: 0 3px;
+  border: 2px solid var(--color-cobalt);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ask-turn 1s linear infinite;
+  align-self: center;
+}
+.wait__s {
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  margin-left: 4px;
+}
+.wait__hint {
+  margin: 8px 0 0;
+  font-size: 18px;
+  color: var(--color-ink-muted);
+}
+.wait__line,
+.check__say {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.5;
+}
+.wait-bar {
+  height: 4px;
+  background: var(--color-paper-3);
+  position: relative;
+  overflow: hidden;
+  margin: 6px 0 12px;
+}
+.wait-bar span {
   position: absolute;
   top: 0;
   bottom: 0;
   left: 0;
-  width: 30%;
+  width: 40%;
   background: var(--color-cobalt);
-  animation: chat-progress 1.2s ease-in-out infinite;
+  animation: ask-run 1.3s ease-in-out infinite alternate;
 }
-@keyframes chat-progress {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(334%);
-  }
+@keyframes ask-run {
+  to { left: 60%; }
+}
+@keyframes ask-turn {
+  to { transform: rotate(360deg); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .chat__progress::after {
-    width: 100%;
-    opacity: 0.5;
-    animation: none;
-  }
+  .wait-bar span { animation: none; }
+  .wait__sign--run { animation: none; border-right-color: var(--color-cobalt); border-style: dotted; }
 }
-.chat__follows {
-  margin: 0 0 var(--space-1, 4px);
+/* the human check: in the flow, under the box on the first screen and under the newest turn in
+   a thread. Invisible and taking no room unless it needs a click or a sent question waits for it */
+.check {
+  order: 1;
+  width: 100%;
+  max-width: calc(var(--read) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: 0 var(--gutter);
 }
-.chat__answer {
-  margin: var(--space-4, 16px) 0;
+.conv--first .check:has(.check__say) {
+  padding-top: 16px;
 }
-.chat__answer-text {
-  font-size: 1.125rem;
-  line-height: 1.6;
-  margin: var(--space-2, 8px) 0 var(--space-3, 12px);
+.check--waiting {
+  padding-bottom: 16px;
 }
-.chat__cite {
-  font-size: 0.75em;
-  margin-left: 0.2em;
-  vertical-align: 0.2em;
-  text-decoration: none;
+/* the room Cloudflare's widget takes, kept while a question waits so nothing moves when it comes or goes */
+.check--waiting .check__widget {
+  width: 300px;
+  max-width: 100%;
+  min-height: 65px;
+  margin: 10px 0 12px;
 }
-.chat__cite:hover,
-.chat__sources a:hover {
-  text-decoration: underline;
-}
-.chat__sources {
-  list-style: none;
-  margin: 0 0 var(--space-3, 12px);
-  padding: 0;
+
+/* ---- the thread ---- */
+.ask--thread {
   display: grid;
-  gap: var(--space-2, 8px);
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
 }
-.chat__sources a {
-  text-decoration: none;
-}
-.chat__quote {
-  display: block;
-  margin-top: 2px;
-  font-size: 0.875rem;
-  opacity: 0.8;
-}
-.chat__cited {
-  margin-right: var(--space-1, 4px);
-}
-.chat__no-answer {
-  margin: var(--space-3, 12px) 0;
-}
-.chat__more {
-  margin-top: var(--space-5, 24px);
-  display: grid;
-  gap: var(--space-2, 8px);
-}
-.chat__more-row {
-  display: flex;
-  gap: var(--space-2, 8px);
-}
-.chat__more-row .input {
-  flex: 1;
+.conv {
   min-width: 0;
-}
-.chat__turn-head {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  flex-direction: column;
+  min-height: calc(100vh - var(--masthead-h, 0px));
 }
-.chat__question {
+.conv__in,
+.conv__foot {
+  width: 100%;
+  max-width: calc(var(--read) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: 32px var(--gutter) 0;
+}
+.conv__foot {
+  order: 2;
+  flex: 1 0 auto;
+  padding-top: 0;
+  padding-bottom: 24px;
+}
+.dock {
+  order: 3;
+}
+.turn + .turn {
+  margin-top: 48px;
+}
+.turn--old + .turn,
+.turn + .turn--old {
+  margin-top: 40px;
+}
+/* what the visitor said: set to the right, on a tint, smaller than the answer */
+.turn__q {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  margin-bottom: 24px;
+}
+.turn__text {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 21px;
+  line-height: 1.35;
+  margin: 0;
+  max-width: 88%;
+  background: var(--color-paper-3);
+  border: 1px solid var(--color-hairline);
+  padding: 12px 16px;
+  overflow-wrap: anywhere;
+}
+.turn__as {
+  margin: 2px 0 0;
+  max-width: 88%;
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--color-ink-muted);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+/* the answer: first and large; its bar hangs in the gutter so every text keeps one left edge */
+.a__body {
+  border-left: 4px solid var(--color-amber);
+  padding-left: 16px;
+  margin-top: 8px;
+}
+.a__text {
   font-family: var(--font-serif);
   font-size: 22px;
-  line-height: 1.35;
-  margin: var(--space-2) 0 var(--space-3);
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: anywhere;
 }
-.chat__mode {
+@media (min-width: 720px) {
+  .a__body { margin-left: -20px; }
+  .a__text { font-size: 24px; }
+  .ask--ev .a__text { font-size: 22px; }
+}
+.a--old .a__text {
+  font-size: 20px;
+}
+.a__wait {
+  margin-top: 8px;
+}
+.a__foot {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-hairline-strong);
+  display: grid;
+  gap: 16px;
+}
+.a__src .label {
+  margin-bottom: 8px;
+}
+/* a source mark never starts a line: it stays with the last word of its sentence */
+.keep {
+  white-space: nowrap;
+}
+.mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 5px;
+  font-family: var(--font-mono);
   font-size: 14px;
-  color: var(--color-ink-muted);
-  margin: 0 0 var(--space-3);
-}
-.chat__mode--keyword {
-  color: var(--color-ink);
-  border-left: 3px solid var(--color-amber);
-  background: var(--color-paper-2);
-  padding: var(--space-3) var(--space-4);
-}
-.chat__block-title {
-  margin: var(--space-5) 0 var(--space-2);
-}
-.chat__issue summary {
+  font-weight: 600;
+  line-height: 1;
+  font-style: normal;
+  border: 1.5px solid var(--color-cobalt);
+  color: var(--color-cobalt);
+  background: var(--color-paper);
+  margin: 0 2px 0 3px;
+  vertical-align: 0.14em;
   cursor: pointer;
 }
-.chat__facts {
-  margin: var(--space-3) 0 0;
-  display: grid;
-  gap: var(--space-2);
-  font-size: 14px;
+button.mark:hover {
+  background: var(--color-cobalt);
+  color: var(--color-paper);
 }
-.chat__facts dt {
+.mark--solid {
+  margin: 0 8px 0 0;
+  background: var(--color-cobalt);
+  color: var(--color-paper);
+  vertical-align: 0;
+  cursor: default;
+}
+.srcnames,
+.foundnames {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  font-size: 18px;
+  line-height: 1.4;
+}
+.srcnames li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  overflow-wrap: anywhere;
+}
+.srcnames .mark {
+  flex: none;
+  margin-left: 0;
+}
+.foundnames li {
+  display: grid;
+  overflow-wrap: anywhere;
+}
+.foundnames__kind {
   font-family: var(--font-mono);
-  font-size: var(--text-mono);
-  letter-spacing: var(--mono-tracking);
+  font-size: 13px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--color-ink-muted);
 }
-.chat__facts dd {
+.evrow {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+.evbtn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1.5px solid var(--color-ink);
+  background: var(--color-paper);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+.evbtn::after {
+  content: "→";
+  margin-left: 12px;
+  font-family: var(--font-sans);
+}
+.evbtn:hover {
+  background: var(--color-paper-3);
+}
+.evbtn[aria-expanded="true"] {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+.evbtn[aria-expanded="true"]::after {
+  content: "×";
+}
+.evbtn__state {
+  margin-left: 0.6em;
+}
+.evrow__counts {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--color-ink-muted);
+}
+.a--old .evrow {
+  margin-top: 14px;
+}
+.a--old .evbtn {
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 14px;
+}
+.notice {
+  margin: 8px 0 0;
+  font-size: 20px;
+  line-height: 1.45;
+  display: flex;
+  gap: 12px;
+}
+.a--old .notice {
+  font-size: 18px;
+}
+.notice__sign {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin-top: 4px;
+  border: 2px solid var(--color-ink);
+  position: relative;
+}
+.notice__sign::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  top: 8px;
+  height: 2px;
+  background: var(--color-ink);
+}
+/* refused or failed: one line, with a sign, never by colour */
+.warn {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.45;
+  border: 1.5px solid var(--color-ink);
+  padding: 14px 16px;
+  background: var(--color-paper);
+}
+.warn__sign {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin-top: 2px;
+  border: 2px solid var(--color-ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1;
+}
+.warn--in {
+  font-size: 18px;
+  margin-top: 16px;
+}
+.ev .warn--in {
+  margin: 0 0 10px;
+}
+.asknow {
   margin: 0;
 }
-.chat .evi-card__text {
-  font-size: 16px;
-  white-space: pre-wrap;
-  /* the server already clips a passage here; a second cap would cut a line in half */
-  max-height: none;
-  overflow-y: visible;
+.asknow .ask-btn {
+  min-height: 48px;
+  padding: 0 18px;
 }
-.chat__privacy {
-  margin-top: var(--space-10);
+.thread__note {
+  margin: 32px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-hairline-strong);
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--color-ink-muted);
+}
+.conv__end {
+  margin: 24px 0 0;
+  text-align: right;
+}
+
+/* ---- the box at the foot of the thread, and the privacy line under it ---- */
+.dock {
+  display: contents;
+}
+.dock > * {
+  order: 3; /* under 720 px its parts stand in the frame themselves: after the check and the foot */
+}
+.dock > :first-child {
+  margin-top: auto;
+}
+.composer {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  background: var(--color-paper);
+  border-top: 1px solid var(--color-ink);
+  padding: 12px max(var(--gutter), calc((100% - var(--read)) / 2)) 16px;
+  container-type: inline-size;
+}
+.composer__row {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.ask .composer__row input {
+  flex: 1;
+  min-width: 0;
+  min-height: 52px;
+  padding: 10px 14px;
+}
+.composer__row .ask-btn {
+  min-height: 52px;
+  padding: 0 22px;
+}
+@container (max-width: 560px) {
+  /* in a narrow column the label above the box says what it is for; the example would be cut */
+  .composer__row input::placeholder { color: transparent; }
+  .composer__row .ask-btn { padding: 0 16px; }
+}
+.priv {
+  font-size: 18px;
+  line-height: 1.45;
+  color: var(--color-ink-muted);
+}
+.priv summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 6px 0;
+}
+.priv summary::-webkit-details-marker {
+  display: none;
+}
+.priv__more {
+  color: var(--color-cobalt);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+.priv__more::after {
+  content: "\00a0▸";
+  display: inline-block;
+  text-decoration: none;
+}
+.priv[open] .priv__more::after {
+  content: "\00a0▾";
+}
+.priv__full {
+  margin: 2px 0 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-hairline-strong);
+  background: var(--color-paper-2);
+  color: var(--color-ink);
+  font-size: 18px;
+  line-height: 1.55;
+  max-width: 62em;
+}
+.dock .priv {
+  padding: 2px max(var(--gutter), calc((100% - var(--read)) / 2)) 12px;
+}
+@media (min-width: 720px) {
+  /* with room the line belongs to the box and stays on screen with it */
+  .dock {
+    display: block;
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    margin-top: auto;
+    background: var(--color-paper);
+    border-top: 1px solid var(--color-ink);
+  }
+  .dock > :first-child { margin-top: 0; }
+  .dock .composer { position: static; border-top: 0; padding-bottom: 2px; }
+  .dock .priv { padding-bottom: 8px; }
+  /* unfolded beside a thread, the paragraph never takes the screen from the conversation */
+  .dock .priv__full { max-height: 34vh; overflow: auto; }
+}
+
+/* ---- Evidence: a panel with tabs ---- */
+.evp {
+  background: var(--color-paper-2);
+  min-width: 0;
+  border-left: 1px solid var(--color-ink);
+}
+@media (min-width: 1280px) {
+  .ask--ev {
+    --gutter: 32px;
+    grid-template-columns: minmax(0, 1fr) var(--evp-w);
+  }
+  /* fixed under the header, not sticky: a sticky panel was pushed up under the header
+     whenever the footer came into view, so its head lost its room */
+  .ask--ev .evp {
+    position: fixed;
+    top: var(--masthead-h, 0px);
+    right: 0;
+    bottom: 0;
+    width: var(--evp-w);
+    overflow: auto;
+  }
+  html:has(.ask--ev) footer.site-foot {
+    margin-right: 700px; /* --evp-w: the footer stays clear of the panel */
+  }
+}
+.evp--sheet {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(100%, var(--evp-w));
+  z-index: 60;
+  overflow: auto;
+}
+.evp-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: rgba(10, 10, 10, 0.5);
+}
+html.evp-lock {
+  overflow: hidden;
+}
+.evp__bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px var(--epad) 10px;
+  background: var(--color-paper-2);
+}
+.evp__title {
+  min-width: 0;
+}
+.evp__q {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  line-height: 1.3;
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+.evp__close {
+  margin-left: auto;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1.5px solid var(--color-ink);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-size: 18px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.evp__close:hover {
+  background: var(--color-paper-3);
+}
+.tabs {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  background: var(--color-paper-2);
+  border-bottom: 1px solid var(--color-ink);
+  padding: 0 var(--epad);
+}
+.tabs [role="tab"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 48px;
+  padding: 0 8px;
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.2;
+  cursor: pointer;
+  border: 1px solid var(--color-ink);
+  border-bottom: 0;
+  margin-right: -1px;
+  background: var(--color-paper-2);
+  color: var(--color-ink);
+}
+.tabs [role="tab"]:hover {
+  background: var(--color-paper-3);
+}
+.tabs [role="tab"][aria-selected="true"] {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+.ask .tabs [role="tab"]:focus-visible {
+  outline-offset: -5px;
+  outline-color: var(--color-amber);
+}
+.tab__long {
+  display: none;
+}
+@media (min-width: 600px) {
+  .tabs { display: flex; }
+  .tabs [role="tab"] { padding: 0 18px; }
+  .tab__long { display: inline; }
+  .tab__short { display: none; }
+}
+@media (max-width: 599px) {
+  .tabs { padding: 0; }
+  .tabs [role="tab"]:first-child { border-left: 0; }
+  .tabs [role="tab"]:last-child { border-right: 0; margin-right: 0; }
+}
+@media (min-width: 720px) {
+  /* with room, the title and the close button stay with the tabs */
+  .evp__bar { position: sticky; top: 0; z-index: 3; height: 76px; }
+  .evp__q { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tabs { top: 76px; }
+}
+.evp__body {
+  padding: 24px var(--epad) 64px;
+}
+.ev h3 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 24px;
+  line-height: 1.2;
+  margin: 0 0 16px;
+}
+.ev__sub {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  margin: 24px 0 10px;
+}
+.ev__lead {
+  margin: 0 0 16px;
+}
+.ev__none {
+  margin: 0 0 10px;
+  color: var(--color-ink-muted);
+}
+.ev [tabindex="-1"]:focus {
+  outline: 3px solid var(--color-cobalt);
+  outline-offset: 4px;
+}
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* the graph: its box is sized before anything is drawn (aspect-ratio from the data) */
+.ev-view {
+  display: none;
+}
+.ev-graph {
+  display: none;
+}
+@media (min-width: 720px) {
+  .ev-view { display: flex; margin: 0 0 12px; }
+  .ev-view button {
+    min-height: 40px;
+    padding: 0 16px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: 1px solid var(--color-ink);
+    margin-right: -1px;
+    background: var(--color-paper-2);
+    color: var(--color-ink);
+    cursor: pointer;
+  }
+  .ev-view button[aria-pressed="true"] { background: var(--color-ink); color: var(--color-paper); }
+  .ev-graphbox--graph .ev-graph {
+    display: block;
+    width: 100%;
+    border: 1px solid var(--color-hairline-strong);
+    background: var(--color-paper);
+    padding: 8px;
+  }
+  .ev-graphbox--graph .tree { display: none; }
+}
+.ev-graph__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-sans);
+  font-size: 15px;
+}
+.g-node rect { fill: var(--color-paper); stroke: var(--color-ink); stroke-width: 1.25; }
+.g-node text { fill: var(--color-ink); }
+.g-node--answer rect { fill: var(--color-ink); }
+.g-node--answer text { fill: var(--color-paper); font-weight: 600; }
+.g-node--found rect { stroke-dasharray: 5 4; }
+.g-node .g-mark { fill: var(--color-cobalt); stroke: none; stroke-dasharray: none; }
+.g-node .g-marktext { fill: var(--color-paper); font-family: var(--font-mono); font-size: 13px; font-weight: 600; }
+.g-mono { font-family: var(--font-mono); font-size: 12px; }
+.g-node .g-mono { fill: var(--color-ink-muted); }
+.g-node--stamp .g-mono { fill: var(--color-ink); }
+.g-rel { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; fill: var(--color-ink-muted); }
+.g-head { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; fill: var(--color-ink); }
+.g-edge { fill: none; stroke: var(--color-ink); stroke-width: 1.25; }
+.g-edge--cites { stroke: var(--color-cobalt); stroke-width: 2; }
+.g-rule { stroke: var(--color-hairline-strong); stroke-dasharray: 5 4; }
+.g-node { cursor: default; }
+.g-node--go { cursor: pointer; }
+.g-node--go:hover > rect:first-child { fill: var(--color-paper-3); }
+.g-node:focus { outline: none; }
+.g-node:focus-visible > rect:first-child { stroke: var(--color-cobalt); stroke-width: 3; }
+.tree,
+.tree ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tree {
+  font-size: 18px;
+  line-height: 1.4;
+}
+.tree ul {
+  margin-left: 10px;
+  padding-left: 18px;
+  border-left: 1.5px solid var(--color-ink);
+}
+.tree li {
+  position: relative;
+  padding: 7px 0;
+  overflow-wrap: anywhere;
+}
+.tree ul > li::before {
+  content: "";
+  position: absolute;
+  left: -18px;
+  top: 20px;
+  width: 14px;
+  border-top: 1.5px solid var(--color-ink);
+}
+.tree__node--answer,
+.tree__head {
+  font-weight: 600;
+}
+.tree__rel {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  display: block;
+}
+.tree__found {
+  margin-top: 12px;
+}
+.tree__found > ul {
+  border-left-style: dashed;
+}
+.tree code {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  border: 1px solid var(--color-hairline-strong);
+  padding: 1px 5px;
+  margin: 2px 4px 2px 0;
+  overflow-wrap: anywhere;
+}
+
+/* sources, each with the exact text it was cited for */
+.src {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 20px;
+}
+.src li {
+  scroll-margin-top: 140px;
+}
+.src__head {
+  display: flex;
+  align-items: baseline;
+  overflow-wrap: anywhere;
+}
+.src__title {
+  font-size: 19px;
+  font-weight: 600;
+}
+.src__for {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  margin: 8px 0 4px;
+}
+.src blockquote {
+  margin: 0 0 8px;
+  padding: 2px 0 2px 16px;
+  border-left: 3px solid var(--color-cobalt);
+  font-family: var(--font-serif);
+  font-size: 20px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.src blockquote::before { content: "“"; }
+.src blockquote::after { content: "”"; }
+
+/* catalogue cards and passages: each folds; what the answer cites starts open */
+.ev-card {
+  border: 1px solid var(--color-ink);
+  margin-bottom: 10px;
+  background: var(--color-paper);
+  scroll-margin-top: 132px;
+}
+.ev-card summary,
+.ev-card__head {
+  list-style: none;
+  padding: 14px 44px 14px 16px;
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+  min-height: 56px;
+  overflow-wrap: anywhere;
+}
+.ev-card summary {
+  cursor: pointer;
+}
+.ev-card summary::-webkit-details-marker { display: none; }
+.ev-card summary::after {
+  content: "+";
+  position: absolute;
+  right: 16px;
+  top: 12px;
+  font-family: var(--font-mono);
+  font-size: 22px;
+}
+.ev-card[open] summary::after { content: "–"; }
+.ev-card summary:hover { background: var(--color-paper-2); }
+.ev-card__title {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  line-height: 1.25;
+  flex: 1 1 calc(100% - 40px);
+  min-width: 0;
+}
+.ev-card__meta {
+  flex-basis: 100%;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-ink-muted);
+  overflow-wrap: anywhere;
+}
+.ev-card__body {
+  border-top: 1px solid var(--color-hairline-strong);
+  padding: 16px;
+}
+.ev-passage__doc {
+  font-size: 19px;
+  font-weight: 600;
+}
+.ev-passage__page {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--color-ink-muted);
+}
+.ev-passage__text {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px 20px;
+  font-size: 18px;
+}
+.facts dt {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  margin-top: 10px;
+}
+.facts dt:first-child { margin-top: 0; }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.facts .stack { display: grid; }
+@media (min-width: 560px) {
+  .facts { grid-template-columns: max-content minmax(0, 1fr); }
+  .facts dt { margin-top: 0; padding-top: 5px; }
+}
+.ev table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.ev caption {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  padding-bottom: 6px;
+}
+.ev th,
+.ev td {
+  text-align: left;
+  padding: 8px 12px 8px 0;
+  border-bottom: 1px solid var(--color-hairline);
+  font-size: 18px;
+  font-weight: 400;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.ev thead th {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  border-bottom: 1px solid var(--color-ink);
+}
+.ev .r {
+  text-align: right;
+  padding-right: 0;
+}
+.stamps {
+  margin-top: 20px;
+}
+.stamps tbody th,
+.stamps tbody .r,
+.scores td {
+  font-family: var(--font-mono);
+  font-size: 17px;
+}
+
+/* how this answer was made */
+.steps {
+  list-style: none;
+  margin: 0 0 24px 14px;
+  padding: 0;
+  counter-reset: step;
+  border-left: 1.5px solid var(--color-ink);
+}
+.steps li {
+  counter-increment: step;
+  position: relative;
+  padding: 0 0 20px 28px;
+}
+.steps li:last-child { padding-bottom: 0; }
+.steps li::before {
+  content: counter(step);
+  position: absolute;
+  left: -14px;
+  top: -1px;
+  width: 27px;
+  height: 27px;
+  background: var(--color-paper);
+  border: 1.5px solid var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.steps h4 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.steps p {
+  margin: 0 0 6px;
+  overflow-wrap: anywhere;
+}
+.ev-kv {
+  margin: 6px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+}
+.ev-kv div {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+}
+.ev-kv dt {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+.ev-kv dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.scores {
+  margin-bottom: 24px;
+}
+.scorenote {
+  font-size: 18px;
+  margin: 0;
+  border-left: 3px solid var(--color-ink);
+  padding-left: 12px;
+}
+
+/* nothing that takes focus, or is brought into view, is left under the pinned parts of the page */
+html:has(main.ask) {
+  scroll-padding-top: calc(var(--pinned-top, 0px) + 12px);
+  scroll-padding-bottom: calc(var(--pinned-foot, 0px) + 12px);
 }

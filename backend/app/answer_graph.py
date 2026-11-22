@@ -4,7 +4,8 @@
       └────────────(a first question)────────────────────────────┴─> retrieve ──> write ──> check ──> END
                                                                          └──(no store answered)──> END
 
-    contextualize   a follow-up ("and its perforation?") -> a question that stands alone.    one model call
+    contextualize   a follow-up ("and its perforation?") -> a question that stands alone;    one model call
+                    a question that already does is searched in the visitor's own words.
     retrieve        the question path as it was: embedding, catalogue lookup, literature.     no model
     write           a short answer from the shown evidence, with citations.                   one model call
     check           keeps what is cited, drops what is not, names why there is no answer.     no model
@@ -49,7 +50,7 @@ from langgraph.runtime import Runtime
 from typing_extensions import TypedDict
 
 from app import settings
-from app.answer_model import NOT_COVERED, Reply
+from app.answer_model import NOT_COVERED, UNCHANGED, Reply
 from app.graph_link import Unavailable
 
 STAMPS_ON_A_CARD = 24          # as many as the page prints
@@ -269,7 +270,11 @@ def contextualize(state: FollowUp, runtime: Runtime[Deps]) -> dict:
         return {"search_question": question, "rewritten": False}
     reply = deps.model.rewrite(question, state["thread"])
     rewritten = " ".join(reply.text.split())
-    if reply.state != "ok" or not 0 < len(rewritten) <= settings.ASK_MAX_QUESTION_CHARS:
+    # The model's word for "it stands alone": the visitor's own words are searched. The word counts
+    # wherever it stands in the reply: seen once with a sentence of reasons before it, and a reply
+    # that holds it is never a question to search.
+    stands_alone = UNCHANGED in rewritten or rewritten.strip(" .\"'`").upper() == UNCHANGED
+    if reply.state != "ok" or stands_alone or not 0 < len(rewritten) <= settings.ASK_MAX_QUESTION_CHARS:
         return {"search_question": question, "rewritten": False, "calls": [_call("rewrite", reply)]}
     return {"search_question": rewritten, "rewritten": rewritten != question, "calls": [_call("rewrite", reply)]}
 
