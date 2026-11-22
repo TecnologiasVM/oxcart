@@ -20,7 +20,9 @@ Logs carry error CLASS names only: never a question, a key, an address or a stor
 from __future__ import annotations
 
 import collections
+import hashlib
 import logging
+import os
 import re
 import threading
 import time
@@ -94,7 +96,11 @@ class Embedder(WarmedInBackground):
     WARM_UP_TEXT = "warm-up"                 # the one tiny embedding made at startup; its vector is not kept
 
     def __init__(self, cache_size: int = 256):
-        self._cache: "collections.OrderedDict[str, list]" = collections.OrderedDict()
+        # The last vectors, so a repeated question is not embedded twice. They are kept under a
+        # digest of the question, keyed with a value made at start and held nowhere else: the
+        # text of a question does not stay in this process after its request.
+        self._cache: "collections.OrderedDict[bytes, list]" = collections.OrderedDict()
+        self._digest_key = os.urandom(32)
         self._size = cache_size
         self._lock = threading.Lock()
         self._client = None
@@ -113,6 +119,9 @@ class Embedder(WarmedInBackground):
                                      json={"model": settings.EMBEDDING_MODEL, "input": text})
         response.raise_for_status()
         return response.json()["data"][0]["embedding"]
+
+    def _slot(self, question: str) -> bytes:
+        return hashlib.blake2b(question.encode("utf-8"), key=self._digest_key, digest_size=16).digest()
 
     def warm(self) -> bool:
         """Open the connection with one tiny embedding. Meant for a thread."""
@@ -144,15 +153,16 @@ class Embedder(WarmedInBackground):
         key = config.OPENAI_API_KEY
         if not key:
             return None
+        slot = self._slot(question)
         with self._lock:
-            if question in self._cache:
-                self._cache.move_to_end(question)
-                return self._cache[question]
+            if slot in self._cache:
+                self._cache.move_to_end(slot)
+                return self._cache[slot]
         for _attempt in (1, 2):
             try:
                 vector = self._request(key, question)
                 with self._lock:
-                    self._cache[question] = vector
+                    self._cache[slot] = vector
                     while len(self._cache) > self._size:
                         self._cache.popitem(last=False)
                 self.state = "connected"
