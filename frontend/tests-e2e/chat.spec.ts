@@ -1178,6 +1178,6 @@ for (const width of [360, 820]) {
     }
     expect(seen.some((s) => s.startsWith("BUTTON.evbtn"))).toBe(true);
     expect(seen.some((s) => s.startsWith("BUTTON.mark"))).toBe(true);
-    expect(seen.some((s) => s.includes("Clear conversation"))).toBe(true);
+    expect(seen.some((s) => s.includes("Delete this conversation"))).toBe(true);
   });
 }

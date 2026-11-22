@@ -138,10 +138,16 @@ export function keepFocusIn(e: KeyboardEvent<HTMLElement>, box: HTMLElement | nu
  */
 export function Confirm({ text, yes, no, onYes, onNo, testId }: { text: string; yes: string; no: string; onYes: () => void; onNo: () => void; testId?: string }) {
   const keep = useRef<HTMLButtonElement | null>(null);
+  const group = useRef<HTMLDivElement | null>(null);
   const id = useId();
-  useEffect(() => keep.current?.focus(), []);
+  useEffect(() => {
+    // the whole question in view, clear of the pinned box (the page's scroll padding), then focus
+    group.current?.scrollIntoView({ block: "nearest" });
+    keep.current?.focus({ preventScroll: true });
+  }, []);
   return (
     <div
+      ref={group}
       className="confirm"
       role="group"
       aria-labelledby={id}

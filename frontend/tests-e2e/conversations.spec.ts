@@ -1,6 +1,6 @@
 import { test, expect, Page } from "@playwright/test";
 import {
-  ANSWER, WRITTEN, ask, box, deleteConversation, lines, mock, newest, noOverflow, panel, seedMany, startNew,
+  ANSWER, THREAD, WRITTEN, ask, box, deleteConversation, lines, mock, newest, noOverflow, panel, seedMany, startNew,
   type SeedConversation,
 } from "./helpers";
 
@@ -468,3 +468,35 @@ test("screenshots of the kept conversations at 360, 820, 1440 and 1600 px (kept 
     }
   }
 });
+
+// ===================================================================== nothing asked under the pinned box
+// (tabbing through a thread is tested in chat.spec.ts)
+
+/** The box pinned at the foot of the window: the form on a phone, the whole dock from 720 px. */
+async function pinned(page: Page) {
+  return page.evaluate(() => {
+    const dock = document.querySelector<HTMLElement>(".dock")!;
+    const el = getComputedStyle(dock).display === "contents" ? document.querySelector<HTMLElement>("form.composer")! : dock;
+    const r = el.getBoundingClientRect();
+    return { top: r.top, bottom: r.bottom };
+  });
+}
+for (const width of [360, 820]) {
+  test(`deleting asks in place wholly in view above the pinned box, at ${width} px`, async ({ page }) => {
+    await at(page, width);
+    await seedMany(page, [{ id: "c-long", turns: THREAD }, ...three()], "c-long");
+    await mock(page);
+    await page.goto("/");
+    await expect(page.getByTestId("turn")).toHaveCount(4);
+    await page.getByTestId("delete-one").click();
+    const confirm = page.getByTestId("confirm-one");
+    await expect(confirm.getByRole("button", { name: "Keep it" })).toBeFocused();
+    await page.waitForTimeout(150);
+    const box = await pinned(page);
+    for (const name of ["Delete", "Keep it"]) {
+      const b = (await confirm.getByRole("button", { name, exact: true }).boundingBox())!;
+      expect(b.y, `${name}: inside the window`).toBeGreaterThanOrEqual(0);
+      expect(b.y + b.height, `${name}: clear of the pinned box`).toBeLessThanOrEqual(box.top);
+    }
+  });
+}
