@@ -6,6 +6,10 @@ import { defineConfig, devices } from "@playwright/test";
  * The backend (:8090) is NOT started here — backend-dependent assertions are
  * written to tolerate a down backend (the UI must degrade gracefully).
  */
+// OXCART_TEST_PORT: another port for the site under test, when 3000 is taken on the machine.
+const port = Number(process.env.OXCART_TEST_PORT || 3000);
+const site = `http://localhost:${port}`;
+
 export default defineConfig({
   testDir: "./tests-e2e",
   fullyParallel: true,
@@ -13,7 +17,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: [["html", { open: "never" }], ["list"]],
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: site,
     trace: "on-first-retry",
   },
   projects: [
@@ -25,8 +29,8 @@ export default defineConfig({
   webServer: {
     // In CI the tests run against the site that was just built: the dev server fetches the
     // fonts from Google as it starts, and a slow answer there made it miss its start timeout.
-    command: process.env.CI ? "npm run start" : "npm run dev",
-    url: "http://localhost:3000",
+    command: `npx next ${process.env.CI ? "start" : "dev"} -H 127.0.0.1 -p ${port}`,
+    url: site,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },
