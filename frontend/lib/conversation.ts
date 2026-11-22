@@ -74,28 +74,41 @@ function storage(): Storage | null {
   }
 }
 
+/** The store as it is now in this browser; null when the browser refuses to be read. */
+export function readStore(): { conversations: Conversation[]; current: string | null } | null {
+  const ls = storage();
+  if (!ls) return null;
+  try {
+    const raw = ls.getItem(STORE_KEY);
+    if (!raw) return { conversations: [], current: null };
+    const store = JSON.parse(raw) as Partial<Store>;
+    const conversations = (Array.isArray(store.conversations) ? store.conversations : [])
+      .filter((c) => c && typeof c.id === "string")
+      .map((c) => ({ id: c.id, started: String(c.started ?? ""), turns: readTurns(c.turns) }))
+      .filter((c) => c.turns.length > 0);
+    return { conversations, current: typeof store.current === "string" ? store.current : null };
+  } catch {
+    return { conversations: [], current: null };
+  }
+}
+
 /** Everything kept, carrying over the first version once. */
 export function loadStore(): { conversations: Conversation[]; current: string; keeping: Keeping } {
   const fresh = newId("c");
   const ls = storage();
   if (!ls) return { conversations: [], current: fresh, keeping: "blocked" };
   try {
-    const raw = ls.getItem(STORE_KEY);
-    if (raw) {
-      const store = JSON.parse(raw) as Partial<Store>;
-      const conversations = (Array.isArray(store.conversations) ? store.conversations : [])
-        .filter((c) => c && typeof c.id === "string")
-        .map((c) => ({ id: c.id, started: String(c.started ?? ""), turns: readTurns(c.turns) }))
-        .filter((c) => c.turns.length > 0);
-      const current = typeof store.current === "string" ? store.current : fresh;
-      return { conversations, current, keeping: "kept" };
+    if (ls.getItem(STORE_KEY)) {
+      const store = readStore()!;
+      return { conversations: store.conversations, current: store.current ?? fresh, keeping: "kept" };
     }
     const old = ls.getItem(OLD_KEY);
     if (old) {
-      // the first version kept the newest turn first
+      // the first version kept the newest turn first. Written only while no store exists, so
+      // a second tab opening at the same time cannot overwrite what the first carried over
       const turns = readTurns(JSON.parse(old)).reverse();
       const conversations = turns.length ? [{ id: fresh, started: turns[0].at, turns }] : [];
-      if (saveStore(conversations, fresh) === "kept") ls.removeItem(OLD_KEY);
+      if (write({ conversations, current: fresh }) === "kept") ls.removeItem(OLD_KEY);
       return { conversations, current: fresh, keeping: "kept" };
     }
   } catch {
@@ -104,19 +117,61 @@ export function loadStore(): { conversations: Conversation[]; current: string; k
   return { conversations: [], current: fresh, keeping: "kept" };
 }
 
-/** Write every conversation. Says whether the browser kept it. */
-export function saveStore(conversations: Conversation[], current: string): Keeping {
+/** Two copies of a conversation's turns as one: every turn of each, by id (the second copy wins), in time order. */
+export function mergeTurns(stored: Turn[], mine: Turn[]): Turn[] {
+  const byId = new Map(stored.map((t) => [t.id, t]));
+  for (const t of mine) byId.set(t.id, t);
+  return [...byId.values()].sort((a, b) => a.at.localeCompare(b.at));
+}
+
+function write(store: { conversations: Conversation[]; current: string }): Keeping {
   const ls = storage();
   if (!ls) return "blocked";
-  const kept = conversations
+  const conversations = store.conversations
     .map((c) => ({ ...c, turns: c.turns.map(keepable).filter((t): t is Turn => t !== null).slice(-MAX_TURNS) }))
     .filter((c) => c.turns.length > 0)
     .map((c) => ({ ...c, started: c.turns[0].at }));
   try {
-    ls.setItem(STORE_KEY, JSON.stringify({ version: STORE_VERSION, current, conversations: kept } satisfies Store));
+    ls.setItem(STORE_KEY, JSON.stringify({ version: STORE_VERSION, current: store.current, conversations } satisfies Store));
     return "kept";
   } catch (e) {
     const full = e instanceof DOMException && (e.name === "QuotaExceededError" || e.name === "NS_ERROR_DOM_QUOTA_REACHED" || e.code === 22);
     return full ? "full" : "blocked";
   }
+}
+
+/*
+ * Every write reads the store again first and changes only what this tab changed, so two tabs
+ * open on one browser do not overwrite each other: a conversation another tab added or
+ * changed meanwhile stays as that tab left it.
+ */
+
+/**
+ * Write one conversation by its id. Its turns are merged with the stored copy, so turns another
+ * tab added to the same conversation stay. `known`: this tab has seen it in the store; if it is
+ * no longer there, another tab deleted it, and it is not written back ("deleted").
+ */
+export function writeConversation(c: Conversation, current: string, known: boolean): Keeping | "deleted" {
+  const store = readStore();
+  if (!store) return "blocked";
+  const stored = store.conversations.find((s) => s.id === c.id);
+  if (!stored && known) return "deleted";
+  const merged = { ...c, turns: stored ? mergeTurns(stored.turns, c.turns) : c.turns };
+  const others = store.conversations.filter((s) => s.id !== c.id);
+  return write({ conversations: [...others, merged], current });
+}
+
+/** Delete these conversations by id, and nothing else. */
+export function removeConversations(ids: string[], current: string): Keeping {
+  const store = readStore();
+  if (!store) return "blocked";
+  return write({ conversations: store.conversations.filter((c) => !ids.includes(c.id)), current });
+}
+
+/** Say which conversation a new tab opens with: this tab's open one (the last tab to say so wins). */
+export function writeCurrent(current: string): Keeping {
+  const store = readStore();
+  if (!store) return "blocked";
+  if (store.current === current) return "kept";
+  return write({ conversations: store.conversations, current });
 }

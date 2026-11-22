@@ -279,6 +279,68 @@ test("storage full: one line says so, the kept conversations stay listed, and de
   await expect(note).toHaveCount(0);
 });
 
+// ===================================================================== two tabs on one store
+
+test("two tabs on one store do not overwrite each other, and a deletion is never written back", async ({ context }) => {
+  const [a, b] = [await context.newPage(), await context.newPage()];   // two pages of one context share local storage
+  for (const p of [a, b]) {
+    await at(p, 1440);
+    await mock(p, { written: WRITTEN });
+  }
+  const stored = () => a.evaluate(() => {
+    const store = JSON.parse(window.localStorage.getItem("oxcart-conversations") ?? "{\"conversations\":[]}");
+    return (store.conversations as { turns: { question: string }[] }[]).map((c) => c.turns.map((t) => t.question));
+  });
+  await a.goto("/");
+  await b.goto("/");
+  await ask(a, "Tab A's made-up question?");
+  await expect(newest(a).getByTestId("written-answer")).toBeVisible();
+  await ask(b, "Tab B's made-up question?");
+  await expect(newest(b).getByTestId("written-answer")).toBeVisible();
+  // both are kept, and each rail lists both: at once (the other tab's write is followed) and after a reload
+  expect((await stored()).map((c) => c[0]).sort()).toEqual(["Tab A's made-up question?", "Tab B's made-up question?"]);
+  await expect(items(a)).toHaveCount(2);
+  await expect(items(b)).toHaveCount(2);
+  await a.reload();
+  await b.reload();
+  await expect(items(a)).toHaveCount(2);
+  await expect(items(b)).toHaveCount(2);
+  // A deletes its conversation after B has saved again: B's stays whole
+  await items(a).filter({ hasText: "Tab A's made-up question?" }).click();
+  await items(b).filter({ hasText: "Tab B's made-up question?" }).click();
+  await ask(b, "Tab B's second made-up question?");
+  await expect(b.getByTestId("turn")).toHaveCount(2);
+  await expect(newest(b).getByTestId("written-answer")).toBeVisible();
+  await deleteConversation(a);
+  expect(await stored()).toEqual([["Tab B's made-up question?", "Tab B's second made-up question?"]]);
+  await expect(items(b)).toHaveCount(1);                               // gone from the other tab's rail too
+  // B saving after A's deletion does not bring it back
+  await ask(b, "Tab B's third made-up question?");
+  await expect(b.getByTestId("turn")).toHaveCount(3);
+  await expect(newest(b).getByTestId("written-answer")).toBeVisible();
+  expect(await stored()).toEqual([["Tab B's made-up question?", "Tab B's second made-up question?", "Tab B's third made-up question?"]]);
+  // a tab showing a conversation deleted in another tab closes it, and keeps what was being typed
+  await items(a).filter({ hasText: "Tab B's made-up question?" }).click();
+  await expect(a.getByTestId("turn")).toHaveCount(3);                  // A sees B's turns, written by B
+  await box(a).fill("A question being typed in tab A");
+  await deleteConversation(b);
+  await expect(a.getByTestId("turn")).toHaveCount(0);
+  await expect(box(a)).toHaveValue("A question being typed in tab A");
+  expect(await stored()).toEqual([]);
+  // and two tabs asking in one conversation keep each other's turns
+  await box(a).fill("");
+  await ask(a, "A shared conversation's first question?");
+  await expect(newest(a).getByTestId("written-answer")).toBeVisible();
+  await items(b).filter({ hasText: "A shared conversation's first question?" }).click();
+  await ask(b, "Asked in the shared conversation from tab B?");
+  await expect(newest(b).getByTestId("written-answer")).toBeVisible();
+  await ask(a, "Asked in the shared conversation from tab A?");
+  await expect(newest(a).getByTestId("written-answer")).toBeVisible();
+  expect(await stored()).toEqual([[
+    "A shared conversation's first question?", "Asked in the shared conversation from tab B?", "Asked in the shared conversation from tab A?",
+  ]]);
+});
+
 // ===================================================================== page 40: a long list
 
 test("a long list: 'Today' and 'Earlier', and it scrolls between New conversation and the foot", async ({ page }) => {
@@ -449,7 +511,8 @@ test("screenshots of the kept conversations at 360, 820, 1440 and 1600 px (kept 
     await expect(page.getByTestId("turn")).toHaveCount(2);
     await shot("03-thread", width);
     await page.getByTestId("delete-one").click();
-    await page.getByTestId("confirm-one").scrollIntoViewIfNeeded();
+    await expect(page.getByTestId("confirm-one").getByRole("button", { name: "Keep it" })).toBeFocused();
+    await page.waitForTimeout(150);                                     // the page's own scroll, not the test's
     await shot("04-delete-one", width);
     await page.keyboard.press("Escape");
     if (width >= 1100) {
