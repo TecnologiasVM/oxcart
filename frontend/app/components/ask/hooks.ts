@@ -277,3 +277,33 @@ export function useHeaderHeight() {
     return () => observer.disconnect();
   }, []);
 }
+
+/**
+ * How much of the window the pinned parts cover: the box at the foot (the form on a phone,
+ * the whole dock from 720 px) and, at the top, the header where it sticks and any bar pinned
+ * above the thread (`.threadbar`). Kept as CSS variables that the page's scroll padding uses,
+ * so that whatever takes focus, or is brought into view, is never left under them.
+ */
+export function usePinnedEdges(watch: unknown) {
+  useEffect(() => {
+    const root = document.documentElement;
+    const measure = () => {
+      const dock = document.querySelector<HTMLElement>(".dock");
+      const foot = dock && getComputedStyle(dock).display === "contents" ? document.querySelector<HTMLElement>("form.composer") : dock;
+      const header = document.querySelector<HTMLElement>("header.masthead");
+      const bar = document.querySelector<HTMLElement>(".threadbar");
+      const top = (header && getComputedStyle(header).position === "sticky" ? header.offsetHeight : 0)
+        + (bar && getComputedStyle(bar).display !== "none" ? bar.offsetHeight : 0);
+      root.style.setProperty("--pinned-foot", `${foot?.offsetHeight ?? 0}px`);
+      root.style.setProperty("--pinned-top", `${top}px`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    for (const el of document.querySelectorAll<HTMLElement>(".dock, form.composer, header.masthead, .threadbar")) observer.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [watch]);
+}

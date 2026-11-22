@@ -3436,3 +3436,9 @@ html.evp-lock {
   border-left: 3px solid var(--color-ink);
   padding-left: 12px;
 }
+
+/* nothing that takes focus, or is brought into view, is left under the pinned parts of the page */
+html:has(main.ask) {
+  scroll-padding-top: calc(var(--pinned-top, 0px) + 12px);
+  scroll-padding-bottom: calc(var(--pinned-foot, 0px) + 12px);
+}

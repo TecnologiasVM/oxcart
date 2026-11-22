@@ -36,7 +36,7 @@ import type { Labels, Lang } from "@/lib/i18n";
 import EvidencePanel from "./ask/EvidencePanel";
 import type { PanelFocus, TabKey } from "./ask/EvidencePanel";
 import FirstScreen from "./ask/FirstScreen";
-import { useConversation, useHeaderHeight, useHumanCheck, useMedia, useService } from "./ask/hooks";
+import { useConversation, useHeaderHeight, useHumanCheck, useMedia, usePinnedEdges, useService } from "./ask/hooks";
 import { answered, followed, HOW_URL, PrivacyLine, REPO_URL, textOf, Waiting, Warn } from "./ask/parts";
 import TurnView from "./ask/TurnView";
 
@@ -244,6 +244,8 @@ export default function Chat() {
   const follows = followed(turns);
   const left = MAX_QUESTION_CHARS - draft.length;
   const docked = Boolean(evTurn) && !sheet;
+  // what is pinned changes with the thread and with Evidence: measured again each time
+  usePinnedEdges(`${turns.length > 0}|${docked}`);
 
   const status = waking ? (
     <div className="wake" role="status" aria-label={t.wakeTitle} data-testid="service-starting">

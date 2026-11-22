@@ -1353,3 +1353,46 @@ test("in Spanish, the sources are named in Spanish from their evidence, and Evid
   await expect(panel(page)).toContainText("Cómo se encontró cada emisión");
   await expect(panel(page)).toContainText("Son puntuaciones brutas de coincidencia. No son un porcentaje ni una medida de confianza.");
 });
+
+// ===================================================================== nothing focused under the pinned box
+
+/** Where the focused element stands against the window and the box pinned at the foot (the form on a phone, the dock from 720 px). */
+async function focusedClear(page: Page) {
+  return page.evaluate(() => {
+    const el = document.activeElement as HTMLElement | null;
+    const dock = document.querySelector<HTMLElement>(".dock")!;
+    const box = (getComputedStyle(dock).display === "contents" ? document.querySelector<HTMLElement>("form.composer")! : dock).getBoundingClientRect();
+    if (!el || !el.closest(".conv") || el.closest(".dock, form.composer")) return { inThread: false, ok: true, what: el?.tagName ?? "" };
+    const r = el.getBoundingClientRect();
+    const inWindow = r.top >= 0 && r.bottom <= window.innerHeight;
+    const clearOfBox = r.bottom <= box.top || r.top >= box.bottom;
+    return { inThread: true, ok: inWindow && clearOfBox, what: `${el.tagName}.${el.className} ${el.textContent?.slice(0, 30)} ${Math.round(r.top)}-${Math.round(r.bottom)} box ${Math.round(box.top)}` };
+  });
+}
+
+for (const width of [360, 820]) {
+  test(`focus never lands under the pinned box, tabbing through a thread both ways, at ${width} px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await seed(page, THREAD);
+    await mock(page);
+    await page.goto("/");
+    await expect(page.getByTestId("turn")).toHaveCount(4);
+    // forwards from the top of the thread to the box, then back up
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.locator(".turn__text").first().evaluate((el) => {
+      el.setAttribute("tabindex", "-1");
+      (el as HTMLElement).focus();
+    });
+    const seen: string[] = [];
+    for (const key of [...Array(40).fill("Tab"), ...Array(40).fill("Shift+Tab")]) {
+      await page.keyboard.press(key);
+      await page.waitForTimeout(30);
+      const where = await focusedClear(page);
+      if (where.inThread) seen.push(where.what);
+      expect(where.ok, `${key}: ${where.what}`).toBe(true);
+    }
+    expect(seen.some((s) => s.startsWith("BUTTON.evbtn"))).toBe(true);
+    expect(seen.some((s) => s.startsWith("BUTTON.mark"))).toBe(true);
+    expect(seen.some((s) => s.includes("Clear conversation"))).toBe(true);
+  });
+}
