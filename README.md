@@ -26,6 +26,17 @@ how it was measured, on one page: [oxcart.chat/how-it-works](https://oxcart.chat
 free hosting tiers and sleeps when nobody uses it; waking it takes about half a minute, and the stored examples
 on the page work meanwhile.
 
+<p align="center">
+  <img src="docs/pictures/oxcart-answer.png" width="49%" alt="The question page: a question about a catalogue issue, a short answer of two sentences, each with the mark of its source, and under it the two sources: a catalogue card and a page of a publication">
+  <img src="docs/pictures/oxcart-evidence-graph.png" width="49%" alt="The same answer with Evidence open on the graph: the answer joined to the catalogue card it cites, with the card's printer, authorizing decree and stamps, and to the page it cites">
+</p>
+<p align="center">
+  <a href="https://oxcart.chat/how-it-works"><img src="docs/pictures/oxcart-how-it-works.png" width="70%" alt="The page How it works: its first paragraph, the five steps, and the path of a question as a diagram"></a>
+</p>
+
+Pictures of the page built from this repository, against a backend on the development machine and the hosted
+stores: the page as it is served, with no picture from the literature in them.
+
 ## A question, step by step
 
 ```mermaid
