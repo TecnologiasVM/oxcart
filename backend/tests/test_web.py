@@ -614,10 +614,37 @@ def test_the_web_route_has_the_chat_routes_guard(web_client, model, monkeypatch)
     big = json.dumps({"question": question, "answer": text, "ticket": "t" * (settings.WEB_MAX_BODY_BYTES)})
     r = client.post("/api/chat/web", content=big, headers={**headers, "content-type": "application/json"})
     assert r.status_code == 413
-    for body in ({"question": question, "answer": text, "ticket": ticket, "thread": []}, {"question": question, "answer": "a" * 1201, "ticket": ticket},
+    for body in ({"question": question, "answer": text, "ticket": ticket, "thread": []}, {"question": question, "answer": "a" * (settings.WEB_ANSWER_CHARS + 1), "ticket": ticket},
                  {"question": "q" * 301, "answer": "", "ticket": ticket}, {"question": question, "answer": text}):
         r = client.post("/api/chat/web", json=body, headers=headers)
         assert r.status_code == 422 and r.json()["error"] == "invalid_request"
+
+
+def test_a_long_answer_in_part_gets_a_ticket_and_its_web_request_is_accepted(web_client, model):
+    client = web_client()
+    headers = session_of(client)
+    blocks = [{"text": f"{' ' if n else ''}Made-up fact number {n} about the made-up issue holds here.",
+               "citations": [{"document": 0, "cited_text": "stamp 1"}]} for n in range(60)]
+    long_part = Reply(state="ok", input_tokens=900, output_tokens=700,
+                      blocks=blocks + [{"text": f"\n{answer_model.PART_ONLY}", "citations": []}])
+    question, text, ticket = ticketed(client, model, headers, long_part)
+    assert len(text) > 3000
+    r = web(client, headers, question, text, ticket)
+    assert r.status_code == 200 and r.json()["state"] == "ok"
+    assert model.webs[0][2] == text                     # the earlier answer, whole: the ticket signs all of it
+
+
+def test_the_web_body_holds_the_longest_answer_in_the_widest_json(web_client, model):
+    widest = json.dumps({"question": "é" * settings.ASK_MAX_QUESTION_CHARS, "answer": "é" * settings.WEB_ANSWER_CHARS,
+                         "ticket": "t" * 300})
+    assert len(widest.encode("utf-8")) <= settings.WEB_MAX_BODY_BYTES
+    assert settings.WEB_ANSWER_CHARS >= 5 * settings.ANSWER_MAX_TOKENS > settings.CHAT_THREAD_ANSWER_CHARS
+    client = web_client()
+    r = client.post("/api/chat/web", content=widest, headers={**session_of(client), "content-type": "application/json"})
+    assert r.status_code == 403 and r.json()["error"] == "ticket_refused"        # read in full, then the ticket refused
+    r = client.post("/api/chat/web", content=widest + " " * (settings.WEB_MAX_BODY_BYTES + 1 - len(widest)),
+                    headers={**session_of(client), "content-type": "application/json"})
+    assert r.status_code == 413
 
 
 def test_a_web_request_counts_as_a_question_for_the_visitor(web_client, model, monkeypatch):

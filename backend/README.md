@@ -162,7 +162,7 @@ With `OXCART_PUBLIC=1` the app runs in **hosted mode**:
 | Routes mounted | `GET /api/health`, `GET /api/ask/examples`, `POST /api/session`, `POST /api/ask`, `POST /api/chat`, and `POST /api/chat/web` only with `ASK_WEB` on. Nothing else: no explorer routes, no export, no figures |
 | Docs | `/docs`, `/redoc` and `/openapi.json` are off |
 | Human check | The page solves a Cloudflare Turnstile challenge and posts its token to `/api/session`; the backend verifies it with Cloudflare and returns a signed token valid for an hour, sent as `X-Oxcart-Session` with each question. If the check cannot be verified, questions are refused with a message |
-| Limits | 10 questions a minute and 100 a day per visitor, 2,000 a day for the service, in memory; a question is at most 300 characters and a request 2 kB (a chat 8 kB, a web part its own limit, the human check's token up to 2,048 characters, any other POST the smallest). A body's size is held before it is read (`app/body_limit.py`): a missing or larger `Content-Length` is refused with 413 at once, and so is a body whose bytes pass the limit whatever the header said; a body must arrive within `BODY_READ_SECONDS` (10 s), or 408. A visitor is counted twice, by address (an IPv6 address by its first 64 bits) and by session token, and a question passes only when both are under the limits |
+| Limits | 10 questions a minute and 100 a day per visitor, 2,000 a day for the service, in memory; a question is at most 300 characters and a request 2 kB (a chat 8 kB, a web part about 61 kB, the human check's token up to 2,048 characters, any other POST the smallest). A body's size is held before it is read (`app/body_limit.py`): a missing or larger `Content-Length` is refused with 413 at once, and so is a body whose bytes pass the limit whatever the header said; a body must arrive within `BODY_READ_SECONDS` (10 s), or 408. A visitor is counted twice, by address (an IPv6 address by its first 64 bits) and by session token, and a question passes only when both are under the limits |
 | CORS | The origins in `CORS_ORIGINS`, GET and POST, no credentials |
 | Errors | `{"error": code, "message": text}`; no exception text, nothing of the request repeated |
 | Logs | One line per question with the mode, the timings and error classes. No question text, no address |
@@ -266,8 +266,13 @@ set), over a random id, a digest of the question as it was searched (`evidence.q
 answer's text (its shown sentences joined with a space; empty for `not_covered`), the state and an expiry
 120 s ahead. It holds no text. A restart makes the tickets of the last two minutes invalid.
 
-`POST /api/chat/web` takes `{"question": <evidence.question>, "answer": <the answer's text, or "">, "ticket": ..}`
-(at most 4 kB). It stands behind the chat route's guard (the session in hosted mode, both visitor counts, where
+`POST /api/chat/web` takes `{"question": <evidence.question>, "answer": <the answer's text, or "">, "ticket": ..}`.
+The answer's text is the whole written answer, since the ticket signs it, so it has a limit of its own,
+`WEB_ANSWER_CHARS` (10,000 characters: five for each token the write call may use, its 500 and the thinking's
+1,500, where English and Spanish prose take about four or fewer), and the body `WEB_MAX_BODY_BYTES` (62,612
+bytes: the answer and the question at six bytes a character, as JSON can write an accented letter, the ticket
+and the JSON around them). The model is given that answer whole: it is the backend's own text, as the ticket
+proves. It stands behind the chat route's guard (the session in hosted mode, both visitor counts, where
 it counts as a question, the service's daily limit, the eval's way in), then refuses with 403 `ticket_refused` a
 ticket that does not verify for that question and answer, is expired or was used (a ticket is good once; used
 ids are kept in memory until they expire). Then, in this order: a search is reserved, the check that it is
@@ -324,7 +329,7 @@ error, a timeout, another shape), 30 searches a day (UTC), counted in memory. No
 restarts. One log line (`{"event": "web_rule", "rule": "usage" | "per_day"}`) when the rule in use changes, with
 no number of the account. The numbers are constants in `app/settings.py` (`WEB_SEARCHES_AT_MONTH_START`,
 `WEB_SEARCHES_OVER_THE_MONTH`, `WEB_SEARCHES_PER_DAY_FALLBACK`, `WEB_USAGE_EVERY_SECONDS`), as are the time-outs
-and the cuts (`WEB_*`). The read is made by one request at a time and outside the lock that counts the searches;
+and the cuts and sizes (`WEB_*`). The read is made by one request at a time and outside the lock that counts the searches;
 other requests meanwhile use the last value read. It can add up to 4 s to the one chat answer that makes it,
 once in five minutes.
 

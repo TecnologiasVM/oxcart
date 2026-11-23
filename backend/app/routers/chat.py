@@ -218,7 +218,7 @@ async def chat(payload: ChatRequest, request: Request) -> StreamingResponse:
 class WebRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     question: str = Field(..., min_length=1, max_length=settings.ASK_MAX_QUESTION_CHARS)   # as it was searched
-    answer: str = Field("", max_length=settings.CHAT_THREAD_ANSWER_CHARS)                 # empty for "not covered"
+    answer: str = Field("", max_length=settings.WEB_ANSWER_CHARS)                         # empty for "not covered"
     ticket: str = Field(..., min_length=1, max_length=300)
 
 

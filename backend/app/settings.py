@@ -227,7 +227,15 @@ WEB_TITLE_CHARS: int = 200
 WEB_TEXT_CHARS: int = 1500
 # How long a ticket for the web step is good for, after the chat reply that carries it.
 WEB_TICKET_SECONDS: int = 120
-WEB_MAX_BODY_BYTES: int = 4096
+# The answer a web request carries back is the whole text of a written answer: the ticket signs a digest of it, so
+# the page cannot cut it. A written answer is bounded by the tokens its call may use: ANSWER_MAX_TOKENS, and with
+# thinking on the thinking's room too, which the text can take when the model thinks little (2,000 in all). A
+# token of English or Spanish prose is about four characters or fewer; five a token leaves room to spare. (The
+# earlier turns of a conversation are clipped to CHAT_THREAD_ANSWER_CHARS; this answer cannot be.)
+WEB_ANSWER_CHARS: int = 5 * (ANSWER_MAX_TOKENS + ANSWER_THINKING_ROOM_TOKENS)
+# Its body: the answer and the question, each character of which JSON can write as six bytes (\u00e9; a character
+# outside the basic plane, such as an emoji, takes twelve), the ticket (at most 300 characters) and the JSON around.
+WEB_MAX_BODY_BYTES: int = 6 * (WEB_ANSWER_CHARS + ASK_MAX_QUESTION_CHARS) + 300 + 512
 # How many searches are allowed. The account's credits used this month are read from the search service's
 # usage route at most once in WEB_USAGE_EVERY_SECONDS, plus the searches this process made lately (below); a
 # search is allowed while that is under WEB_SEARCHES_AT_MONTH_START + WEB_SEARCHES_OVER_THE_MONTH x the share
