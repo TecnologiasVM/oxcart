@@ -239,10 +239,10 @@ _HOST = re.compile(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a
 
 def host_of(url: Any) -> Optional[str]:
     """The host of an address that may be shown and linked: https, at most WEB_URL_CHARS characters, no user
-    name or password, no space or control character, and a host name that parses. None otherwise."""
+    name or password, no space, control character or backslash, and a host name that parses. None otherwise."""
     if not isinstance(url, str) or not url or len(url) > settings.WEB_URL_CHARS:
         return None
-    if any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in url) or not url.lower().startswith("https://"):
+    if any(c.isspace() or ord(c) < 32 or ord(c) == 127 or c == "\\" for c in url) or not url.lower().startswith("https://"):
         return None
     try:
         parts = urlsplit(url)

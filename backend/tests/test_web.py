@@ -337,6 +337,7 @@ def test_only_https_addresses_with_no_user_name_and_a_host_are_kept_and_text_is_
         {**ok, "url": "https:///no-host"},
         {**ok, "url": "https://stamps.example:notaport/"},
         {**ok, "url": "https://stamps .example/"},
+        {**ok, "url": "https://stamps.example\\@other.example/"},
         {**ok, "url": "javascript:alert(1)"},
         {**ok, "url": "https://[::1]/"},
         {**ok, "url": "https://localhost/"},
