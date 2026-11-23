@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import AppHeader from "./components/AppHeader";
 import AppFooter from "./components/AppFooter";
+import { linkPicture, SITE } from "./link-picture";
 
 /*
  * Fonts, served from files in this repository (app/fonts, see its README):
@@ -45,10 +46,16 @@ const inter = localFont({
   adjustFontFallback: "Arial",
 });
 
+const TITLE = "Oxcart · Costa Rica philately knowledge graph";
+const DESCRIPTION =
+  "Research demo: ask about any Costa Rican stamp issue and read a short answer with its sources, written from the evidence of the catalogue graph and the philatelic literature.";
+
+// the tab's icon is app/icon.svg (Next's file convention); the picture a link shows, app/link-picture.ts
 export const metadata: Metadata = {
-  title: "Oxcart · Costa Rica philately knowledge graph",
-  description:
-    "Research demo: ask about any Costa Rican stamp issue and read a short answer with its sources, written from the evidence of the catalogue graph and the philatelic literature.",
+  metadataBase: new URL(SITE),
+  title: TITLE,
+  description: DESCRIPTION,
+  ...linkPicture(TITLE, DESCRIPTION, "/"),
 };
 
 export default function RootLayout({

@@ -1,8 +1,6 @@
-# Oxcart — a knowledge graph and retrieval system for Costa Rican philately
-
-<div align="center">
-  <img src="./assets/oxcart_logo.svg" width="260" alt="Oxcart logo">
-</div>
+<p align="center">
+  <img src="docs/brand/oxcart-logo-c-stamp.svg" width="422" alt="Oxcart">
+</p>
 
 <div align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-lightgray" alt="License: MIT"></a>
@@ -13,27 +11,158 @@
   <img src="https://img.shields.io/badge/UI-Next.js-000000" alt="Next.js">
 </div>
 
-Oxcart answers questions about Costa Rican stamps with **evidence**: catalogue facts from a knowledge graph, and the
-passages of the philatelic literature that support them, each with its document and page.
+# Oxcart — a knowledge graph and retrieval system for Costa Rican philately
 
-**Try it: [oxcart.chat](https://oxcart.chat).** Ask about any Costa Rican issue, in Spanish or English. You get the
-evidence and, a moment later, a short answer written from it, each sentence with the card or passage it cites. The
-demo runs on free hosting tiers and sleeps when nobody uses it; waking it takes about half a minute, and the
-stored examples on the page work meanwhile.
+Oxcart answers questions about Costa Rican stamps, in Spanish or English, from two sources: the Mena catalogue,
+held as a graph in Neo4j (819 issues, 2,764 stamps), and 41,126 passages of scanned philatelic literature, held
+with their vectors in Weaviate. A question becomes one vector (OpenAI `text-embedding-3-large`) and is searched
+in both at once. Claude Haiku 5.5 writes a short answer with citations, and a sentence is shown only if its
+citation holds. The steps are a LangGraph graph in a FastAPI backend in Python; the page is Next.js and React in
+TypeScript.
 
-**Status.** What runs today is retrieval and, on top of it, **a short written answer with citations**. A language
-model writes the answer from the evidence that is shown and from nothing else; a sentence that cites nothing is
-not shown, and when the evidence does not cover the question the page says so and shows the evidence. How often
-the answers are supported and correct was measured on the test set ([EVALUATION.md](EVALUATION.md#written-answers));
-the grades are a model's, not a person's. The hosted demo is the question page and a page on
-[how it works](https://oxcart.chat/how-it-works); the explorer app for the 1863
-First Issue runs locally and writes no answer. The [roadmap](#roadmap) lists what is planned and not built.
+**Try it: [oxcart.chat](https://oxcart.chat).** Ask about any Costa Rican issue. You get the evidence and, a
+moment later, a short answer written from it, each sentence with the card or passage it cites. How it works and
+how it was measured, on one page: [oxcart.chat/how-it-works](https://oxcart.chat/how-it-works). The demo runs on
+free hosting tiers and sleeps when nobody uses it; waking it takes about half a minute, and the stored examples
+on the page work meanwhile.
+
+<p align="center">
+  <img src="docs/pictures/oxcart-answer.png" width="49%" alt="The question page: a question about a catalogue issue, a short answer of two sentences, each with the mark of its source, and under it the two sources: a catalogue card and a page of a publication">
+  <img src="docs/pictures/oxcart-evidence-graph.png" width="49%" alt="The same answer with Evidence open on the graph: the answer joined to the catalogue card it cites, with the card's printer, authorizing decree and stamps, and to the page it cites">
+</p>
+<p align="center">
+  <a href="https://oxcart.chat/how-it-works"><img src="docs/pictures/oxcart-how-it-works.png" width="70%" alt="The page How it works: its first paragraph, the five steps, and the path of a question as a diagram"></a>
+</p>
+
+Pictures of the page built from this repository, against a backend on the development machine and the hosted
+stores: the page as it is served, with no picture from the literature in them.
+
+## A question, step by step
+
+```mermaid
+flowchart TD
+    Q(["Question<br/>in Spanish or English"]) --> R
+    R["1 · Rewritten<br/>every question after the first, only if it points back<br/><i>Claude Haiku 5.5</i>"] --> S
+    S["2 · Searched<br/>one vector, two searches at once<br/><i>OpenAI text-embedding-3-large</i>"] --> C
+    S --> L
+    C["Catalogue<br/>a graph, 819 issues<br/><i>Neo4j</i>"] --> E
+    L["Literature<br/>41,126 passages, by vectors<br/><i>Weaviate</i>"] --> E
+    E(["Evidence<br/>up to 3 cards and 5 passages, shown first"]) --> W
+    W["3 · Written with citations<br/>a short answer, only from the evidence<br/><i>Claude Haiku 5.5</i>"] --> K
+    K["4 · Citations checked<br/>a sentence with none is removed<br/><i>no model</i>"] --> A
+    A(["Answer<br/>only sentences whose citation holds"]) -.-> X
+    X["5 · Searched on the web<br/>only when the sources cover part of a question, or none of it<br/><i>Tavily, then the same writer</i>"] -.-> B
+    B(["From the web<br/>a block of its own, not from the catalogue or the literature"])
+    style R stroke-dasharray: 5 5
+    style X stroke-dasharray: 5 5
+```
+
+Rounded: what is on the page. Square: a step in the backend. Dashed: a step for some questions only. The server
+keeps nothing between two requests: a conversation lives in the browser. A language model writes the answer from
+the evidence that is shown and from nothing else; when the evidence does not cover the question the page says so
+and shows the evidence.
+
+## Results, in short
+
+151 questions in Spanish and English: 80 on the catalogue, 41 on the literature, 30 out of scope. One run through
+the public service; the method, every table and every limit are in [EVALUATION.md](EVALUATION.md).
+
+| | |
+|---|---|
+| **Issue found** | The right issue comes first for 30 of 32 held-out catalogue questions; in the first three for 32 of 32 |
+| **Page found** | A page that answers is among the five passages for 36 of 41 literature questions (36 of 49 counting the 8 drafts left out) |
+| **Catalogue answers** | 76 of 80 state the value the catalogue holds; in 63 of 80 every sentence is stated by its sources |
+| **Literature answers** | 10 of 41 agree with the reference answer in full and 30 in part; 17 of 41 give what the question asks |
+| **Sentences removed** | 101 of 410: the model wrote them with no citation. Of 376 citations, 0 did not hold |
+| **Out of scope** | 27 of 30 out-of-scope questions got no written answer |
+| **Cost and wait** | 0.0007 USD a question on average; 1.04 s until the evidence is on the page, 2.94 s until the checked answer (medians) |
+
+**Limits, the first one first.** On 50 questions never used while the system was changed, no literature answer
+agreed with its reference in full (0 of 20 in both runs), 2 and 4 of 20 gave what was asked, and 17 and 18 of 20
+catalogue answers were correct. The grades are a model's and no person has checked them; the sets are small, so
+one question is 2 to 7 points. A citation shows where a sentence's text is from: it does not prove the sentence
+follows from it. A web part changes from one asking to the next and has no reference answer to be graded against.
+
+## Run it locally
+
+You need Python 3.10+, Node.js 20+, a Neo4j database holding the graph, and a Weaviate instance holding the `Oxcart`
+collection (`docker-compose.yml` starts Weaviate 1.32.4). The data itself is not distributed; see [Data](#data).
+
+```bash
+git clone https://github.com/TecnologiasVM/oxcart.git
+cd oxcart
+
+# 1. configuration: copy the template and fill in the Neo4j and Weaviate settings
+cp .env.example .env
+
+# 2. backend dependencies, in a virtual environment
+python -m venv .venv
+source .venv/bin/activate            # Windows: .venv\Scripts\activate
+python -m pip install -r backend/requirements.txt
+python -m pip install -e .           # the shared modules, as the oxcart package
+
+# 3. frontend dependencies
+cd frontend && npm ci && cd ..
+
+# 4. start both servers, check them, stop them
+python scripts/servers.py start
+python scripts/servers.py status
+python scripts/servers.py stop
+```
+
+Open <http://localhost:3000/research>. `GET /api/health` reports whether Neo4j and Weaviate are reachable.
+
+Tests:
+
+```bash
+python pipeline/first_issue_graph/tests/test_lexicon.py            # no services needed
+python oxcart/tests/test_figure_refs.py                            # no services needed
+cd backend && python test_mena_backend.py                          # needs Neo4j (and Weaviate for evidence)
+cd ../frontend && npx playwright install chromium
+npx playwright test                                                # smoke tests, no backend needed
+npx playwright test --config=playwright.shadow.config.ts           # full suite, needs both servers running
+```
+
+`servers.py` was tested on Linux. It is written to work on Windows and macOS and has not been run there yet.
+
+## Future work
+
+Not built. No order and no date.
+
+- **The literature answers.** What was measured ([EVALUATION.md](EVALUATION.md#what-was-tried-to-raise-the-literature-answers)):
+  - *The right pages and more of their text, together, move them.* Given passages of pages known to answer, at up
+    to 4,000 characters each, the writer gives what is asked for 21 to 27 of 41 questions, against 14 to 19 as
+    served. No search can know those pages; the figure says what better evidence would be worth.
+  - *Either one alone does not.* More text of the passages the search finds (2,000 or 4,000 characters) changes
+    nothing, and the right pages at 700 characters give about three more answers in full.
+  - *A stronger writer* on the same evidence agrees in full more often (15 or 16 of 41 against 10 to 12) at about
+    fifteen times the cost of a question, and gives what is asked about as often.
+  - *A step that grades the evidence and may search once more* came nearest among what could be served (about
+    three more answers in full) for 60% more cost and a later first line on the page. It was not kept.
+  - *Showing more of a passage than 700 characters* on the page is a decision about the publications, not a
+    technical one.
+- **A review of the grades by a person.** The gold of the literature questions and the grades of the written
+  answers are a model's.
+- **The web to complete more answers.** Today one search adds a short part under an answer that the sources
+  cover in part or not at all.
+- **A photo of a stamp as the question.**
+- **Reading the source PDFs again.** Not measured: the literature's text was extracted once.
+- **A picture of the stamp on a catalogue answer.** No catalogue card has one today.
+- **Spanish answers that keep English words.** A Spanish answer at times keeps a date or a name in the English
+  of the passage it cites; the catalogue's cards are given to the writer in the language of the question.
+- **The explorer beyond the First Issue.** The question page takes any Costa Rican stamp question; the explorer's
+  graph views cover the 1863 First Issue only.
+
+## What works today
+
+What runs today is retrieval and, on top of it, a short written answer with citations. The hosted demo is the
+question page and the page on how it works; the explorer app for the 1863 First Issue runs locally and writes
+no answer.
 
 <p align="center">
   <img src="assets/screenshots/explore.png" alt="The Explore view: the First Issue at the centre, with its stamps, Scott equivalents, varieties and the documents that cite them" width="85%">
 </p>
 
-## What works today
 
 - **A domain graph in Neo4j** built from the Mena 2018 catalogue: issues, stamps, varieties, proofs, plates, and
   equivalences to Scott numbers.
@@ -59,8 +188,8 @@ First Issue runs locally and writes no answer. The [roadmap](#roadmap) lists wha
     follow-up. The server keeps nothing between two requests, so no visitor's text stays in its memory and
     nothing is lost when the service sleeps.
   - *What it does not do:* no step grades the evidence, none retrieves a second time, and there is no scope
-    router; a rule in the model's instructions stands in for the last. Those are the next step, see the
-    [roadmap](#roadmap).
+    router; a rule in the model's instructions stands in for the last. What was measured for them is under
+    [Future work](#future-work).
 - **A web part, on at the hosted demo and off by default in the code** (`POST /api/chat/web`, `backend/app/web_step.py`). When the catalogue
   and the literature do not cover an in-scope question, or answer part of it, the page can add a short part
   written from one web search, in a marked block of its own under the answer, with the pages it cites.
@@ -97,9 +226,9 @@ The corpus, the databases and the page images are **not in this repository**; se
 | Parsing | Dolphin | `third_party/dolphin/` |
 | Earlier prototype and catalogue parsing | LangChain, Gradio | `pipeline/mena_stamp_agent.py`, `notebooks/`, `neo4j_utils/neo4j_gradio_VIS.py` |
 
-## How it works
+## The parts in detail
 
-### 1. The pipeline
+### 1. How the literature and the catalogue were indexed
 
 ```
 Scanned literature (PDF)                       Mena 2018 catalogue
@@ -167,7 +296,7 @@ and the fix.
 | Reference run on a clean Linux machine | source-document counts for the four demo questions match `pipeline/first_issue_graph/EVALUATION.md` (46, 131, 68, 49); the same passages come back in the same order before and after the changes that made the app portable |
 | Retrieval on literature questions ([EVALUATION.md](EVALUATION.md)) | a page that answers the question is among the first five passages for 36 of the 41 questions in the set, and 36 of all 49 drafted (the 8 left out counted as misses); the app as it was: 12 of 41 and 12 of 49 |
 | Catalogue lookup, held-out questions | the right issue is first for 30 of 32 and in the first three for 32 of 32; the fact asked comes from the same graph that generated the question |
-| Written answers ([EVALUATION.md](EVALUATION.md#written-answers)), graded by a model | catalogue questions: 73 of 80 got a written answer, 62 supported by what they cite, 69 correct; literature questions: 41 of 41 written, 27 supported, 10 agree in full with the reference answer and 29 in part (10 of all 49 drafted); 29 of 30 out-of-scope questions got no written answer |
+| Written answers ([EVALUATION.md](EVALUATION.md#written-answers)), graded by a model | as served, one run through the public service: catalogue questions: 80 of 80 got a written answer, 63 supported by what they cite, 76 correct; literature questions: 40 of 41 written, 25 supported, 10 agree in full with the reference answer and 30 in part (10 of all 49 drafted); 27 of 30 out-of-scope questions got no written answer. The first served setting, before the web setting: 73 of 80 written, 62 supported, 69 correct; 41 of 41, 27, 10 and 29; 29 of 30 |
 | Eval and lookup unit tests (`eval/tests`, `oxcart/tests/test_catalogue_lookup.py`) | 36 passed |
 
 How to read the retrieval numbers: the literature gold was judged by a model (`gpt-6.1-sol`); no person has checked
@@ -176,8 +305,8 @@ question or not" on 41; both readers are OpenAI models with one rubric. A questi
 search had already found a page that answers it, which is why every figure has two denominators.
 [EVALUATION.md](EVALUATION.md) has the method and the limits.
 
-The web part was measured apart, with its settings on, and is not in the rows above: three runs of the markers
-that ask for it, and a trial of 26 real searches in which 28 of 35 shown web sentences were supported by the
+The web part was measured apart and is not in the rows above (the run through the public service asks for no
+web part): three runs of the markers that ask for it, and a trial of 26 real searches in which 28 of 35 shown web sentences were supported by the
 page they cite ([EVALUATION.md](EVALUATION.md#a-web-part-three-markers-and-a-trial-with-real-searches)).
 
 Not done yet: a person's check of the model-judged gold and of the grades of the written answers.
@@ -185,7 +314,7 @@ Not done yet: a person's check of the model-judged gold and of the grades of the
 ### 5. What is in place for running it as a service
 
 - The explorer's query path calls no language model. The written answer of the question page does: one call to
-  write it, measured at 0.0007 USD a question on average and 0.0013 USD at most, and for every question after a
+  write it, measured at 0.0007 USD a question on average and 0.0014 USD at most, and for every question after a
   conversation's first one small call before the search, about 0.0001 USD, which says whether the question
   needs the earlier turns and rewrites it only then
   ([EVALUATION.md](EVALUATION.md#written-answers)). Without a key the page works and shows the evidence only.
@@ -238,48 +367,6 @@ searches it made itself in the last two hours. After a restart it knows only wha
 few more than the rule until the route catches up. If the route cannot be read: 30 searches a day, counted in
 memory.
 
-## Run it locally
-
-You need Python 3.10+, Node.js 20+, a Neo4j database holding the graph, and a Weaviate instance holding the `Oxcart`
-collection (`docker-compose.yml` starts Weaviate 1.32.4). The data itself is not distributed; see [Data](#data).
-
-```bash
-git clone https://github.com/TecnologiasVM/oxcart.git
-cd oxcart
-
-# 1. configuration: copy the template and fill in the Neo4j and Weaviate settings
-cp .env.example .env
-
-# 2. backend dependencies, in a virtual environment
-python -m venv .venv
-source .venv/bin/activate            # Windows: .venv\Scripts\activate
-python -m pip install -r backend/requirements.txt
-python -m pip install -e .           # the shared modules, as the oxcart package
-
-# 3. frontend dependencies
-cd frontend && npm ci && cd ..
-
-# 4. start both servers, check them, stop them
-python scripts/servers.py start
-python scripts/servers.py status
-python scripts/servers.py stop
-```
-
-Open <http://localhost:3000/research>. `GET /api/health` reports whether Neo4j and Weaviate are reachable.
-
-Tests:
-
-```bash
-python pipeline/first_issue_graph/tests/test_lexicon.py            # no services needed
-python oxcart/tests/test_figure_refs.py                            # no services needed
-cd backend && python test_mena_backend.py                          # needs Neo4j (and Weaviate for evidence)
-cd ../frontend && npx playwright install chromium
-npx playwright test                                                # smoke tests, no backend needed
-npx playwright test --config=playwright.shadow.config.ts           # full suite, needs both servers running
-```
-
-`servers.py` was tested on Linux. It is written to work on Windows and macOS and has not been run there yet.
-
 ## Repository map
 
 | Path | What it holds |
@@ -331,20 +418,6 @@ Two facts about the literature index that anything built on it must respect:
 - Many passages are stored several times as growing prefixes of one another. Collapsing them (keep the longest
   copy per document) takes the index from 192,680 to 94,116 passages and improves keyword search; see
   [EVALUATION.md](EVALUATION.md).
-
-## Roadmap
-
-Planned, **not built**:
-
-1. **Grade the evidence and retrieve again once.** The answer graph has four steps today. The next ones: a step
-   that judges whether the evidence answers the question before anything is written, one more search when it
-   does not, and a scope router in place of the rule in the model's instructions; each scored against today's
-   graph on the same evaluation.
-2. **Better evidence for the literature questions.** The answer is written from five passages of at most 700
-   characters, and for most literature questions that covers part of the answer only
-   ([EVALUATION.md](EVALUATION.md#written-answers)).
-3. **Scope beyond the First Issue in the explorer**: the question page already takes any Costa Rican stamp
-   question; the explorer's graph views still cover the First Issue only.
 
 ## License
 
