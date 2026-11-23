@@ -188,22 +188,30 @@ def date_in_words(value: Any, lang: str = "en") -> tuple[str, str]:
 
 
 # The kinds of legal act the catalogue's data names, in Spanish. The data holds them in English ("decree",
-# "resolution"), and an act's id often starts with its kind ("Decree #11"). In a Spanish line the kind is said in
-# Spanish and once; a kind that is not here, and the rest of an id, are said as stored.
+# "resolution"), and an act's id most often names its kind too, first or after the body that passed it
+# ("Decree #11", "MU Resolution #7", "Resolution #5 (session #6)"). In a Spanish line a kind is said in Spanish
+# wherever it stands, and the act's own kind once; a kind that is not here, and the rest of an id, are said as stored.
 _ACT_KINDS_ES = {"decree": "decreto", "resolution": "resolución", "law": "ley", "letter": "carta", "note": "nota",
                  "session": "sesión", "authorization": "autorización", "accord": "acuerdo"}
+_A_WORD = re.compile(r"[^\W\d_]+")
 
 
 def _act_named(act: dict, lang: str) -> list:
     """An act's kind and id as the words of a card's line: as stored in English; in Spanish the kind in Spanish."""
     kind, ident = (str(act[k]) if act.get(k) else "" for k in ("type", "id"))
     if lang == "es":
-        first, _, rest = ident.partition(" ")
-        named = _ACT_KINDS_ES.get(first.lower())
-        if named:                                   # the id names its kind: "Decree #11" is said "Decreto #11"
-            ident = (named.capitalize() if first[:1].isupper() else named) + (f" {rest}" if rest else "")
+        named = set()
+
+        def in_spanish(word: re.Match) -> str:      # a kind the id names: "Decree #11" is said "Decreto #11"
+            spanish = _ACT_KINDS_ES.get(word.group(0).lower())
+            if not spanish:
+                return word.group(0)
+            named.add(spanish)
+            return spanish.capitalize() if word.group(0)[:1].isupper() else spanish
+
+        ident = _A_WORD.sub(in_spanish, ident)
         said = _ACT_KINDS_ES.get(kind.lower())
-        kind = "" if said and said == named else (said or kind)        # not said twice
+        kind = "" if said in named else (said or kind)                  # not said twice
     return [part for part in (kind, ident) if part]
 
 
