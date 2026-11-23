@@ -843,3 +843,13 @@ def test_an_ipv6_visitor_is_counted_by_the_first_64_bits_of_its_address(monkeypa
     assert public_guard.counted_address("198.51.100.4") == "198.51.100.4"
     for text in ("unknown", "", "not an address"):                                   # counted as given, nothing raised
         assert public_guard.counted_address(text) == text
+
+
+def test_the_explorer_corrects_mena_1a_of_the_first_issue_from_the_same_place_as_the_card():
+    from app import graph_service, query_service
+
+    row = {"catalog_no": "1A", "denomination_value": 1.5, "denomination_unit": "real"}
+    assert graph_service._display_denom(row) == (0.5, "real")                  # the explorer shows the first issue
+    assert graph_service._display_denom({**row, "issue_id": "CR-1999-MADE-UP"}) == (1.5, "real")
+    assert graph_service._display_denom({**row, "catalog_no": "2"}) == (1.5, "real")
+    assert query_service._display_denom(config.ISSUE_ID, "1A", 1.5, "real") == "0.5 real"
