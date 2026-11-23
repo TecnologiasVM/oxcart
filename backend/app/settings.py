@@ -80,6 +80,15 @@ if os.getenv("CORS_ORIGINS"):
 # Bounds fixed by the server. Nothing a client sends changes them.
 ASK_MAX_QUESTION_CHARS: int = _int("ASK_MAX_QUESTION_CHARS", 300)
 ASK_MAX_BODY_BYTES: int = _int("ASK_MAX_BODY_BYTES", 2048)
+# The whole body of a POST under /api/ must arrive inside this many seconds, or the answer is 408 (app/body_limit.py).
+BODY_READ_SECONDS: float = float(_int("BODY_READ_SECONDS", 10))
+# POST /api/session carries one token of the human check, which Cloudflare says is at most 2048 characters.
+# Its body ({"token": "..."}) gets that and room for the JSON around it.
+SESSION_TOKEN_CHARS: int = 2048
+SESSION_MAX_BODY_BYTES: int = SESSION_TOKEN_CHARS + 64
+# The local explorer's POST /api/query and /api/query/export (not mounted in hosted mode): a question of up to
+# 2,000 characters, each of which JSON can write as six bytes (\u00e9), and the other fields.
+QUERY_MAX_BODY_BYTES: int = 16384
 ASK_PASSAGES: int = _int("ASK_PASSAGES", 5)
 ASK_ISSUES: int = _int("ASK_ISSUES", 3)
 ASK_TEXT_LIMIT: int = _int("ASK_TEXT_LIMIT", 700)
@@ -95,6 +104,10 @@ ASK_SHORT_VECTOR: bool = _flag("ASK_SHORT_VECTOR")
 # Off, the instructions, the reply's reading and every route are the ones served before this setting existed.
 ASK_WEB: bool = _flag("ASK_WEB")
 ASK_TIMEOUT_SECONDS: int = _int("ASK_TIMEOUT_SECONDS", 25)
+# Each store's deadline for one question: a store that has not answered by it is "unavailable" and the other's
+# evidence is returned (ask_service.answer). Over the graph's question budget (8 s) and the literature's query
+# timeout (10 s), under the route's ASK_TIMEOUT_SECONDS.
+ASK_STORE_SECONDS: float = float(_int("ASK_STORE_SECONDS", 12))
 EMBED_TIMEOUT_SECONDS: int = _int("EMBED_TIMEOUT_SECONDS", 5)
 
 # Limits per visitor and for the whole service (kept in this process's memory).
@@ -192,7 +205,8 @@ CHAT_THREAD_ANSWER_CHARS: int = 1200
 TAVILY_API_KEY: str = os.getenv("TAVILY_API_KEY", "").strip()
 TAVILY_SEARCH_URL: str = "https://api.tavily.com/search"
 TAVILY_USAGE_URL: str = "https://api.tavily.com/usage"
-# Fixed words put after the question in the search query; empty means none. Nothing a model wrote is in it.
+# Fixed words put after the question in the search query; empty means none. The query is the question as it was
+# searched (for a follow-up, as the rewrite step wrote it) and these words: nothing of an answer a model wrote.
 WEB_QUERY_SUFFIX: str = os.getenv("WEB_QUERY_SUFFIX", "Costa Rica philately").strip()
 # Sites whose pages are never used for a web part: video and social sites, marketplaces and their price
 # guides, and the search service's own site. A trial of 26 searches (2026-11-23) returned them often and cited them almost never.
@@ -213,7 +227,15 @@ WEB_TITLE_CHARS: int = 200
 WEB_TEXT_CHARS: int = 1500
 # How long a ticket for the web step is good for, after the chat reply that carries it.
 WEB_TICKET_SECONDS: int = 120
-WEB_MAX_BODY_BYTES: int = 4096
+# The answer a web request carries back is the whole text of a written answer: the ticket signs a digest of it, so
+# the page cannot cut it. A written answer is bounded by the tokens its call may use: ANSWER_MAX_TOKENS, and with
+# thinking on the thinking's room too, which the text can take when the model thinks little (2,000 in all). A
+# token of English or Spanish prose is about four characters or fewer; five a token leaves room to spare. (The
+# earlier turns of a conversation are clipped to CHAT_THREAD_ANSWER_CHARS; this answer cannot be.)
+WEB_ANSWER_CHARS: int = 5 * (ANSWER_MAX_TOKENS + ANSWER_THINKING_ROOM_TOKENS)
+# Its body: the answer and the question, each character of which JSON can write as six bytes (\u00e9; a character
+# outside the basic plane, such as an emoji, takes twelve), the ticket (at most 300 characters) and the JSON around.
+WEB_MAX_BODY_BYTES: int = 6 * (WEB_ANSWER_CHARS + ASK_MAX_QUESTION_CHARS) + 300 + 512
 # How many searches are allowed. The account's credits used this month are read from the search service's
 # usage route at most once in WEB_USAGE_EVERY_SECONDS, plus the searches this process made lately (below); a
 # search is allowed while that is under WEB_SEARCHES_AT_MONTH_START + WEB_SEARCHES_OVER_THE_MONTH x the share

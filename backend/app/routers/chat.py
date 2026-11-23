@@ -9,8 +9,9 @@ With ASK_WEB on, a second route (``web_router``, mounted only then; app/web_step
                           reply's answer carried -> a short part written from a web search
 
 It stands behind the same guard as ``POST /api/ask``: the session token of the human
-check, the limits per visitor and per token, the service's daily limit, a body limit, and
-the eval's way in. A question here counts as a question there.
+check, the limits per visitor and per token, the service's daily limit, a body limit (held
+before the route reads the body: app/body_limit.py), and the eval's way in. A question here
+counts as a question there.
 
 The answer comes as lines of JSON (``application/x-ndjson``), sent as they are ready:
 
@@ -26,6 +27,11 @@ counts and its seconds; that is what a cost is measured from. A refusal
 (limits, no session, a body too large, no store answering) is a JSON error with its
 status, as on ``/api/ask``, and comes before any line.
 
+When nobody waits for the answer any more (the route gave up at ASK_TIMEOUT_SECONDS, it
+refused for want of a store, or the visitor left before the answer line), the graph is told
+(``Deps.gone``) and makes no model call and takes none from the day's allowance. The answer
+is waited for at most ``answer_wait_seconds()`` after the evidence; past it, it says "failed".
+
 The earlier turns come from the browser, which is where a conversation is kept. They are
 bounded here and read by one step only (``answer_graph.contextualize``). Nothing of a
 request is kept after its answer, and neither a question nor an answer is logged.
@@ -38,14 +44,15 @@ import json
 import logging
 import queue
 import threading
-from typing import Iterator
+import time
+from typing import AsyncIterator, Iterator
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from app import answer_graph, ask_service, settings, web_step
+from app import answer_graph, answer_model, ask_service, settings, web_step
 from app.routers.ask import MESSAGES, ApiError, access
 
 log = logging.getLogger("oxcart.ask")
@@ -66,12 +73,6 @@ class ChatRequest(BaseModel):
     thread: list[Turn] = Field(default_factory=list, max_length=settings.CHAT_THREAD_TURNS)
 
 
-async def body_limit(request: Request) -> None:
-    length = request.headers.get("content-length", "")
-    if not length.isdigit() or int(length) > settings.CHAT_MAX_BODY_BYTES:
-        raise ApiError(413, "request_too_large", "The request is too large.")
-
-
 def _line(value: dict) -> bytes:
     return (json.dumps(value, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
 
@@ -88,10 +89,14 @@ def _run(asked: dict, deps: answer_graph.Deps, out: "queue.Queue") -> None:
         out.put(None)
 
 
-def _results(out: "queue.Queue") -> Iterator[tuple]:
-    """(node, what it returned) until the graph ends. Raises what the graph raised."""
+def _results(out: "queue.Queue", deadline: float) -> Iterator[tuple]:
+    """(node, what it returned) until the graph ends. Raises what the graph raised, and TimeoutError when
+    nothing came by ``deadline`` (time.monotonic())."""
     while True:
-        update = out.get()
+        try:
+            update = out.get(timeout=max(0.0, deadline - time.monotonic()))
+        except queue.Empty:
+            raise TimeoutError from None
         if update is None:
             return
         if isinstance(update, Exception):
@@ -100,16 +105,51 @@ def _results(out: "queue.Queue") -> Iterator[tuple]:
             yield node, change or {}
 
 
-def _until_retrieved(out: "queue.Queue", seen: dict) -> None:
+def _until_retrieved(out: "queue.Queue", seen: dict, deadline: float) -> None:
     """Wait for the end of ``retrieve``, keeping what the nodes returned so far."""
-    for node, change in _results(out):
+    for node, change in _results(out, deadline):
         seen["calls"] += change.get("calls", [])
         seen.update({k: v for k, v in change.items() if k != "calls"})
         if node == "retrieve":
             return
 
 
-@router.post("/chat", dependencies=[Depends(body_limit)])
+def _the_answer(out: "queue.Queue", seen: dict, deadline: float) -> dict:
+    """The answer, once the evidence was sent: what ``check`` returned, or "failed"."""
+    answer = {"state": "failed"}
+    try:
+        for node, change in _results(out, deadline):
+            seen["calls"] += change.get("calls", [])
+            if change.get("answer"):
+                answer = change["answer"]
+    except Exception as exc:                # the evidence was sent: the answer says it failed
+        log.warning("chat failed after the evidence: %s", type(exc).__name__)
+        answer = {"state": "failed"}
+    return answer
+
+
+def answer_wait_seconds() -> float:
+    """How long the answer is waited for once the evidence was sent: the one model call left (``write``; the
+    rewrite of a follow-up was made before the evidence, inside ASK_TIMEOUT_SECONDS), as many times as the
+    SDK makes it, and a margin. Past it the answer says "failed"."""
+    return settings.ANSWER_TIMEOUT_SECONDS * (answer_model.MAX_RETRIES + 1) + ANSWER_WAIT_MARGIN_SECONDS
+
+
+ANSWER_WAIT_MARGIN_SECONDS = 5.0
+LEFT_CHECK_SECONDS = 0.02
+
+
+async def _left(request: Request) -> bool:
+    """Has the visitor gone? After the body, the only message a request can still receive is the disconnect:
+    it is looked for, briefly."""
+    try:
+        message = await asyncio.wait_for(request.receive(), timeout=LEFT_CHECK_SECONDS)
+    except asyncio.TimeoutError:
+        return False
+    return message.get("type") == "http.disconnect"
+
+
+@router.post("/chat")
 async def chat(payload: ChatRequest, request: Request) -> StreamingResponse:
     question = " ".join(payload.question.split())
     if not question:
@@ -121,45 +161,55 @@ async def chat(payload: ChatRequest, request: Request) -> StreamingResponse:
 
     state = request.app.state
     deps = answer_graph.Deps(retrieve=lambda q: ask_service.answer(q, state.ask),
-                             model=state.answer_model, take=state.answer_allowance.take)
+                             model=state.answer_model, take=state.answer_allowance.take,
+                             evidence_sent=threading.Event())
     asked = {"question": question,
              "thread": [{"question": " ".join(t.question.split()), "answer": t.answer} for t in payload.thread]}
     out: "queue.Queue" = queue.Queue()
     threading.Thread(target=_run, args=(asked, deps, out), name="chat-graph", daemon=True).start()
     seen: dict = {"calls": []}
     try:
-        await asyncio.wait_for(run_in_threadpool(_until_retrieved, out, seen), timeout=settings.ASK_TIMEOUT_SECONDS)
+        await asyncio.wait_for(run_in_threadpool(_until_retrieved, out, seen,
+                                                 time.monotonic() + settings.ASK_TIMEOUT_SECONDS + 1),
+                               timeout=settings.ASK_TIMEOUT_SECONDS)
     except asyncio.TimeoutError:
+        deps.gone.set()                     # nobody waits for this answer: no model call is made for it
         raise ApiError(504, "timeout", "The search took too long. Please try again.")
     if seen.get("error") or "evidence" not in seen:
+        deps.gone.set()
         raise ApiError(503, "stores_unavailable",
                        "Neither the catalogue nor the literature could be reached. Please try again in a minute.")
     evidence = seen["evidence"]
 
-    def lines() -> Iterator[bytes]:
-        yield _line({"type": "evidence", "rewritten": bool(seen.get("rewritten")), "evidence": evidence})
-        answer = {"state": "failed"}
+    async def lines() -> AsyncIterator[bytes]:
+        answered = False
         try:
-            for node, change in _results(out):
-                seen["calls"] += change.get("calls", [])
-                if change.get("answer"):
-                    answer = change["answer"]
-        except Exception as exc:                # the evidence was sent: the answer says it failed
-            log.warning("chat failed after the evidence: %s", type(exc).__name__)
-            answer = {"state": "failed"}
-        calls = [{k: c[k] for k in ("purpose", "state", "input_tokens", "output_tokens", "seconds")} for c in seen["calls"]]
-        web = getattr(state, "web", None)               # set only with ASK_WEB on
-        ticket = web.ticket_for(answer, evidence["question"]) if web is not None else None
-        if ticket:
-            answer = {**answer, "web": ticket}
-        yield _line({"type": "answer", "answer": answer, "calls": calls})
-        log.info(json.dumps({"event": "chat", "request_id": getattr(request.state, "request_id", None),
-                             "who": "eval" if visitor is None else "visitor", "chars": len(question),
-                             "turns": len(payload.thread), "rewritten": bool(seen.get("rewritten")),
-                             "mode": evidence["mode"], "issues": len(evidence["issues"]),
-                             "passages": len(evidence["passages"]), "timings": evidence["timings"],
-                             "answer": answer["state"], "counts": answer.get("counts"),
-                             "model_calls": calls, **({"web_ticket": bool(ticket)} if web is not None else {})}))
+            yield _line({"type": "evidence", "rewritten": bool(seen.get("rewritten")), "evidence": evidence})
+            if await _left(request):
+                return                      # the visitor left with the evidence: the answer is not written
+            deps.evidence_sent.set()
+            answer = await run_in_threadpool(_the_answer, out, seen, time.monotonic() + answer_wait_seconds())
+            calls = [{k: c[k] for k in ("purpose", "state", "input_tokens", "output_tokens", "seconds")} for c in seen["calls"]]
+            web = getattr(state, "web", None)               # set only with ASK_WEB on
+            # no ticket when a store did not answer: that our sources do not cover the question is not known then
+            answered_by_both = "unavailable" not in (evidence["mode"]["catalogue"], evidence["mode"]["literature"])
+            ticket = None
+            if web is not None and answered_by_both:         # it can read the search service's usage: not on the loop
+                ticket = await run_in_threadpool(web.ticket_for, answer, evidence["question"])
+            if ticket:
+                answer = {**answer, "web": ticket}
+            yield _line({"type": "answer", "answer": answer, "calls": calls})
+            answered = True
+            log.info(json.dumps({"event": "chat", "request_id": getattr(request.state, "request_id", None),
+                                 "who": "eval" if visitor is None else "visitor", "chars": len(question),
+                                 "turns": len(payload.thread), "rewritten": bool(seen.get("rewritten")),
+                                 "mode": evidence["mode"], "issues": len(evidence["issues"]),
+                                 "passages": len(evidence["passages"]), "timings": evidence["timings"],
+                                 "answer": answer["state"], "counts": answer.get("counts"),
+                                 "model_calls": calls, **({"web_ticket": bool(ticket)} if web is not None else {})}))
+        finally:
+            if not answered:
+                deps.gone.set()             # closed before the answer line was sent: nobody waits for it
 
     return StreamingResponse(lines(), media_type="application/x-ndjson", headers={"X-Accel-Buffering": "no"})
 
@@ -168,17 +218,11 @@ async def chat(payload: ChatRequest, request: Request) -> StreamingResponse:
 class WebRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     question: str = Field(..., min_length=1, max_length=settings.ASK_MAX_QUESTION_CHARS)   # as it was searched
-    answer: str = Field("", max_length=settings.CHAT_THREAD_ANSWER_CHARS)                 # empty for "not covered"
+    answer: str = Field("", max_length=settings.WEB_ANSWER_CHARS)                         # empty for "not covered"
     ticket: str = Field(..., min_length=1, max_length=300)
 
 
-async def web_body_limit(request: Request) -> None:
-    length = request.headers.get("content-length", "")
-    if not length.isdigit() or int(length) > settings.WEB_MAX_BODY_BYTES:
-        raise ApiError(413, "request_too_large", "The request is too large.")
-
-
-@web_router.post("/chat/web", dependencies=[Depends(web_body_limit)])
+@web_router.post("/chat/web")
 async def chat_web(payload: WebRequest, request: Request) -> dict:
     """One web part, for the answer a ticket was made for. The same guard as the chat route: the session in
     hosted mode, both visitor counts (it counts as a question), the service's daily limit, the eval's way in.
@@ -192,8 +236,9 @@ async def chat_web(payload: WebRequest, request: Request) -> dict:
     if state is None:
         raise ApiError(403, "ticket_refused", "This web search can no longer be made.")
     question = " ".join(payload.question.split())
+    allowance = request.app.state.answer_allowance
     reply, note = await run_in_threadpool(web.run, question, payload.answer, state, request.app.state.answer_model,
-                                          request.app.state.answer_allowance.take)
+                                          allowance.take, allowance.give_back)
     log.info(json.dumps({"event": "web", "request_id": getattr(request.state, "request_id", None),
                          "who": "eval" if visitor is None else "visitor", "ticket": state, "state": reply["state"],
                          "reason": note["reason"], "rule": web.searches.rule, "counts": reply["counts"],

@@ -40,6 +40,19 @@ class Unavailable(Exception):
     """The store could not answer. Carries the last error's class name only."""
 
 
+class Refused(Unavailable):
+    """The graph answered and refused the query (it names an index or a procedure the graph does not have, or
+    is not valid): not a lost connection, and the same query would be refused again."""
+
+
+# The status codes of the Neo4j server for a query it refuses, by their start. A refused login is not one.
+REFUSED_CODES = ("Neo.ClientError.Procedure.", "Neo.ClientError.Statement.", "Neo.ClientError.Schema.")
+
+
+def refused(exc: BaseException) -> bool:
+    return str(getattr(exc, "code", None) or "").startswith(REFUSED_CODES)
+
+
 def retryable(exc: BaseException) -> bool:
     return type(exc).__name__ in RETRYABLE
 
@@ -85,7 +98,7 @@ class GraphLink:
                 name = type(exc).__name__
                 if not retryable(exc):
                     log.warning("graph read failed, not retried: %s", name)
-                    raise Unavailable(name) from None
+                    raise (Refused if refused(exc) else Unavailable)(name) from None
                 if self._clock() + self._every > deadline:
                     self._set("unavailable")
                     log.warning("graph not reachable inside %.0f s: %s", budget, name)

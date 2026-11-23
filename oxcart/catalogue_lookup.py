@@ -274,6 +274,23 @@ RETURN i.issue_id AS issue_id, i.title AS title, i.section AS section, i.issue_d
 """
 
 
+# Corrections of known errors in the Mena source data. The graph is never changed: a corrected value is put
+# in where a stamp's value is read for a card (``issue_card``, the question path) or for the local explorer
+# (backend/app/graph_service.py, query_service.py), and nowhere else.
+# Mena 1A is the second-plate half real (Scott 1a, light blue), a 1/2 real (0.5), but the Mena source records
+# denomination_value=1.5. Keyed by the issue and the number: a stamp is one by both (the graph's constraint
+# stamp_key is on issue_id and catalog_no), so another issue may hold a stamp numbered "1A".
+FIRST_ISSUE_ID = "CR-1863-FIRST-ISSUE"          # config.ISSUE_ID; not imported here, as config reads the environment
+DENOMINATION_CORRECTIONS: Dict[tuple, tuple] = {
+    (FIRST_ISSUE_ID, "1A"): (0.5, "real"),
+}
+
+
+def denomination(issue_id: Any, catalog_no: Any, value: Any, unit: Any) -> tuple:
+    """(value, unit) of a stamp's denomination, with the known corrections applied."""
+    return DENOMINATION_CORRECTIONS.get((str(issue_id or ""), str(catalog_no or "")), (value, unit))
+
+
 def issue_card(session, issue_id: str) -> Dict[str, Any] | None:
     """Catalogue facts of one issue, as plain data. None when the issue does not exist."""
     record = session.run(_CARD, issue_id=issue_id).single()
@@ -292,6 +309,7 @@ def issue_card(session, issue_id: str) -> Dict[str, Any] | None:
         if not s.get("catalog_no"):
             continue
         s["varieties"] = [v for v in s["varieties"] if v.get("suffix") or v.get("description")]
+        s["value"], s["unit"] = denomination(card["issue_id"], s["catalog_no"], s.get("value"), s.get("unit"))
         stamps.append(s)
     card["stamps"] = stamps
     card["source"] = {"node": "Issue", "issue_id": card["issue_id"]}

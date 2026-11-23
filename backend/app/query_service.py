@@ -49,6 +49,7 @@ from oxcart import config as _proto_config
 from oxcart import examples_runner
 from oxcart import figure_refs  # page-figure association
 from oxcart import retrieve
+from oxcart.catalogue_lookup import denomination
 
 # Visualisation budget knobs (kept small; <~60 nodes total).
 _MAX_DOCS = 8
@@ -493,8 +494,7 @@ _DATE_LABELS = {
     "second_plate_sale": "second plate",
     "demonetized": "demonetized",
 }
-# Display-only denomination fix mirroring the frontend (Mena 1A = 0.5 real).
-_DENOM_OVERRIDES = {"1A": (0.5, "real")}
+# Display-only denomination fixes (Mena 1A of the first issue = 0.5 real): oxcart.catalogue_lookup.denomination.
 
 
 def _issue_dates_text(value: Any) -> str:
@@ -520,11 +520,9 @@ def _issue_dates_text(value: Any) -> str:
     return " · ".join(parts) if parts else "—"
 
 
-def _display_denom(catalog_no: Any, value: Any, unit: Any) -> str:
-    """Format a Mena denomination, applying the known 1A source-data override."""
-    override = _DENOM_OVERRIDES.get(str(catalog_no or ""))
-    if override:
-        value, unit = override
+def _display_denom(issue_id: Any, catalog_no: Any, value: Any, unit: Any) -> str:
+    """Format a Mena denomination, applying the known source-data corrections."""
+    value, unit = denomination(issue_id, catalog_no, value, unit)
     if value in (None, ""):
         return str(unit) if unit else ""
     return f"{value} {unit or ''}".strip()
@@ -593,6 +591,7 @@ def build_export_text(
         out.append("Stamps (Mena → Scott):")
         for s in stamps:
             denom = _display_denom(
+                s.get("issue_id") or domain.get("issue_id") or _proto_config.ISSUE_ID,
                 s.get("catalog_no"), s.get("denomination_value"), s.get("denomination_unit")
             )
             scotts = ", ".join(

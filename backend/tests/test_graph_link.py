@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import ask_service, main, settings
-from app.graph_link import GraphLink, Unavailable
+from app.graph_link import GraphLink, Refused, Unavailable
 
 from oxcart import config
 
@@ -218,3 +218,27 @@ def test_a_question_says_the_catalogue_is_unavailable_when_the_graph_keeps_refus
     r = client.post("/api/ask", json={"question": "a question"}, headers={"x-oxcart-eval": "e" * 32})
     assert r.status_code == 200
     assert r.json()["mode"]["catalogue"] == "unavailable" and len(r.json()["passages"]) == 1
+
+
+class ClientError(Exception):
+    """Same class NAME as the driver's error for a query the server refuses, with the server's status code."""
+
+    def __init__(self, code=None):
+        super().__init__("a message that is never logged")
+        self.code = code
+
+
+@pytest.mark.parametrize("code, kind", [
+    ("Neo.ClientError.Schema.IndexNotFound", Refused),              # what the graph answers when it has no such index
+    ("Neo.ClientError.Procedure.ProcedureCallFailed", Refused),
+    ("Neo.ClientError.Statement.SyntaxError", Refused),
+    ("Neo.ClientError.Security.Unauthorized", Unavailable),         # a refused login is not a refused query
+    (None, Unavailable),                                            # no status code: nothing is assumed from the name
+])
+def test_a_query_the_graph_refuses_is_told_apart_by_its_status_code_and_never_retried(code, kind):
+    driver, clock = FakeDriver([ClientError(code)]), Clock()
+    link = link_for(driver, clock)
+    with pytest.raises(Unavailable) as error:
+        link.read(lambda session: session.run("RETURN 1"))
+    assert type(error.value) is kind and str(error.value) == "ClientError"
+    assert link.attempts == 1 and clock.slept == []

@@ -4,6 +4,8 @@ route. A fake search service and a fake model: no network, no key. Every text he
 import base64
 import json
 import logging
+import threading
+import time
 from datetime import datetime, timezone
 
 import httpx
@@ -133,8 +135,11 @@ def test_with_the_setting_off_the_route_does_not_exist_and_answers_as_any_unknow
     r = client.post("/api/chat/web", json={"question": "q", "answer": "", "ticket": "t"}, headers=session_of(client))
     unknown = client.post("/api/chat/nothing-here", json={"question": "q"})
     assert r.status_code == unknown.status_code == 404 and r.json() == unknown.json()
-    # a body far too large is not even read: the route is not there
-    assert client.post("/api/chat/web", content="x" * 20000, headers={"content-type": "application/json"}).status_code == 404
+    # a body far too large is not even read, and is refused as on any unknown path: the route is not there, so
+    # its limit is not either
+    large = [client.post(path, content="x" * 20000, headers={"content-type": "application/json"})
+             for path in ("/api/chat/web", "/api/chat/nothing-here")]
+    assert large[0].status_code == large[1].status_code == 413 and large[0].json() == large[1].json()
 
 
 def test_with_the_setting_off_the_chat_reply_carries_no_ticket_and_its_log_line_is_as_before(make_client, model, tavily):
@@ -289,6 +294,71 @@ def test_one_log_line_when_the_rule_changes_naming_it_and_no_number_of_the_accou
     assert str(ACCOUNT_USED) not in json.dumps(records)
 
 
+def test_two_requests_at_the_limit_reserve_at_once_and_exactly_one_gets_a_search():
+    searches = web_step.Searches(lambda: None, now=Clock(at(2026, 11, 16, 12)))
+    assert searches.allowed() and searches.rule == "per_day"
+    for _ in range(settings.WEB_SEARCHES_PER_DAY_FALLBACK - 1):          # 29 of 30
+        searches.counted()
+    barrier, got = threading.Barrier(2), []
+
+    def request():
+        barrier.wait(5)
+        got.append(searches.reserve())
+
+    threads = [threading.Thread(target=request) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(5)
+    assert len(got) == 2 and sum(r is not None for r in got) == 1
+    assert not searches.allowed()
+
+
+def test_a_search_reserved_and_then_not_made_for_want_of_a_model_call_is_not_counted(tavily):
+    tavily.used = None                                                   # the per-day rule
+    step = web_step.WebStep(client=tavily, now=Clock(at(2026, 11, 16, 12)))
+    for _ in range(settings.WEB_SEARCHES_PER_DAY_FALLBACK - 1):
+        step.searches.counted()
+    reply, note = step.run(QUESTION, "", "not_covered", WebModel(), take=lambda: False)
+    assert reply["state"] == "unavailable" and note["reason"] == "daily_cap" and tavily.queries == []
+    assert step.searches.reserve() is not None                          # the 30th is still there
+    assert step.searches.reserve() is None
+
+
+def test_a_search_that_was_sent_stays_counted_whatever_it_returned(tavily):
+    tavily.used, tavily.outcome = None, ("failed", [])
+    step = web_step.WebStep(client=tavily, now=Clock(at(2026, 11, 16, 12)))
+    for _ in range(settings.WEB_SEARCHES_PER_DAY_FALLBACK - 1):
+        step.searches.counted()
+    given_back = []
+    reply, _ = step.run(QUESTION, "", "not_covered", WebModel(), take=lambda: True, give_back=lambda: given_back.append(1))
+    assert reply["state"] == "unavailable" and len(tavily.queries) == 1 and given_back == [1]
+    assert step.searches.reserve() is None                              # the failed search counted: 30 of 30
+
+
+def test_reading_the_usage_does_not_hold_back_a_second_caller():
+    reading, release = threading.Event(), threading.Event()
+
+    def slow_read():
+        reading.set()
+        release.wait(5)
+        return ACCOUNT_USED
+
+    searches = web_step.Searches(slow_read, now=Clock(LATE_IN_A_MONTH))
+    first = threading.Thread(target=searches.allowed)
+    first.start()
+    try:
+        assert reading.wait(5)
+        t0 = time.time()
+        searches.allowed()                       # the read is under way: the last value (none yet: the per-day rule)
+        assert searches.reserve() is not None
+        assert time.time() - t0 < 1
+    finally:
+        release.set()
+        first.join(5)
+    assert searches.rule == "usage"
+
+
 # ---------------------------------------------------------------- the search service's client
 def transport(handler):
     seen = []
@@ -434,7 +504,8 @@ def test_the_check_keeps_cited_sentences_and_names_the_cited_results_only():
     assert part["sentences"] == [{"text": "Two made-up pages agree.", "cites": [1]}, {"text": "It cost 25 centavos.", "cites": [2]}]
     assert part["results"] == [{"n": 1, "title": "Another made-up page", "host": "other.example", "url": "https://other.example/a"},
                                {"n": 2, "title": "A made-up page about rates", "host": "stamps.example", "url": "https://stamps.example/rates.pdf"}]
-    assert part["counts"] == {"sentences": 5, "sentences_without_citation": 3, "citations": 4, "citations_that_do_not_hold": 2}
+    assert part["counts"] == {"sentences": 5, "sentences_without_citation": 3, "citations": 4, "citations_that_do_not_hold": 2,
+                              "sentences_cited_by_a_quote_only": 0, "sentences_cited_by_a_quote_too": 0}
     assert "25 centavos" not in json.dumps(part["results"]) and "quotes" not in json.dumps(part)      # no cited text
 
 
@@ -448,6 +519,12 @@ def test_the_check_reads_the_two_replies_and_a_reply_with_no_citation_is_nothing
     tail = web_step.check_web([{"text": "It cost 25 centavos.", "citations": [{"document": 0, "cited_text": "25 centavos"}]},
                                {"text": f"\n{answer_model.NOTHING_TO_ADD}", "citations": []}], KEPT)
     assert [s["text"] for s in tail["sentences"]] == ["It cost 25 centavos."]
+    # a web part's sentences carry the quote field the same way: the rule is the one an answer has
+    quoted = web_step.check_web([{"text": "A letter cost a made-up rate.", "citations": []},
+                                 {"text": "25 centavos", "citations": [{"document": 0, "cited_text": "25 centavos"}]},
+                                 {"text": " Nothing backs this.", "citations": []}], KEPT)
+    assert quoted["sentences"] == [{"text": "A letter cost a made-up rate.", "cites": [1], "quoted": "all"}]
+    assert quoted["counts"]["sentences_cited_by_a_quote_only"] == 1
 
 
 def test_an_answers_check_is_unchanged_by_the_shared_rule():
@@ -457,7 +534,8 @@ def test_an_answers_check_is_unchanged_by_the_shared_rule():
     answer = answer_graph.check({"evidence": evidence, "draft": draft})["answer"]
     assert answer == {"state": "ok", "sentences": [{"text": "The page holds words.", "cites": [1]}],
                       "sources": [{"n": 1, "kind": "passage", "index": 0, "title": "D, page 1", "quotes": ["made-up words"]}],
-                      "counts": {"sentences": 2, "sentences_without_citation": 1, "citations": 1, "citations_that_do_not_hold": 0}}
+                      "counts": {"sentences": 2, "sentences_without_citation": 1, "citations": 1, "citations_that_do_not_hold": 0,
+                                 "sentences_cited_by_a_quote_only": 0, "sentences_cited_by_a_quote_too": 0}}
 
 
 # ---------------------------------------------------------------- the chat reply's ticket
@@ -504,7 +582,8 @@ def test_the_web_part_for_an_answer_in_part(web_client, model, tavily):
     assert part["sentences"] == [{"text": "A letter to the made-up place cost 25 centavos.", "cites": [1]}]
     assert part["results"] == [{"n": 1, "title": "A made-up page about rates", "host": "stamps.example", "url": "https://stamps.example/rates.pdf"}]
     assert part["counts"] == {"results_returned": 2, "results_kept": 2, "sentences": 2, "sentences_without_citation": 1,
-                              "citations": 1, "citations_that_do_not_hold": 0}
+                              "citations": 1, "citations_that_do_not_hold": 0,
+                              "sentences_cited_by_a_quote_only": 0, "sentences_cited_by_a_quote_too": 0}
     assert part["calls"] == [{"purpose": "web", "state": "ok", "input_tokens": 700, "output_tokens": 40, "seconds": 0.0}]
     # the query is the question as it was searched (the follow-up rewritten) and the fixed words, nothing else
     assert question == model.standalone and tavily.queries == [f"{question} Costa Rica philately"]
@@ -544,10 +623,37 @@ def test_the_web_route_has_the_chat_routes_guard(web_client, model, monkeypatch)
     big = json.dumps({"question": question, "answer": text, "ticket": "t" * (settings.WEB_MAX_BODY_BYTES)})
     r = client.post("/api/chat/web", content=big, headers={**headers, "content-type": "application/json"})
     assert r.status_code == 413
-    for body in ({"question": question, "answer": text, "ticket": ticket, "thread": []}, {"question": question, "answer": "a" * 1201, "ticket": ticket},
+    for body in ({"question": question, "answer": text, "ticket": ticket, "thread": []}, {"question": question, "answer": "a" * (settings.WEB_ANSWER_CHARS + 1), "ticket": ticket},
                  {"question": "q" * 301, "answer": "", "ticket": ticket}, {"question": question, "answer": text}):
         r = client.post("/api/chat/web", json=body, headers=headers)
         assert r.status_code == 422 and r.json()["error"] == "invalid_request"
+
+
+def test_a_long_answer_in_part_gets_a_ticket_and_its_web_request_is_accepted(web_client, model):
+    client = web_client()
+    headers = session_of(client)
+    blocks = [{"text": f"{' ' if n else ''}Made-up fact number {n} about the made-up issue holds here.",
+               "citations": [{"document": 0, "cited_text": "stamp 1"}]} for n in range(60)]
+    long_part = Reply(state="ok", input_tokens=900, output_tokens=700,
+                      blocks=blocks + [{"text": f"\n{answer_model.PART_ONLY}", "citations": []}])
+    question, text, ticket = ticketed(client, model, headers, long_part)
+    assert len(text) > 3000
+    r = web(client, headers, question, text, ticket)
+    assert r.status_code == 200 and r.json()["state"] == "ok"
+    assert model.webs[0][2] == text                     # the earlier answer, whole: the ticket signs all of it
+
+
+def test_the_web_body_holds_the_longest_answer_in_the_widest_json(web_client, model):
+    widest = json.dumps({"question": "é" * settings.ASK_MAX_QUESTION_CHARS, "answer": "é" * settings.WEB_ANSWER_CHARS,
+                         "ticket": "t" * 300})
+    assert len(widest.encode("utf-8")) <= settings.WEB_MAX_BODY_BYTES
+    assert settings.WEB_ANSWER_CHARS >= 5 * settings.ANSWER_MAX_TOKENS > settings.CHAT_THREAD_ANSWER_CHARS
+    client = web_client()
+    r = client.post("/api/chat/web", content=widest, headers={**session_of(client), "content-type": "application/json"})
+    assert r.status_code == 403 and r.json()["error"] == "ticket_refused"        # read in full, then the ticket refused
+    r = client.post("/api/chat/web", content=widest + " " * (settings.WEB_MAX_BODY_BYTES + 1 - len(widest)),
+                    headers={**session_of(client), "content-type": "application/json"})
+    assert r.status_code == 413
 
 
 def test_a_web_request_counts_as_a_question_for_the_visitor(web_client, model, monkeypatch):
@@ -648,3 +754,31 @@ def test_the_app_holds_the_web_step_only_with_the_setting_on(make_client, monkey
     assert main.create_app(public=True).state.web is None
     monkeypatch.setattr(settings, "ASK_WEB", True)
     assert isinstance(main.create_app(public=True).state.web, web_step.WebStep)
+
+
+@pytest.mark.parametrize("outcome", [("timeout", []), ("failed", []), ("used_up", []), ("ok", [])])
+def test_the_model_call_taken_for_a_web_part_is_given_back_when_the_search_leaves_nothing_to_write_from(
+        web_client, model, tavily, monkeypatch, outcome):
+    monkeypatch.setattr(settings, "ANSWER_LIMIT_PER_DAY", 3)
+    client = web_client()
+    headers = session_of(client)
+    question, text, ticket = ticketed(client, model, headers)                 # calls 1 and 2: rewrite, write
+    tavily.outcome = outcome
+    part = web(client, headers, question, text, ticket).json()
+    assert part["state"] in ("unavailable", "nothing") and model.webs == [] and part["calls"] == []
+    model.reply = None
+    assert chat(client, headers)[1]["state"] == "ok"                          # the third call of the day is still there
+
+
+def test_no_ticket_when_a_store_did_not_answer(web_client, model, tavily, fakes):
+    client = web_client()
+    headers = session_of(client)
+    model.reply = NOT_COVERED
+    fakes.search_error = RuntimeError("the literature did not answer")
+    evidence, answer = chat(client, headers)
+    assert evidence["mode"]["literature"] == "unavailable" and answer == {"state": "not_covered"}
+    fakes.search_error, fakes.lookup_error = None, answer_graph.Unavailable("ServiceUnavailable")
+    evidence, answer = chat(client, headers)
+    assert evidence["mode"]["catalogue"] == "unavailable" and answer == {"state": "not_covered"}
+    fakes.lookup_error = None                                                 # both stores answered: a ticket again
+    assert set(chat(client, headers)[1]) == {"state", "web"}

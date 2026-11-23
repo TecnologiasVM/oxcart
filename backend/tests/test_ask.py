@@ -1,5 +1,7 @@
 """The question path, with fakes in place of the three stores. No network, no database, no key."""
 
+import json
+import logging
 import string
 import threading
 import time
@@ -248,6 +250,106 @@ def test_one_store_down_leaves_the_other_block_and_says_so(client, fakes):
     fakes.lookup_error = ask_service.Unavailable("SessionExpired")
     r = client.post("/api/ask", json={"question": "q"}, headers=headers)
     assert r.status_code == 503 and r.json()["error"] == "stores_unavailable" and "address" not in r.text
+
+
+class Hanging:
+    """A store's step that blocks until ``release`` is set, then returns ``value``. ``returned`` is set as it ends."""
+
+    def __init__(self, value):
+        self.value, self.release, self.returned, self.calls = value, threading.Event(), threading.Event(), []
+
+    def __call__(self, question, vector):
+        self.calls.append((question, vector))
+        self.release.wait(10)
+        self.returned.set()
+        return self.value
+
+
+def logged_warnings(run):
+    records = []
+    handler = logging.Handler()
+    handler.emit = lambda record: records.append(record.getMessage())
+    log = logging.getLogger("oxcart.ask")
+    log.addHandler(handler)
+    try:
+        return run(), records
+    finally:
+        log.removeHandler(handler)
+
+
+@pytest.mark.parametrize("hung", ["catalogue", "literature"])
+def test_a_store_that_does_not_answer_in_time_does_not_hold_back_the_other(client, fakes, monkeypatch, hung):
+    monkeypatch.setattr(settings, "ASK_STORE_SECONDS", 0.3)
+    stuck = Hanging([{"issue_id": "CR-LATE"}] if hung == "catalogue" else [{"doc_id": "LATE", "text": "late"}])
+    deps = fakes.deps()
+    if hung == "catalogue":
+        deps.lookup = stuck
+    else:
+        deps.search = stuck
+    client.app.state.ask = deps
+    try:
+        t0 = time.time()
+        r, records = logged_warnings(lambda: client.post("/api/ask", json={"question": "a made-up question"},
+                                                         headers=session_of(client)))
+        elapsed = time.time() - t0
+        body = r.json()
+        assert r.status_code == 200 and elapsed < 3
+        assert body["mode"][hung] == "unavailable" and body["timings"][f"{hung}_ms"] >= 300
+        if hung == "catalogue":
+            assert body["issues"] == [] and len(body["passages"]) == 5 and body["mode"]["literature"] == "vector"
+        else:
+            assert body["passages"] == [] and len(body["issues"]) == 1 and body["mode"]["catalogue"] == "vector index"
+        assert f"{hung} deadline" in records and not any("made-up" in line for line in records)
+        # the embedding step is as it was: made once from the question, its vector given to both stores
+        assert fakes.seen["embed"] == "a made-up question" and stuck.calls == [("a made-up question", fakes.vector)]
+    finally:
+        stuck.release.set()
+
+
+def test_when_both_stores_are_late_neither_answered(fakes, monkeypatch):
+    monkeypatch.setattr(settings, "ASK_STORE_SECONDS", 0.2)
+    lookup, search = Hanging([]), Hanging([])
+    deps = ask_service.AskDeps(embed=fakes.embed, lookup=lookup, search=search, verify_human=fakes.verify)
+    try:
+        with pytest.raises(ask_service.Unavailable, match="both stores"):
+            ask_service.answer("q", deps)
+    finally:
+        lookup.release.set()
+        search.release.set()
+
+
+def test_a_late_stores_result_is_dropped_and_does_not_reach_the_next_question(fakes, monkeypatch):
+    monkeypatch.setattr(settings, "ASK_STORE_SECONDS", 0.2)
+    late = Hanging([{"issue_id": "CR-LATE", "title": "Late"}])
+    deps = ask_service.AskDeps(embed=fakes.embed, lookup=late, search=fakes.search, verify_human=fakes.verify)
+    try:
+        first = ask_service.answer("q", deps)
+        kept = json.dumps(first, sort_keys=True)
+    finally:
+        late.release.set()
+    assert late.returned.wait(5)
+    time.sleep(0.05)                                   # the late thread has ended
+    assert json.dumps(first, sort_keys=True) == kept    # nothing it did changed the answer already given
+    assert first["issues"] == [] and first["mode"]["catalogue"] == "unavailable"
+    deps.lookup = fakes.lookup
+    second = ask_service.answer("q", deps)
+    assert [issue["issue_id"] for issue in second["issues"]] == ["CR-1"]          # its own, not the late one's
+
+
+def test_a_failing_store_thread_raises_into_no_request(fakes, monkeypatch):
+    monkeypatch.setattr(settings, "ASK_STORE_SECONDS", 0.2)
+    release = threading.Event()
+
+    def late_then_fails(question, vector):
+        release.wait(10)
+        raise RuntimeError("made-up failure")
+
+    deps = ask_service.AskDeps(embed=fakes.embed, lookup=late_then_fails, search=fakes.search, verify_human=fakes.verify)
+    assert ask_service.answer("q", deps)["mode"]["catalogue"] == "unavailable"
+    release.set()
+    time.sleep(0.05)
+    deps.lookup = fakes.lookup
+    assert ask_service.answer("q", deps)["mode"]["catalogue"] == "vector index"
 
 
 def test_an_unexpected_error_is_a_short_json_without_a_trace(make_client, monkeypatch):
@@ -579,6 +681,61 @@ def test_a_literature_client_that_cannot_be_opened_is_reported_and_recovers(monk
     assert len(literature.search("q", None)) == 2 and literature.state == "connected"
 
 
+class CountedStore(FakeStore):
+    """A FakeStore that counts its closings. ``first`` stands in for its first vector search."""
+
+    def __init__(self, first=None):
+        super().__init__()
+        self.closings, calls = 0, [0]
+        query = self.collections.get("any").query
+        usual = query.near_vector
+
+        def near_vector(**kwargs):
+            calls[0] += 1
+            return first(calls[0], usual, **kwargs) if first else usual(**kwargs)
+
+        query.near_vector = near_vector
+
+    def close(self):
+        self.closings += 1
+        self.closed = True
+
+
+def test_a_failed_literature_search_does_not_close_the_client_another_search_is_using(monkeypatch):
+    in_query, go_on = threading.Event(), threading.Event()
+
+    def first_blocks_second_fails(n, usual, **kwargs):
+        if n == 1:                              # the other request: still reading on this client
+            in_query.set()
+            go_on.wait(5)
+            assert not opened[0].closed         # nothing closed the client under it
+            return usual(**kwargs)
+        raise RuntimeError("made-up broken connection")
+
+    opened = []
+
+    def connect(self):
+        opened.append(CountedStore(first_blocks_second_fails if not opened else None))
+        return opened[-1]
+
+    monkeypatch.setattr(ask_service.Literature, "_connect", connect)
+    literature = ask_service.Literature()
+    other = {}
+    thread = threading.Thread(target=lambda: other.update(passages=literature.search("q", [0.1])))
+    thread.start()
+    assert in_query.wait(5)
+    assert len(literature.search("q", [0.1])) == 2           # failed on the shared client, then on a new one
+    assert len(opened) == 2 and not opened[0].closed           # retired, not closed: the other request uses it
+    go_on.set()
+    thread.join(5)
+    assert len(other["passages"]) == 2                         # its query completed on its own client
+    assert opened[0].closings == 1                             # closed once, when its last search gave it back
+    assert len(literature.search("q", [0.1])) == 2 and len(opened) == 2      # the next request: the new client
+    assert opened[1].closings == 0
+    literature.close()
+    assert opened[1].closings == 1 and opened[0].closings == 1
+
+
 def test_startup_opens_both_in_the_background_and_health_says_where_they_are(make_client, monkeypatch):
     gate = threading.Event()
 
@@ -639,6 +796,7 @@ def test_the_short_vector_is_asked_only_when_the_setting_is_on_and_a_refusal_fal
 
     class Link:
         refuse_short = False
+        refusal = ask_service.Refused("ClientError")
 
         def read(self, fn):
             return fn("a session")
@@ -646,7 +804,7 @@ def test_the_short_vector_is_asked_only_when_the_setting_is_on_and_a_refusal_fal
     def fake_lookup(session, question, k, question_vector, use_short=False):
         asked.append(use_short)
         if use_short and Link.refuse_short:
-            raise ask_service.Unavailable("ClientError")   # what the link raises when the graph refuses a query
+            raise Link.refusal                             # what the link raises when the graph refuses a query
         return [{"issue_id": "CR-1901-MADE-UP", "short": use_short}]
 
     monkeypatch.setattr(catalogue_lookup, "lookup", fake_lookup)
@@ -664,3 +822,34 @@ def test_the_short_vector_is_asked_only_when_the_setting_is_on_and_a_refusal_fal
     asked.clear()
     Link.refuse_short = True                                                         # the graph has no such index
     assert lookup("a question", [0.1])[0]["short"] is False and asked == [True, False]
+
+    asked.clear()
+    Link.refusal = ask_service.Unavailable("ClientError")                            # a failure of another kind, whatever its name:
+    with pytest.raises(ask_service.Unavailable):                                     # the lookup is not asked again
+        lookup("a question", [0.1])
+    assert asked == [True]
+
+
+def test_an_ipv6_visitor_is_counted_by_the_first_64_bits_of_its_address(monkeypatch):
+    monkeypatch.setattr(settings, "TRUSTED_PROXY_HOPS", 1)
+    key = lambda address: public_guard.visitor_key(address, "192.0.2.9")
+    # one subscriber's addresses (documentation range 2001:db8::/32): the last 64 bits are theirs to change
+    assert key("2001:db8:12:34::1") == key("2001:db8:12:34:ffff:ffff:ffff:fffe") == key("[2001:DB8:12:34::9]")
+    assert key("2001:db8:12:34::1") != key("2001:db8:12:35::1")                      # another subscriber
+    assert key("2001:db8:12:34::1") == public_guard.visitor_key("192.0.2.1", "192.0.2.9", "2001:db8:12:34:a:b:c:d")
+    # an IPv4 address is counted whole, also when it is written inside an IPv6 one
+    assert key("::ffff:198.51.100.4") == key("198.51.100.4") != key("198.51.100.5")
+    assert public_guard.counted_address("2001:db8:12:34:a:b:c:d") == "2001:db8:12:34::/64"
+    assert public_guard.counted_address("198.51.100.4") == "198.51.100.4"
+    for text in ("unknown", "", "not an address"):                                   # counted as given, nothing raised
+        assert public_guard.counted_address(text) == text
+
+
+def test_the_explorer_corrects_mena_1a_of_the_first_issue_from_the_same_place_as_the_card():
+    from app import graph_service, query_service
+
+    row = {"catalog_no": "1A", "denomination_value": 1.5, "denomination_unit": "real"}
+    assert graph_service._display_denom(row) == (0.5, "real")                  # the explorer shows the first issue
+    assert graph_service._display_denom({**row, "issue_id": "CR-1999-MADE-UP"}) == (1.5, "real")
+    assert graph_service._display_denom({**row, "catalog_no": "2"}) == (1.5, "real")
+    assert query_service._display_denom(config.ISSUE_ID, "1A", 1.5, "real") == "0.5 real"

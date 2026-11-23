@@ -34,7 +34,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import answer_model, public_guard, settings, web_step
+from app import answer_model, body_limit, public_guard, settings, web_step
 from app.deps import lifespan
 from app.routers import ask, chat
 
@@ -70,6 +70,22 @@ def create_app(public: bool | None = None) -> FastAPI:
     app.state.answer_allowance = public_guard.DayCount(settings.ANSWER_LIMIT_PER_DAY)
     # The web step, only with ASK_WEB on: its ticket key is made here, at the start, and held in memory only.
     app.state.web = web_step.WebStep() if settings.ASK_WEB else None
+
+    # The size and the time of a POST's body, before anything reads it. Added before CORS, so it stands inside it
+    # (the middleware added last is the outermost): a 413 or 408 carries the CORS headers as the app's other
+    # errors do. Each mounted route has its limit; any other POST under /api/ gets the smallest.
+    def body_limits() -> dict:
+        limits = {"/api/ask": settings.ASK_MAX_BODY_BYTES, "/api/chat": settings.CHAT_MAX_BODY_BYTES,
+                  "/api/session": settings.SESSION_MAX_BODY_BYTES}
+        if settings.ASK_WEB:
+            limits["/api/chat/web"] = settings.WEB_MAX_BODY_BYTES
+        if not public:
+            limits["/api/query"] = limits["/api/query/export"] = settings.QUERY_MAX_BODY_BYTES
+        return limits
+
+    app.add_middleware(body_limit.BodyLimit, limits=body_limits,
+                       default=lambda: min(settings.ASK_MAX_BODY_BYTES, settings.CHAT_MAX_BODY_BYTES,
+                                           settings.WEB_MAX_BODY_BYTES))
 
     if public:
         app.add_middleware(

@@ -90,7 +90,9 @@ def test_a_question_gives_the_evidence_then_an_answer_whose_sentences_cite_it(ch
     assert [s["text"] for s in answer["answer"]["sentences"]] == ["The made-up issue has one stamp.",
                                                                  "The page is full of the letter x."]
     assert answer["answer"]["counts"] == {"sentences": 3, "sentences_without_citation": 1,
-                                          "citations": 2, "citations_that_do_not_hold": 0}
+                                          "citations": 2, "citations_that_do_not_hold": 0,
+                                          "sentences_cited_by_a_quote_only": 0, "sentences_cited_by_a_quote_too": 0}
+    assert all("quoted" not in s for s in answer["answer"]["sentences"])      # citations of their own, no quote
     # each kept sentence points at a shown card or passage, with the text it cites
     first, second = answer["answer"]["sources"]
     assert (first["n"], first["kind"], first["index"], first["quotes"]) == (1, "issue", 0, ["stamp 1"])
@@ -194,12 +196,27 @@ def test_a_quote_standing_between_two_sentences_cites_the_one_before_it_and_is_n
         {"text": "Issue: An issue (CR-1)", "citations": [listed]},   # the same words inside a sentence stay in it
         {"text": ".", "citations": []}])
     _, answer = lines_of(ask(client))
-    assert answer["answer"]["sentences"] == [{"text": "The made-up issue has one stamp.", "cites": [1, 2]},
+    assert answer["answer"]["sentences"] == [{"text": "The made-up issue has one stamp.", "cites": [1, 2], "quoted": "all"},
                                              {"text": "It is listed as Issue: An issue (CR-1).", "cites": [1]}]
     assert answer["answer"]["sources"][0]["quotes"] == ["stamp 1", "Issue: An issue (CR-1)"]
     # the stray full stop left between the quotes is not counted as a sentence
     assert answer["answer"]["counts"] == {"sentences": 3, "sentences_without_citation": 1,
-                                          "citations": 3, "citations_that_do_not_hold": 0}
+                                          "citations": 3, "citations_that_do_not_hold": 0,
+                                          "sentences_cited_by_a_quote_only": 1, "sentences_cited_by_a_quote_too": 0}
+
+
+def test_a_sentence_with_a_citation_of_its_own_and_a_quote_after_it_says_some():
+    evidence = {"issues": [], "passages": [{"doc_id": "D", "page": 1, "text": "Some made-up words. Other made-up words."}]}
+    own, quote = {"document": 0, "cited_text": "Some made-up words."}, {"document": 0, "cited_text": "Other made-up words."}
+    draft = {"state": "ok", "blocks": [
+        {"text": "The page holds made-up words.", "citations": [own]},
+        {"text": " ", "citations": []},
+        {"text": "Other made-up words.", "citations": [quote]},             # a quote after it
+        {"text": " A second made-up sentence.", "citations": [own]}]}
+    answer = answer_graph.check({"evidence": evidence, "draft": draft})["answer"]
+    assert answer["sentences"] == [{"text": "The page holds made-up words.", "cites": [1], "quoted": "some"},
+                                   {"text": "A second made-up sentence.", "cites": [1]}]
+    assert (answer["counts"]["sentences_cited_by_a_quote_only"], answer["counts"]["sentences_cited_by_a_quote_too"]) == (0, 1)
 
 
 def test_a_quote_before_any_sentence_cites_the_first_one():
@@ -207,7 +224,8 @@ def test_a_quote_before_any_sentence_cites_the_first_one():
     draft = {"state": "ok", "blocks": [{"text": "Some made-up words.", "citations": [{"document": 0, "cited_text": "Some made-up words."}]},
                                        {"text": " The page holds made-up words.", "citations": []}]}
     answer = answer_graph.check({"evidence": evidence, "draft": draft})["answer"]
-    assert answer["sentences"] == [{"text": "The page holds made-up words.", "cites": [1]}]
+    assert answer["sentences"] == [{"text": "The page holds made-up words.", "cites": [1], "quoted": "all"}]
+    assert answer["counts"]["sentences_cited_by_a_quote_only"] == 1
 
 
 def test_when_the_evidence_does_not_cover_the_question_the_answer_says_so(chat_client, model):
@@ -226,7 +244,8 @@ def test_an_answer_with_no_citation_that_holds_is_not_shown(chat_client, model):
     _, answer = lines_of(ask(client))
     assert answer["answer"]["state"] == "uncited" and "sentences" not in answer["answer"]
     assert answer["answer"]["counts"] == {"sentences": 3, "sentences_without_citation": 3,
-                                          "citations": 2, "citations_that_do_not_hold": 2}
+                                          "citations": 2, "citations_that_do_not_hold": 2,
+                                          "sentences_cited_by_a_quote_only": 0, "sentences_cited_by_a_quote_too": 0}
 
 
 @pytest.mark.parametrize("state", ["timeout", "key_refused", "rate_limited", "request_refused", "model_unavailable",
@@ -263,6 +282,142 @@ def test_when_no_store_answers_it_is_a_refusal_not_a_stream(chat_client, model, 
     r = ask(client)
     assert r.status_code == 503 and r.json()["error"] == "stores_unavailable"
     assert model.writes == []
+
+
+# ---------------------------------------------------------------- nobody waiting: no model call
+class CountingAllowance:
+    """Stands where the day's allowance does: counts the calls taken."""
+
+    def __init__(self):
+        self.taken = 0
+
+    def take(self):
+        self.taken += 1
+        return True
+
+    def give_back(self):
+        self.taken -= 1
+
+
+def graphs_ended(timeout=5.0):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if not any(t.name == "chat-graph" and t.is_alive() for t in threading.enumerate()):
+            return True
+        time.sleep(0.02)
+    return False
+
+
+def recorded_deps(monkeypatch):
+    made = []
+
+    class Recorded(answer_graph.Deps):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            made.append(self)
+
+    monkeypatch.setattr(answer_graph, "Deps", Recorded)
+    return made
+
+
+def test_a_chat_that_timed_out_at_retrieval_takes_no_call_and_calls_no_model(chat_client, model, fakes, monkeypatch):
+    monkeypatch.setattr(settings, "ASK_TIMEOUT_SECONDS", 0.4)
+    release = threading.Event()
+
+    def late(question, vector):                     # both stores answer, after the route gave up
+        release.wait(10)
+        return [{"doc_id": "DOC 1", "page": 1, "chunk_type": "text", "text": "made-up text", "score": 0.9}]
+
+    fakes.lookup = fakes.search = late
+    client = chat_client()
+    client.app.state.ask = fakes.deps()
+    allowance = client.app.state.answer_allowance = CountingAllowance()
+    made = recorded_deps(monkeypatch)
+    r = ask(client)
+    assert r.status_code == 504 and made[0].gone.is_set()
+    release.set()
+    assert graphs_ended()
+    assert model.writes == [] and allowance.taken == 0
+
+
+def test_a_visitor_who_leaves_after_the_evidence_gets_no_model_call(chat_client, model, monkeypatch):
+    import asyncio
+
+    monkeypatch.setattr(settings, "EVAL_ACCESS_KEY", "s" * 32)
+    client = chat_client()
+    allowance = client.app.state.answer_allowance = CountingAllowance()
+    made = recorded_deps(monkeypatch)
+    body = json.dumps({"question": "q"}).encode()
+    sent = []
+
+    async def visit():
+        closed, given = asyncio.Event(), [False]
+
+        async def receive():
+            if not given[0]:
+                given[0] = True
+                return {"type": "http.request", "body": body, "more_body": False}
+            await closed.wait()
+            return {"type": "http.disconnect"}
+
+        async def send(message):
+            sent.append(message)
+            if message["type"] == "http.response.body" and b'"type":"evidence"' in message.get("body", b""):
+                closed.set()                        # the visitor read the evidence line and closed the page
+
+        scope = {"type": "http", "asgi": {"version": "3.0", "spec_version": "2.3"}, "http_version": "1.1",
+                 "method": "POST", "scheme": "http", "path": "/api/chat", "raw_path": b"/api/chat", "query_string": b"",
+                 "root_path": "", "client": ("192.0.2.7", 50000), "server": ("testserver", 80),
+                 "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode()),
+                             (b"x-oxcart-eval", b"s" * 32)]}
+        await client.app(scope, receive, send)
+
+    asyncio.run(visit())
+    bodies = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
+    assert b'"type":"evidence"' in bodies and b'"type":"answer"' not in bodies
+    assert graphs_ended()
+    assert made[0].gone.is_set() and not made[0].evidence_sent.is_set()
+    assert model.writes == [] and allowance.taken == 0
+
+
+def test_a_normal_chat_is_unchanged_and_its_graph_is_told_the_visitor_is_there(chat_client, model, monkeypatch):
+    client = chat_client()
+    made = recorded_deps(monkeypatch)
+    records = []
+    handler = logging.Handler()
+    handler.emit = lambda record: records.append(record.getMessage())
+    logging.getLogger("oxcart.ask").addHandler(handler)
+    try:
+        evidence, answer = lines_of(ask(client))
+    finally:
+        logging.getLogger("oxcart.ask").removeHandler(handler)
+    assert evidence["type"] == "evidence" and answer["answer"]["state"] == "ok" and len(model.writes) == 1
+    assert sum('"event": "chat"' in r for r in records) == 1
+    assert made[0].evidence_sent.is_set() and not made[0].gone.is_set()
+
+
+def test_an_answer_that_does_not_come_in_time_is_failed(chat_client, model, monkeypatch):
+    from app.routers import chat
+
+    monkeypatch.setattr(settings, "ANSWER_TIMEOUT_SECONDS", 0)
+    monkeypatch.setattr(chat, "ANSWER_WAIT_MARGIN_SECONDS", 0.3)
+    release = threading.Event()
+    model.before_writing = lambda: release.wait(10)
+    client = chat_client()
+    try:
+        t0 = time.time()
+        evidence, answer = lines_of(ask(client))
+        assert answer["answer"] == {"state": "failed"} and time.time() - t0 < 3
+    finally:
+        release.set()
+    assert graphs_ended()
+
+
+def test_the_answer_is_waited_for_as_long_as_the_one_call_left_can_take():
+    from app.routers import chat
+
+    assert answer_model.MAX_RETRIES == 0
+    assert chat.answer_wait_seconds() == settings.ANSWER_TIMEOUT_SECONDS + chat.ANSWER_WAIT_MARGIN_SECONDS
 
 
 # ---------------------------------------------------------------- the guard
@@ -418,6 +573,46 @@ def test_the_evidence_reaches_the_client_before_the_model_has_answered(monkeypat
         thread.join(10)
 
 
+def test_a_visitor_who_left_while_the_stores_were_searching_gets_no_model_call(monkeypatch, fakes, model):
+    import uvicorn
+
+    monkeypatch.setattr(settings, "EVAL_ACCESS_KEY", "s" * 32)
+    monkeypatch.setattr(settings, "GRAPH_WARM_ON_START", False)
+    monkeypatch.setattr(settings, "ASK_WARM_ON_START", False)
+    release = threading.Event()
+    answer_in_time = fakes.lookup
+    fakes.lookup = lambda question, vector: (release.wait(5), answer_in_time(question, vector))[1]
+    app = main.create_app(public=True)
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        deadline = time.time() + 10
+        while not server.started and time.time() < deadline:
+            time.sleep(0.05)
+        assert server.started
+        app.state.ask, app.state.answer_model = fakes.deps(), model
+        allowance = app.state.answer_allowance = CountingAllowance()
+        body = b'{"question":"q"}'
+        visitor = socket.create_connection(("127.0.0.1", port))
+        visitor.sendall(b"POST /api/chat HTTP/1.1\r\nHost: demo.example\r\nContent-Type: application/json\r\n"
+                        b"x-oxcart-eval: " + b"s" * 32 + b"\r\nContent-Length: " + str(len(body)).encode() + b"\r\n\r\n" + body)
+        time.sleep(0.3)
+        visitor.close()                             # the page was closed while the catalogue was searched
+        time.sleep(0.2)
+        release.set()                               # then the catalogue answers
+        time.sleep(0.5)
+        assert graphs_ended()
+        assert model.writes == [] and allowance.taken == 0
+    finally:
+        release.set()
+        server.should_exit = True
+        thread.join(10)
+
+
 # ---------------------------------------------------------------- the pieces
 def test_sentences_are_cut_at_their_ends_and_at_line_breaks():
     text = 'One. Two "quoted." Three?\nFour… Five'
@@ -442,6 +637,32 @@ def test_a_sentence_does_not_end_at_an_abbreviations_full_stop_nor_before_a_numb
     assert cut("The sign is No.\n7 is another line.") == ["The sign is No.", "7 is another line."]
     # the cost of the rule: two sentences taken for one when the second starts with a number
     assert cut("It was sold in 1889. 500 were printed.") == ["It was sold in 1889. 500 were printed."]
+
+
+def test_before_a_lower_case_letter_a_full_stop_ends_a_sentence_unless_an_abbreviation_stands_before_it():
+    cut = lambda text: [text[a:b] for a, b in answer_graph.sentence_spans(text)]
+    # a model at times starts a sentence with a lower-case letter: after a word or a number it is a new sentence
+    assert cut("The made-up club was started in 1987. this club has members.") == [
+        "The made-up club was started in 1987.", "this club has members."]
+    assert cut("El precio inventado subió a 9 céntimos. ese sobre inventado circuló poco.") == [
+        "El precio inventado subió a 9 céntimos.", "ese sobre inventado circuló poco."]
+    # what reads as an abbreviation goes on: a single letter, letters with full stops between them, a short list
+    for one in ("The price was 5 c. on the first day.", "No complaint came from the U.P.U. or another made-up body.",
+                "El sobre inventado valía 3 cts. en aquel pueblo inventado.", "It shows stamps, covers, etc. and nothing else.",
+                "It was flown at 9 a.m. by a made-up pilot.", 'He wrote "stop…" and then stopped.', "Was it sold? yes, in a made-up year."):
+        assert cut(one) == [one], one
+
+
+def test_an_initial_does_not_end_a_sentence():
+    cut = lambda text: [text[a:b] for a, b in answer_graph.sentence_spans(text)]
+    for one in ("The made-up catalogue is by Dr. Nobody M. Madeup of a made-up town.", "It was flown by three U. S. made-up aircraft.",
+                'The boxed "S. Madeup" postmark is the earliest.'):
+        assert cut(one) == [one], one
+    assert cut("The catalogue is by Nobody M. Madeup. Its pages are made up.") == [
+        "The catalogue is by Nobody M. Madeup.", "Its pages are made up."]
+    assert not answer_graph.ends_a_sentence("The catalogue is by Nobody M.")
+    # the cost: a sentence that ends with one capital letter takes the next one with it
+    assert cut("The stamp is of type A. The other is not.") == ["The stamp is of type A. The other is not."]
 
 
 def test_a_citation_after_an_abbreviation_stays_inside_its_sentence(chat_client, model):
@@ -726,3 +947,14 @@ def test_with_the_setting_on_the_model_is_told_whose_catalogue_a_card_is_from_an
     on = answer_graph.sources_of(evidence)[0]
     assert on["title"] == off["title"] and on["lines"] == off["lines"]          # what the page is given does not change
     assert answer_model.document_of(on)["title"] == "Card of the Mena catalogue: A made-up issue"
+
+
+def test_a_call_given_back_is_not_counted_and_only_todays():
+    now = [86400.0 * 10]
+    allowance = public_guard.DayCount(2, now=lambda: now[0])
+    assert [allowance.take(), allowance.take(), allowance.take()] == [True, True, False]
+    allowance.give_back()
+    assert [allowance.take(), allowance.take()] == [True, False]
+    now[0] += 86400
+    allowance.give_back()                                # nothing was taken today: the count does not go under zero
+    assert [allowance.take() for _ in range(3)] == [True, True, False]
