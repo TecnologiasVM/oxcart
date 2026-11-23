@@ -33,7 +33,7 @@ import {
 } from "@/lib/ask";
 import type { Example, StoredExample } from "@/lib/ask";
 import { newId } from "@/lib/conversation";
-import { askWeb, ticketOf, withoutTicket } from "@/lib/web";
+import { askWeb, ticketFresh, ticketOf, withoutTicket } from "@/lib/web";
 import type { Turn } from "@/lib/conversation";
 import { LABELS } from "@/lib/i18n";
 import type { Labels, Lang } from "@/lib/i18n";
@@ -279,13 +279,18 @@ export default function Chat() {
             finish({ answer, rewritten, writing: true });
           });
           // the ticket is used here, once, and is not kept: a turn read back never asks for the web
+          const receivedAt = Date.now();
           const ticket = ticketOf(written);
           finish({ written: withoutTicket(written), calls, writing: false, ...(ticket ? { web: { state: "searching" as const } } : {}) });
           setBusy(false); // with the answer on the page, so the box takes the next question at once
           if (ticket) {
-            // after the answer is on screen: a frame for it to be drawn, then the request
-            void new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)))
-              .then(() => askWeb(searched, written.state === "ok" ? textOf(written) : "", ticket, session))
+            // after the answer is in the page (a task later; no frame: a tab in the background draws none). A ticket
+            // past its time is not sent; a session that ran out meanwhile is renewed once
+            const renew = async () => (await check.sessionFor(() => {}, true)).session;
+            void new Promise<void>((resolve) => setTimeout(resolve, 0))
+              .then(() => (ticketFresh(written, receivedAt)
+                ? askWeb(searched, written.state === "ok" ? textOf(written) : "", ticket, session, check.needsCheck ? renew : undefined)
+                : { state: "unavailable" as const }))
               .then((web) => patch(id, { web }));
           }
         } catch (e) {

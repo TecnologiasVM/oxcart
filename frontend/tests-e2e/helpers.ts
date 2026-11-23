@@ -313,3 +313,63 @@ export async function noOverflow(page: Page, where: string) {
   expect(over.panel, `${where}: panel`).toBeLessThanOrEqual(0);
 }
 
+
+// ---------------------------------------------------------------- shared by the specs of the review's findings (review-*.spec.ts)
+export const TICKET = { ticket: "a-made-up-ticket", expires_in: 120 };
+export const PART = { ...WRITTEN, covers: "part", web: TICKET };
+export const WEB_OK = {
+  state: "ok",
+  sentences: [{ text: "A made-up page says a made-up thing.", cites: [1] }],
+  results: [{ n: 1, title: "A made-up page", host: "pages.example", url: "https://pages.example/made-up" }],
+};
+export const submitButton = (page: Page) => page.locator("form.composer button[type=submit]");
+/** Let the page's clock run, in steps, as the specs of the waking notice do. */
+export async function runClock(page: Page, seconds: number) {
+  for (let s = 0; s < seconds; s += 2) {
+    await page.clock.runFor(2000);
+    await page.waitForTimeout(20);
+  }
+}
+/** The chat route answered by a stream the test drives: the evidence at once, the rest only when released. */
+export async function heldStream(page: Page, answer: object | null) {
+  await page.addInitScript(({ evidence, rest }) => {
+    const real = window.fetch.bind(window);
+    const w = window as unknown as { __release?: () => void };
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (!url.endsWith("/api/chat")) return real(input, init);
+      const enc = new TextEncoder();
+      const body = new ReadableStream({
+        start(c) {
+          c.enqueue(enc.encode(evidence));
+          w.__release = () => {
+            if (rest) {
+              c.enqueue(enc.encode(rest));
+              c.close();
+            }
+          };
+        },
+      });
+      return new Response(body, { status: 200, headers: { "Content-Type": "application/x-ndjson" } });
+    };
+  }, {
+    evidence: JSON.stringify({ type: "evidence", rewritten: false, evidence: ANSWER }) + "\n",
+    rest: answer ? JSON.stringify({ type: "answer", answer, calls: CALLS }) + "\n" : null,
+  });
+}
+
+/** localStorage.setItem throws while window.__failWrites is true (a full store, or a refusing one). */
+export async function failingStorage(page: Page, kind: "full" | "refused", from: boolean) {
+  await page.addInitScript(({ kind, from }) => {
+    const w = window as unknown as { __failWrites: boolean };
+    w.__failWrites = from && !window.sessionStorage.getItem("reloaded");
+    const real = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
+      if (this === window.localStorage && w.__failWrites) {
+        throw kind === "full" ? new DOMException("made up", "QuotaExceededError") : new Error("made up");
+      }
+      return real.call(this, key, value);
+    };
+  }, { kind, from });
+}
+
