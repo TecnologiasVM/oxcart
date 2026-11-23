@@ -41,7 +41,7 @@ export function modelName(id: string): string {
 type Node = { name: S; sub: S[]; tech?: S };
 type NodeArgs = { writer: S; embedding: S; issues: S; passages: S; cards: S; shown: S };
 type Step = { h: S; text: (x: StepArgs) => S };
-type StepArgs = { writer: S; numbers: S; issues: S; passages: S; graphIndex: S; litIndex: S; litCompression: S; similarity: S };
+type StepArgs = { writer: S; numbers: S; issues: S; passages: S; graphIndex: S; litIndex: S; litCompression: S; graphSimilarity: S; litSimilarity: S };
 type Lead<F> = { lead: S; text: F };
 
 export type HowWords = {
@@ -115,6 +115,9 @@ export type HowWords = {
   linkEval: S;
 };
 
+/** A similarity's name in Spanish, when the page knows it; any other as the stores give it. */
+const es = (similarity: S) => ({ cosine: "coseno" } as Record<string, string>)[similarity] ?? similarity;
+
 export const HOW: Record<Lang, HowWords> = {
   en: {
     title: "How it works, and how it was measured",
@@ -146,8 +149,8 @@ export const HOW: Record<Lang, HowWords> = {
     steps: {
       s1: { h: "Rewritten", text: ({ writer }) =>
         `Every question after the first is read against the conversation and rewritten only when it points back: ${writer} rewrites “And who printed it?” so that it stands alone. A first question is searched as it is typed.` },
-      s2: { h: "Searched", text: ({ numbers, issues, passages, graphIndex, litIndex, litCompression, similarity }) =>
-        `One vector (${numbers} numbers) serves two searches at once. The catalogue, a graph in Neo4j, returns up to ${issues} issues with their cards, from two ${graphIndex} vector indexes by ${similarity} (one of an issue's whole text, quantized; one of its title, years and section, not quantized), or from its full-text index when no vector can be made. The literature, in Weaviate, returns the ${passages} nearest passages from an ${litIndex} vector index with ${litCompression} compression, by ${similarity}. The page shows this evidence first.` },
+      s2: { h: "Searched", text: ({ numbers, issues, passages, graphIndex, litIndex, litCompression, graphSimilarity, litSimilarity }) =>
+        `One vector (${numbers} numbers) serves two searches at once. The catalogue, a graph in Neo4j, returns up to ${issues} issues with their cards, from two ${graphIndex} vector indexes by ${graphSimilarity} (one of an issue's whole text, quantized; one of its title, years and section, not quantized), or from its full-text index when no vector can be made. The literature, in Weaviate, returns the ${passages} nearest passages from an ${litIndex} vector index with ${litCompression} compression, by ${litSimilarity}. The page shows this evidence first.` },
       s3: { h: "Written with citations", text: ({ writer }) =>
         `${writer} writes a short answer only from that evidence; each piece comes back with the exact text it cites.` },
       s4: { h: "Citations checked", text: () =>
@@ -282,8 +285,8 @@ export const HOW: Record<Lang, HowWords> = {
     steps: {
       s1: { h: "Reescrita", text: ({ writer }) =>
         `Cada pregunta después de la primera se lee con la conversación y se reescribe solo cuando remite a ella: ${writer} reescribe «¿Y quién la imprimió?» para que se entienda sola. Una primera pregunta se busca tal como se escribió.` },
-      s2: { h: "Buscada", text: ({ numbers, issues, passages, graphIndex, litIndex, litCompression, similarity }) =>
-        `Un vector (${numbers} números) sirve para dos búsquedas a la vez. El catálogo, un grafo en Neo4j, devuelve hasta ${issues} emisiones con sus fichas, de dos índices vectoriales ${graphIndex} por ${similarity === "cosine" ? "coseno" : similarity} (uno del texto completo de cada emisión, cuantizado; otro de su título, sus años y su sección, sin cuantizar), o de su índice de texto completo cuando no se puede calcular el vector. La literatura, en Weaviate, devuelve los ${passages} pasajes más cercanos de un índice vectorial ${litIndex} con compresión ${litCompression}, por ${similarity === "cosine" ? "coseno" : similarity}. La página muestra primero esta evidencia.` },
+      s2: { h: "Buscada", text: ({ numbers, issues, passages, graphIndex, litIndex, litCompression, graphSimilarity, litSimilarity }) =>
+        `Un vector (${numbers} números) sirve para dos búsquedas a la vez. El catálogo, un grafo en Neo4j, devuelve hasta ${issues} emisiones con sus fichas, de dos índices vectoriales ${graphIndex} por ${es(graphSimilarity)} (uno del texto completo de cada emisión, cuantizado; otro de su título, sus años y su sección, sin cuantizar), o de su índice de texto completo cuando no se puede calcular el vector. La literatura, en Weaviate, devuelve los ${passages} pasajes más cercanos de un índice vectorial ${litIndex} con compresión ${litCompression}, por ${es(litSimilarity)}. La página muestra primero esta evidencia.` },
       s3: { h: "Redactada con citas", text: ({ writer }) =>
         `${writer} redacta una respuesta breve solo a partir de esa evidencia; cada parte vuelve con el texto exacto que cita.` },
       s4: { h: "Citas comprobadas", text: () =>
