@@ -708,7 +708,7 @@ def test_a_card_is_given_in_the_language_of_the_question():
                     "varieties": [{"suffix": "a", "description": "a made-up flaw"}]}]}}
     assert answer_graph.card_lines(issue, "es") == [
         "Emisión: A made-up issue (CR-9)", "puesta a la venta el 3 de febrero de 1901", "anunciada en enero de 1901",
-        "impresa por A printer", "perforación 12", "autorizada por Decree, 7, del 1 de enero de 1901",
+        "impresa por A printer", "perforación 12", "autorizada por decreto, 7, del 1 de enero de 1901",
         "sello 1: valor 5 c; color blue; cantidad 1000", "sello 1, número del catálogo Scott: 31",
         "sello 1, variedad a: a made-up flaw"]
     for question, lang in (("¿Quién imprimió la emisión de 1901?", "es"), ("sellos de un lugar sobrecargados", "es"),
@@ -958,3 +958,18 @@ def test_a_call_given_back_is_not_counted_and_only_todays():
     now[0] += 86400
     allowance.give_back()                                # nothing was taken today: the count does not go under zero
     assert [allowance.take() for _ in range(3)] == [True, True, False]
+
+
+def test_in_a_spanish_card_an_acts_kind_is_said_in_spanish_and_once():
+    card = lambda acts: {"issue_id": "CR-9", "title": "A made-up issue", "card": {"acts": acts}}
+    line = lambda acts, lang: [l for l in answer_graph.card_lines(card(acts), lang) if l.startswith(("autorizada", "authorized"))]
+    decree = [{"type": "decree", "id": "Decree #11", "date": "1901-01-02"}]
+    assert line(decree, "es") == ["autorizada por Decreto #11, del 2 de enero de 1901"]
+    assert line(decree, "en") == ["authorized by decree, Decree #11, of 2 January 1901"]      # English: as stored, as before
+    assert line([{"type": "resolution", "id": "MU-7", "date": "1901-01-02"}], "es") == ["autorizada por resolución, MU-7, del 2 de enero de 1901"]
+    assert line([{"type": "law", "id": "law 3"}], "es") == ["autorizada por ley 3"]
+    # an id that names another kind than the act's keeps both; a kind the table does not hold is said as stored
+    assert line([{"type": "resolution", "id": "Decree #5"}], "es") == ["autorizada por resolución, Decreto #5"]
+    assert line([{"type": "made-up kind", "id": "9"}], "es") == ["autorizada por made-up kind, 9"]
+    assert line([{"type": None, "id": None}], "es") == []
+

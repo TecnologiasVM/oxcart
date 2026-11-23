@@ -187,6 +187,26 @@ def date_in_words(value: Any, lang: str = "en") -> tuple[str, str]:
     return words["in"], month_year
 
 
+# The kinds of legal act the catalogue's data names, in Spanish. The data holds them in English ("decree",
+# "resolution"), and an act's id often starts with its kind ("Decree #11"). In a Spanish line the kind is said in
+# Spanish and once; a kind that is not here, and the rest of an id, are said as stored.
+_ACT_KINDS_ES = {"decree": "decreto", "resolution": "resolución", "law": "ley", "letter": "carta", "note": "nota",
+                 "session": "sesión", "authorization": "autorización", "accord": "acuerdo"}
+
+
+def _act_named(act: dict, lang: str) -> list:
+    """An act's kind and id as the words of a card's line: as stored in English; in Spanish the kind in Spanish."""
+    kind, ident = (str(act[k]) if act.get(k) else "" for k in ("type", "id"))
+    if lang == "es":
+        first, _, rest = ident.partition(" ")
+        named = _ACT_KINDS_ES.get(first.lower())
+        if named:                                   # the id names its kind: "Decree #11" is said "Decreto #11"
+            ident = (named.capitalize() if first[:1].isupper() else named) + (f" {rest}" if rest else "")
+        said = _ACT_KINDS_ES.get(kind.lower())
+        kind = "" if said and said == named else (said or kind)        # not said twice
+    return [part for part in (kind, ident) if part]
+
+
 def card_lines(issue: dict, lang: str = "en") -> list:
     """A catalogue card as fact lines, one fact per line, in the language of the question.
 
@@ -207,7 +227,7 @@ def card_lines(issue: dict, lang: str = "en") -> list:
     if card.get("perforation"):
         lines.append(f"{words['perforation']} {card['perforation']}")
     for act in card.get("acts") or []:
-        parts = [str(act[k]) for k in ("type", "id") if act.get(k)]
+        parts = _act_named(act, lang)
         if act.get("date"):
             word, date = date_in_words(act["date"], lang)
             parts.append(date if word == ":" else f"{words['of']} {date}")
