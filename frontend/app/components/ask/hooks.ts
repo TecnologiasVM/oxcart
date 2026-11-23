@@ -157,6 +157,10 @@ export function useConversations() {
 
 export type Service = "checking" | "waking" | "connecting" | "ready" | "unreachable";
 const POLL_EVERY_MS = 2000;
+// How long the page says "waking" with nothing heard from the service before it says the service is not
+// answering. A time, not a number of tries: a try takes 2 s when the call fails at once and 10 s when the
+// service does not answer at all, so 60 tries stood between two and ten minutes over "about half a minute".
+const NOT_ANSWERING_AFTER_MS = 90_000;
 export const WAIT_LINES_AFTER_SECONDS = 3; // a question answered sooner shows "Searching…" and nothing else
 const fromState = (state: ServiceState): Service => (state === "ready" ? "ready" : state === "connecting" ? "connecting" : "waking");
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -171,13 +175,17 @@ export function useService(busy: boolean) {
   useEffect(() => {
     let stop = false;
     (async () => {
+      let heard = Date.now(); // when the service last answered anything (or when the page started looking)
+      const left = () => NOT_ANSWERING_AFTER_MS - (Date.now() - heard);
       let state = await serviceState(4000);
-      for (let i = 0; i < 60 && !stop; i++) {
+      while (!stop) {
         setService(fromState(state));
         if (state === "ready") return;
-        await pause(POLL_EVERY_MS);
+        if (state === "connecting") heard = Date.now(); // it answers: it is not "not answering"
+        if (left() <= 0) break;
+        await pause(Math.min(POLL_EVERY_MS, left()));
         if (stop) return;
-        state = await serviceState(8000);
+        state = await serviceState(Math.max(1000, Math.min(8000, left())));
       }
       if (!stop) setService("unreachable");
     })();

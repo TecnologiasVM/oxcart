@@ -96,8 +96,11 @@ export const TURNSTILE_STUB = `(() => {
       const mode = window.__checkMode || "pass";
       const widget = document.createElement("div");
       widget.dataset.widget = id;
-      widget.style.cssText = "width:300px;height:65px;box-sizing:border-box;border:1px dashed";
-      const show = (on) => { widget.style.display = o.appearance !== "interaction-only" || on ? "block" : "none"; };
+      // It stands on a line of text with its foot on the baseline, as the real widget's frame does (an
+      // inline block that clips sits that way): so the element that holds it is taller than it by the
+      // line's room under the baseline, unless the page takes that room away.
+      widget.style.cssText = "width:300px;height:65px;box-sizing:border-box;border:1px dashed;overflow:hidden";
+      const show = (on) => { widget.style.display = o.appearance !== "interaction-only" || on ? "inline-block" : "none"; };
       el.appendChild(widget);
       const entry = { id, el, o, runs: 0 };
       entry.run = () => {

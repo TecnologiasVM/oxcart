@@ -157,6 +157,26 @@ test("muted ink holds 4.5:1 or more on each of the three papers", async ({ page 
 
 // ===================================================================== the service
 
+test("with nothing heard from the service for 90 seconds the page says it is not answering, whatever a try takes", async ({ page }) => {
+  await page.clock.install();
+  await mock(page, { health: 0 });
+  await page.goto("/");
+  let seconds = 0;
+  const pass = async (until: number) => {
+    while (seconds < until) {
+      await page.clock.runFor(2000);
+      seconds += 2;
+      await page.waitForTimeout(20);        // the call that failed is seen before the clock moves again
+    }
+  };
+  await pass(80);
+  await expect(page.getByTestId("service-starting")).toContainText(/Waking the service…|Despertando el servicio…/);
+  await expect(page.getByTestId("service-unreachable")).toHaveCount(0);
+  await pass(96);
+  await expect(page.getByTestId("service-unreachable")).toContainText(/not answering right now|no responde en este momento/);
+  await expect(page.getByTestId("service-starting")).toHaveCount(0);
+});
+
 test("stored examples show real evidence while the service is not answering, marked as stored", async ({ page }) => {
   await mock(page, { health: 0, stored: STORED });
   await page.goto("/");
@@ -293,6 +313,20 @@ test("the human check, case 1: it starts when the box takes focus and passes bef
   await expect(page.getByTestId("turn")).toHaveCount(2);
   await expect(newest(page).getByTestId("evidence-button")).toBeVisible();
   expect(await checks(page)).toEqual([{ id: "w1", runs: 1, appearance: "interaction-only", inHost: true }]);
+});
+
+test("the human check's element is as tall as the box it holds, on the first screen and under a question", async ({ page }) => {
+  await checkMode(page, "click");
+  await mock(page, { written: WRITTEN });
+  await page.goto("/");
+  await box(page).focus();
+  await expect(page.getByTestId("check-host").getByRole("button", { name: "Verify you are human" })).toBeVisible();
+  const first = (await page.getByTestId("check-host").boundingBox())!;
+  expect(Math.round(first.height)).toBe(65);            // the box is 65 px: no line's room above or under it
+  await ask(page, "A question sent before the click?");
+  await expect(page.getByTestId("check")).toContainText(/Waiting for the human check to finish|Esperando a que termine la comprobación/);
+  const waiting = (await page.getByTestId("check-host").boundingBox())!;
+  expect([Math.round(waiting.width), Math.round(waiting.height)]).toEqual([300, 65]);   // the room kept is the room taken
 });
 
 test("the human check, case 2: still running when the question is sent, it goes on; its words and room stand under the question", async ({ page }) => {

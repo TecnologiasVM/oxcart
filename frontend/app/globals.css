@@ -2498,6 +2498,13 @@ html:has(main.ask) .masthead__bar {
 .check--waiting {
   padding-bottom: 16px;
 }
+/* Cloudflare's box is a frame set on a line of text: with the page's line height the line was 8 px taller than
+   the box (73 px for 65, measured with the real widget), so what stood under it moved when it came. With no
+   line height the element is as tall as the box. */
+.check__widget {
+  line-height: 0;
+  font-size: 0;
+}
 /* the room Cloudflare's widget takes, kept while a question waits so nothing moves when it comes or goes */
 .check--waiting .check__widget {
   width: 300px;
