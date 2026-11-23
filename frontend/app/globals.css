@@ -4072,3 +4072,182 @@ html:has(main.ask) {
     display: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   The web part (TurnView.tsx, lib/web.ts): only in a build with NEXT_PUBLIC_WEB on. Last in
+   the turn, outside the answer's section, under its Evidence row and its pictures. Its own
+   ground (the darker paper inside a dashed frame), its own face (sans, no amber bar) and its
+   own marks (round, "W1"), so nothing of it reads as the answer from our sources. The dashed
+   edge is the web's own mark: the searching line and the "nothing to add" line carry it too.
+   --------------------------------------------------------------------------- */
+.web {
+  margin-top: 32px;
+  padding: 16px 18px 18px;
+  border: 1.5px dashed var(--color-ink);
+  background: var(--color-paper-2);
+}
+.web__h {
+  margin: 0 0 6px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+.web__say {
+  margin: 0;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--color-hairline-strong);
+  font-size: 18px;
+  line-height: 1.5;
+}
+.web__text {
+  margin: 14px 0 0;
+  font-size: 20px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.wmark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 26px;
+  padding: 0 8px;
+  margin: 0 2px 0 4px;
+  border: 1.5px solid var(--color-ink);
+  border-radius: 13px;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  vertical-align: 0.12em;
+  cursor: pointer;
+}
+button.wmark:hover {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+.wmark--solid {
+  flex: none;
+  margin: 14px 12px 0 0;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  cursor: default;
+}
+.web__list {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--color-hairline-strong);
+}
+.web__list > li {
+  border-bottom: 1px solid var(--color-hairline-strong);
+  scroll-margin-top: 96px;
+}
+.web__list > li:last-child {
+  border-bottom: 0;
+}
+.web__row {
+  display: flex;
+  align-items: flex-start;
+}
+.web__row > a,
+.web__plain {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 12px 0;
+  color: var(--color-ink);
+  text-decoration: none;
+}
+.web__list > li:last-child .web__row > a,
+.web__list > li:last-child .web__plain {
+  padding-bottom: 2px;
+}
+.web__row > a:hover {
+  background: var(--color-paper-3);
+}
+.web__t {
+  font-size: 19px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.web__row > a .web__t {
+  color: var(--color-cobalt);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.web__d {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--color-ink-muted);
+  overflow-wrap: anywhere;
+}
+.web__pdf {
+  margin-left: 4px;
+  padding: 0 5px;
+  border: 1px solid var(--color-ink);
+  color: var(--color-ink);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+/* the search under way, and "nothing to add": one line behind the dashed edge, in the block's place */
+.webline {
+  margin: 32px 0 0;
+  padding: 4px 0 4px 18px;
+  border-left: 1.5px dashed var(--color-ink);
+  font-size: 18px;
+  line-height: 1.5;
+}
+.webline p {
+  margin: 0;
+}
+.webline .wait-bar {
+  max-width: 240px;
+  margin: 4px 0 10px;
+}
+/* an older turn's block: one line that opens in place */
+.web--old {
+  margin-top: 16px;
+  padding: 0 18px;
+}
+.web--old[open] {
+  padding-bottom: 18px;
+}
+.web--old > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 10px 0;
+  list-style: none;
+  cursor: pointer;
+}
+.web--old > summary::-webkit-details-marker {
+  display: none;
+}
+.web--old > summary::before {
+  content: "+";
+  flex: none;
+  width: 16px;
+  font-family: var(--font-mono);
+  font-size: 22px;
+  line-height: 1;
+}
+.web--old[open] > summary::before {
+  content: "–";
+}
+.web--old > summary:hover {
+  background: var(--color-paper-3);
+}
+.web--old > summary .web__h {
+  margin: 0;
+}
+.web--old[open] > summary {
+  margin-bottom: 2px;
+}

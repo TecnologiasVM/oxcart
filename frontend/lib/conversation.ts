@@ -12,6 +12,7 @@
  * (key `oxcart-chat-v1`: a bare list of turns, newest first) is read once and carried over.
  */
 import type { AskAnswer, ModelCall, ThreadTurn, WrittenAnswer } from "./ask";
+import type { WebPart } from "./web";
 
 export const STORE_KEY = "oxcart-conversations";
 export const OLD_KEY = "oxcart-chat-v1";
@@ -30,6 +31,7 @@ export type Turn = {
   calls?: ModelCall[]; // the model calls made for it
   thread?: ThreadTurn[]; // the turns this question followed, as they were sent with it
   rewritten?: boolean; // a follow-up made into a question that stands alone before the search
+  web?: WebPart; // the web part (lib/web.ts), kept with its turn once it has come; a search under way is not kept
   stored?: boolean;
   storedDate?: string | null;
   // what is true only while the page is open: never written to storage
@@ -50,8 +52,9 @@ export const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-$
 /** A turn as it is kept: settled, with its evidence, without what only the open page knows. */
 function keepable(turn: Turn): Turn | null {
   if (!turn || typeof turn.question !== "string" || !turn.answer || turn.pending) return null;
-  const { pending: _p, writing: _w, check: _c, error: _e, ...kept } = turn;
-  return kept;
+  const { pending: _p, writing: _w, check: _c, error: _e, web, ...kept } = turn;
+  // a search under way is not kept: a turn read back never asks for the web again
+  return web && web.state !== "searching" ? { ...kept, web } : kept;
 }
 
 /** Turns read back from storage. A turn cut off while its answer was being written keeps its evidence. */
@@ -117,10 +120,19 @@ export function loadStore(): { conversations: Conversation[]; current: string; k
   return { conversations: [], current: fresh, keeping: "kept" };
 }
 
-/** Two copies of a conversation's turns as one: every turn of each, by id (the second copy wins), in time order. */
+const settledWeb = (t: Turn | undefined) => Boolean(t?.web && t.web.state !== "searching");
+
+/**
+ * Two copies of a conversation's turns as one: every turn of each, by id (the second copy wins), in time order.
+ * A web part arrives after its turn was first written, so a copy of the turn without it may stand in another tab:
+ * a web part either copy has is kept.
+ */
 export function mergeTurns(stored: Turn[], mine: Turn[]): Turn[] {
   const byId = new Map(stored.map((t) => [t.id, t]));
-  for (const t of mine) byId.set(t.id, t);
+  for (const t of mine) {
+    const other = byId.get(t.id);
+    byId.set(t.id, !settledWeb(t) && settledWeb(other) ? { ...t, web: other!.web } : t);
+  }
   return [...byId.values()].sort((a, b) => a.at.localeCompare(b.at));
 }
 

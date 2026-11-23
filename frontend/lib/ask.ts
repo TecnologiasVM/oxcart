@@ -9,6 +9,7 @@
 import { API_BASE, stripVectors } from "./api";
 import type { Figure } from "./figures";
 import { keepFigures } from "./figures";
+import type { WebTicket } from "./web";
 
 export type Mode = {
   embedding: "ok" | "failed" | "not configured" | string;
@@ -67,9 +68,17 @@ export type AnswerSentence = { text: string; cites: number[] };
 export type AnswerSource = { n: number; kind: "issue" | "passage"; index: number; title: string; quotes: string[] };
 /**
  * The written answer. `state` is "ok" (with sentences and sources), "not_covered" (the
- * evidence does not answer the question), or the reason nothing was written.
+ * evidence does not answer the question), "out_of_scope" (with the backend's ASK_WEB: the
+ * question is outside what Oxcart covers), or the reason nothing was written.
  */
-export type WrittenAnswer = { state: string; sentences?: AnswerSentence[]; sources?: AnswerSource[]; counts?: AnswerCounts };
+export type WrittenAnswer = {
+  state: string;
+  sentences?: AnswerSentence[];
+  sources?: AnswerSource[];
+  counts?: AnswerCounts;
+  covers?: "all" | "part"; // with the backend's ASK_WEB: whether the answer covers all of the question or part
+  web?: WebTicket; // with ASK_WEB: the ticket for the web part (lib/web.ts); never kept
+};
 /** What the check of the citations found: sentences written and removed, citations given and not holding. */
 export type AnswerCounts = {
   sentences: number;

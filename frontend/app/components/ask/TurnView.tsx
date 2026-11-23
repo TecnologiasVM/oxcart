@@ -11,6 +11,9 @@
  * Everything the model wrote (sentences, titles, quotes) is a text node. The page builds
  * only the marks and one wrapper that keeps a sentence's last word with its marks, so a
  * mark never starts a line.
+ *
+ * In a build that asks for the web part (lib/web.ts), it stands last in the turn, outside the
+ * answer's section: under the Evidence row, and under the pictures when there are any.
  */
 import type { ReactNode } from "react";
 import type { AnswerSentence } from "@/lib/ask";
@@ -21,6 +24,8 @@ import { citedFigures, figureFailed, figureSrc, fit, ratio, useFigureFailures } 
 import type { Labels } from "@/lib/i18n";
 import type { Service } from "./hooks";
 import { WAIT_LINES_AFTER_SECONDS } from "./hooks";
+import { isPdf, linkOf, WEB } from "@/lib/web";
+import type { WebPart, WebResult } from "@/lib/web";
 import { answered, Bar, Notice, PANEL_ID, Waiting, Warn } from "./parts";
 
 type Props = {
@@ -58,7 +63,10 @@ export default function TurnView({ turn, t, newest, service, open, storedNote, b
       ) : turn.error ? (
         <section className="a a--wait"><Warn text={errorText} testId="turn-error" /></section>
       ) : turn.answer ? (
-        <Answered turn={turn} t={t} newest={newest} open={open} storedNote={storedNote} busy={busy} onEvidence={onEvidence} onAskNow={onAskNow} />
+        <>
+          <Answered turn={turn} t={t} newest={newest} open={open} storedNote={storedNote} busy={busy} onEvidence={onEvidence} onAskNow={onAskNow} />
+          {turn.web && !turn.writing && <Web web={turn.web} turnId={turn.id} notCovered={turn.written?.state === "not_covered"} newest={newest} t={t} />}
+        </>
       ) : null}
     </article>
   );
@@ -167,7 +175,9 @@ function Answered({ turn, t, newest, open, storedNote, busy, onEvidence, onAskNo
 
   let notice: ReactNode = null;
   if (turn.stored && storedNote) notice = <Notice text={storedNote} testId="stored-note" />;
-  else if (written?.state === "not_covered") notice = <Notice text={t.notCovered} testId="not-covered" />;
+  // with the web part, the sentence does not say "what was found is below": the web block may stand there
+  else if (written?.state === "not_covered") notice = <Notice text={WEB ? t.notCoveredWeb : t.notCovered} testId="not-covered" />;
+  else if (written?.state === "out_of_scope") notice = <Notice text={t.outOfScope} testId="out-of-scope" />;
   else if (written) notice = <Notice text={written.state === "daily_cap" ? t.answerCap : t.noAnswer} testId="no-written-answer" />;
   return (
     <section className={`a a--none${newest ? "" : " a--old"}`}>
@@ -194,13 +204,13 @@ function Answered({ turn, t, newest, open, storedNote, busy, onEvidence, onAskNo
 }
 
 /** A sentence, its last word kept with its marks: a mark never starts a line. */
-function Sentence({ sentence, mark }: { sentence: AnswerSentence; mark: (n: number) => ReactNode }) {
+function Sentence({ sentence, mark, testId = "answer-sentence" }: { sentence: AnswerSentence; mark: (n: number) => ReactNode; testId?: string }) {
   const text = sentence.text.replace(/\s+$/, "");
   const split = text.match(/^([\s\S]*\s)(\S+)$/);
   const head = split ? split[1] : "";
   const tail = split ? split[2] : text;
   return (
-    <span className="sentence" data-testid="answer-sentence">
+    <span className="sentence" data-testid={testId}>
       {head}
       <span className="keep">{tail}<span className="marks">{sentence.cites.map(mark)}</span></span>{" "}
     </span>
@@ -246,5 +256,77 @@ function Figures({ turnId, groups, pages, t, onEvidence }: { turnId: string; gro
         ))}
       </ul>
     </div>
+  );
+}
+
+/*
+ * The web part, as drawn (a2/82 to a2/94). Searching: one line with the dashed edge. The block: its heading,
+ * the line under it, the sentences with their round marks, and one row per cited page. Nothing to add: under
+ * "not covered" one line, under an answer nothing. No search, a search that failed, the searches used up, or
+ * a question the web call judged out of scope: nothing. In an older turn the block is one line that opens in place.
+ */
+function Web({ web, turnId, notCovered, newest, t }: { web: WebPart; turnId: string; notCovered: boolean; newest: boolean; t: Labels }) {
+  if (web.state === "searching") {
+    return (
+      <div className="webline webline--wait" role="status" data-testid="web-searching">
+        <Bar />
+        <p>{t.webWait}</p>
+      </div>
+    );
+  }
+  if (web.state === "nothing") return notCovered ? <p className="webline" role="status" data-testid="web-nothing">{t.webNothing}</p> : null;
+  if (web.state !== "ok") return null;
+  const base = `web-${turnId}`;
+  const goTo = (n: number) => document.getElementById(`${base}-${n}`)?.focus();
+  const mark = (n: number) => (
+    <button key={n} type="button" className="wmark" onClick={() => goTo(n)} data-testid="web-mark">
+      <span className="vh">{t.webMark} </span>W{n}
+    </button>
+  );
+  const head = <h3 className="web__h" id={`${base}-h`}>{t.webTitle}</h3>;
+  const body = (
+    <>
+      <p className="web__say">{t.webUnder}</p>
+      <p className="web__text">{web.sentences.map((sentence, i) => <Sentence key={i} sentence={sentence} mark={mark} testId="web-sentence" />)}</p>
+      <ol className="web__list">
+        {web.results.map((result) => <WebRow key={result.n} result={result} id={`${base}-${result.n}`} t={t} />)}
+      </ol>
+    </>
+  );
+  return newest ? (
+    <aside className="web" aria-labelledby={`${base}-h`} data-testid="web">{head}{body}</aside>
+  ) : (
+    <details className="web web--old" data-testid="web">
+      <summary data-testid="web-open">{head}</summary>
+      {body}
+    </details>
+  );
+}
+
+/** One cited page: its title as text, its host as text under it, "PDF" from the address's ending. The page
+ *  makes it a link only when it has checked the address again here (lib/web.ts, linkOf). */
+function WebRow({ result, id, t }: { result: WebResult; id: string; t: Labels }) {
+  const href = linkOf(result.url);
+  const what = (
+    <>
+      <span className="web__t">{result.title}</span>
+      <span className="web__d">
+        {href ? new URL(href).hostname : result.host}
+        {isPdf(result.url) && <> <span className="web__pdf">PDF</span></>}
+        {href && <> <span aria-hidden="true">↗</span><span className="vh"> ({t.webNew})</span></>}
+      </span>
+    </>
+  );
+  return (
+    <li id={id} tabIndex={-1} data-testid="web-result">
+      <div className="web__row">
+        <b className="wmark wmark--solid"><span className="vh">{t.webMark} </span>W{result.n}</b>
+        {href ? (
+          <a href={href} target="_blank" rel="noopener noreferrer" data-testid="web-link">{what}</a>
+        ) : (
+          <span className="web__plain">{what}</span>
+        )}
+      </div>
+    </li>
   );
 }
