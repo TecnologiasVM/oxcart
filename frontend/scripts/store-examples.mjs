@@ -14,7 +14,10 @@
 // With both, the refresh:
 //   1. wakes the service: GET /api/health until it answers 200, for at most 90 s (it sleeps when unused);
 //   2. asks each example up to 3 times, 5 s apart; an HTTP 429 waits for its Retry-After (at most 65 s);
-//   3. keeps the examples that answered. The file is written when at least one answered and they are not fewer
+//   3. keeps the examples that answered, and of each answer only what the page reads of a stored example (lib/ask.ts:
+//      AskAnswer, and in it Issue and Passage): question, mode, issues (issue_id, title, score, matched_by, card),
+//      passages (doc_id, page, chunk_type, text, clipped, score, figures), timings. A list or an answer of
+//      another shape is not used. The file is written when at least one answered and they are not fewer
 //      than an existing file holds; otherwise the existing file is kept, and an empty one is written only when
 //      there is none and nothing answered.
 // The log says what happened: "stored examples: N of M written", and a line starting "WARNING:" when N < M
@@ -116,6 +119,22 @@ async function tries(make) {
 
 const why = (errors) => [...new Set(errors)].join(", ");
 
+const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+const pick = (o, keys) => Object.fromEntries(keys.filter((k) => k in o).map((k) => [k, o[k]]));
+/** Of a reply of /api/ask, only what the page reads of a stored example; null when it is not of that shape. */
+function stored(answer) {
+  if (!isObject(answer) || typeof answer.question !== "string" || !isObject(answer.mode)
+    || !Array.isArray(answer.issues) || !Array.isArray(answer.passages)
+    || !answer.issues.every(isObject) || !answer.passages.every(isObject)) return null;
+  return {
+    question: answer.question,
+    mode: answer.mode,
+    issues: answer.issues.map((i) => pick(i, ["issue_id", "title", "score", "matched_by", "card"])),
+    passages: answer.passages.map((p) => pick(p, ["doc_id", "page", "chunk_type", "text", "clipped", "score", "figures"])),
+    timings: isObject(answer.timings) ? answer.timings : {},
+  };
+}
+
 if (!(await wake())) {
   keep(`the service did not answer its health check within ${Math.round(WAKE_MS / 1000)} s`);
   process.exit(0);
@@ -127,7 +146,15 @@ if (!list.data) {
   process.exit(0);
 }
 
-const asked = Array.isArray(list.data.examples) ? list.data.examples : [];
+if (!isObject(list.data) || !Array.isArray(list.data.examples)) {
+  keep("the reply for the list of examples is not a list of examples");
+  process.exit(0);
+}
+// an example of another shape (a question that is not text, a language the page does not have) is not asked
+const asked = list.data.examples.filter((e) => isObject(e) && typeof e.question === "string" && e.question.trim() && (e.lang === "en" || e.lang === "es"));
+if (asked.length < list.data.examples.length) {
+  warn(`${list.data.examples.length - asked.length} of the ${list.data.examples.length} examples in the list are not of the expected shape and were left out`);
+}
 const examples = [];
 const failed = [];
 for (const example of asked) {
@@ -137,8 +164,9 @@ for (const example of asked) {
     body: JSON.stringify({ question: example.question }),
     signal: AbortSignal.timeout(REQUEST_MS),
   }]);
-  if (reply.data) examples.push({ lang: example.lang, question: example.question, answer: reply.data });
-  else failed.push(reply.error);
+  const answer = reply.data ? stored(reply.data) : null;
+  if (answer) examples.push({ lang: example.lang, question: example.question, answer });
+  else failed.push(reply.data ? "a reply of another shape" : reply.error);
 }
 
 const had = existing();

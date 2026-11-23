@@ -192,3 +192,52 @@ test("not asked to refresh (no key): an existing file is kept, else an empty one
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// ------------------------------------------------------------------ finding 14 of the review: what is checked and what is kept
+test("finding 14: an example of the wrong shape is skipped, and of an answer only what the page reads is written", async () => {
+  const extra = (q: string) => ({
+    status: 200,
+    json: {
+      question: q, mode: { embedding: "ok" }, issues: [{ issue_id: "I-1", title: "A made-up issue", score: 1, matched_by: [], card: null, made_up_extra: "x" }],
+      passages: [{ doc_id: "A MADE-UP DOC", page: 1, text: "A made-up passage.", clipped: false, score: 1, made_up_extra: "x" }],
+      timings: { total_ms: 1 }, made_up_extra: "not for the page",
+    },
+  });
+  const b = await backend({ ask: (q) => extra(q) });
+  const list = EXAMPLES.splice(0, EXAMPLES.length, ...EXAMPLES, { lang: "en", question: 42 as unknown as string });
+  try {
+    const { out, file } = await run(b.base);
+    expect(out).toContain("stored examples: 3 of 3 written");
+    expect(file.examples).toHaveLength(3);
+    const text = JSON.stringify(file);
+    expect(text).not.toContain("made_up_extra");
+    expect(file.examples[0].answer.passages[0].text).toBe("A made-up passage.");
+    expect(Object.keys(file.examples[0].answer).sort()).toEqual(["issues", "mode", "passages", "question", "timings"]);
+  } finally {
+    EXAMPLES.splice(0, EXAMPLES.length, ...list);
+    await b.close();
+  }
+});
+
+test("finding 14: a list that is not a list of examples keeps the file that is there", async () => {
+  const kept = { generated: "2026-01-01", examples: [{ lang: "en", question: "A made-up kept question?", answer: { made: "up" } }] };
+  const dir = mkdtempSync(join(tmpdir(), "oxcart-store-"));
+  const server = createServer((req, res) => {
+    res.writeHead(req.url === "/api/ask/examples" ? 500 : 200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(req.url === "/api/ask/examples" ? { error: "internal" } : {}));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    mkdirSync(join(dir, "public"));
+    writeFileSync(FILE(dir), JSON.stringify(kept));
+    const { stdout } = await promisify(execFile)(process.execPath, [SCRIPT], {
+      cwd: dir,
+      env: { PATH: process.env.PATH, NEXT_PUBLIC_API_BASE: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, EXAMPLES_EVAL_KEY: KEY, STORE_EXAMPLES_RETRY_MS: "10" },
+    });
+    expect(stdout).toMatch(/^WARNING: stored examples were not refreshed/m);
+    expect(JSON.parse(readFileSync(FILE(dir), "utf-8"))).toEqual(kept);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    await new Promise((r) => server.close(r));
+  }
+});
