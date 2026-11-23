@@ -60,6 +60,19 @@ First Issue runs locally and writes no answer. The [roadmap](#roadmap) lists wha
   - *What it does not do:* no step grades the evidence, none retrieves a second time, and there is no scope
     router; a rule in the model's instructions stands in for the last. Those are the next step, see the
     [roadmap](#roadmap).
+- **A web part, built and off by default** (`POST /api/chat/web`, `backend/app/web_step.py`). When the catalogue
+  and the literature do not cover an in-scope question, or answer part of it, the page can add a short part
+  written from one web search, in a marked block of its own under the answer, with the pages it cites.
+  - *How it is asked:* the write call says which of three things happened (outside the scope, not covered,
+    part only). The answer from our sources comes first; the page then asks for the web part in a request of
+    its own, with a ticket the backend signed, so the answer waits no longer than before.
+  - *What it never does:* a question outside the scope gets no answer and no search. Nothing a model wrote is
+    in the search query, and nothing it writes becomes a link.
+  - *Two settings turn it on:* `ASK_WEB` on the backend (with a search key) and `NEXT_PUBLIC_WEB` in the page's
+    build. A page built without the second ignores the ticket and makes no request, so a search can only start
+    from a page whose privacy details name the search service.
+  - *Measured before it is served,* on the development questions ([EVALUATION.md](EVALUATION.md#a-web-part-three-markers-and-a-trial-with-real-searches)):
+    a web sentence can be checked against the page it cites, not for being right.
 - **A test set and a retrieval evaluation** (`eval/`, [EVALUATION.md](EVALUATION.md)): 151 questions in Spanish
   and English, and a measured choice of a 41,126-passage subset of the literature index that answers more of them
   than the full index does. The gold for the literature questions is judged by a model, not yet by a person.
@@ -76,6 +89,7 @@ The corpus, the databases and the page images are **not in this repository**; se
 | Search | Weaviate 1.32.4. Keyword search (BM25) by default; `near_text` and `hybrid` search over OpenAI `text-embedding-3-large` vectors (3,072 dimensions) when an OpenAI key is set | `docker-compose.yml`, `pipeline/philatelic_weaviate.py`, `pipeline/first_issue_graph/README.md` |
 | API | FastAPI, Pydantic v2 | `backend/requirements.txt` |
 | Written answer | Claude Haiku 5.5 through Anthropic's API, with its citations feature; the steps as a LangGraph graph | `backend/app/answer_model.py`, `backend/app/answer_graph.py` |
+| Web part (off by default) | Tavily's search API: one basic search of five results; the part written by the same model, with citations | `backend/app/web_step.py` |
 | UI | Next.js, React, TypeScript, Cytoscape | `frontend/package.json` |
 | Tests | Playwright for the UI; Python test scripts for the linker, the backend and the pipeline | `frontend/tests/`, `oxcart/tests/`, `pipeline/first_issue_graph/tests/`, `tests/` |
 | Parsing | Dolphin | `third_party/dolphin/` |
@@ -160,6 +174,10 @@ question or not" on 41; both readers are OpenAI models with one rubric. A questi
 search had already found a page that answers it, which is why every figure has two denominators.
 [EVALUATION.md](EVALUATION.md) has the method and the limits.
 
+The web part was measured apart, with its settings on, and is not in the rows above: three runs of the markers
+that ask for it, and a trial of 26 real searches in which 28 of 35 shown web sentences were supported by the
+page they cite ([EVALUATION.md](EVALUATION.md#a-web-part-three-markers-and-a-trial-with-real-searches)).
+
 Not done yet: a person's check of the model-judged gold and of the grades of the written answers.
 
 ### 5. What is in place for running it as a service
@@ -199,6 +217,23 @@ a host that puts an idle service to sleep happens many times a day. They slow do
 not a budget. The one limit that cannot be passed is the monthly spend limit of the model key's workspace at the
 provider. It is set there, not in this repository (9 USD for November 2026); when it is reached the page shows
 the evidence without a written answer.
+
+**The web part, when it is on.** It adds a third outside service: the question as it was searched goes to
+Tavily, with fixed words after it; the earlier turns do not, though a follow-up's rewritten question can hold a
+subject named in an earlier turn. The question, the pages the search returned and, for a part answer, the
+answer already given go to Anthropic for one more model call, which counts toward the day's 200; a web request
+also counts as one of the visitor's questions. Settings: `ASK_WEB` and `TAVILY_API_KEY` on the backend,
+`NEXT_PUBLIC_WEB` in the page's build, `WEB_QUERY_SUFFIX` for the fixed words. Pages of video and social sites,
+of a marketplace and of the search service itself are never used.
+
+**How many searches.** The search plan is a free one of 1,000 credits a month with no card, so a month that
+uses them up shows no web part and costs nothing. Before that, a search is allowed while the credits used this
+month are under `30 + 920 x the share of the month gone by`: a quiet day leaves its share for a busier one.
+The count comes from the search service's usage route, read at most once in five minutes. **That route runs
+behind** (measured: 26 searches were still not in it eleven minutes after the first), so the backend adds the
+searches it made itself in the last day. After a restart it knows only what the route says, and can allow a
+few more than the rule until the route catches up. If the route cannot be read: 30 searches a day, counted in
+memory.
 
 ## Run it locally
 

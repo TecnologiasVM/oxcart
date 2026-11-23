@@ -280,6 +280,8 @@ def table(args) -> None:
             public.append({"id": r["id"], "part": r["part"], "lang": r["lang"],
                            "state": r.get("answer", {}).get("state"), "counts": r.get("answer", {}).get("counts"),
                            "rewritten": r.get("rewritten"),
+                           # with the web step's setting on: whether the written answer covers all of the question or part
+                           **({"covers": r["answer"]["covers"]} if r.get("answer", {}).get("covers") else {}),
                            "calls": [{k: c[k] for k in ("purpose", "state", "input_tokens", "output_tokens")} for c in r.get("calls", [])],
                            **({"supported": [s["supported"] for s in g["sentences"]], "correct": g["correct"],
                                "language": g["language"]} if g else {}),

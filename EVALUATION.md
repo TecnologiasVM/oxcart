@@ -548,6 +548,125 @@ Per-question outcomes: `eval/outcomes/answers_sealed-served.json`, `answers_seal
 ended, counts, the judge's marks; no answer and no passage). The four questions left out of the 16 are named in
 `eval/data/sealed/README.md`.
 
+## A web part: three markers, and a trial with real searches
+
+The code can add a short part written from a web search under an answer, when the catalogue and the literature
+do not cover a question or cover part of it (`backend/README.md` has the steps). It sits behind two settings
+that are off by default, so **nothing in the earlier parts of this document was measured with it**. This part
+holds what was measured before it is turned on. Everything was asked through a backend on the development
+machine against the hosted stores, on the development questions only. The sealed set was not touched.
+
+### Read this first
+
+- **Nobody can grade a web sentence for being right.** The test set has no gold for the web. The judge says
+  whether a sentence is stated by the web page it cites, and nothing else.
+- **The marks are a model's;** no person has checked them. One run of each thing, except the markers (three).
+- The 30 "out of scope" questions of the set are two kinds by their own field: 20 outside the scope (not about
+  stamps, or another country's) and 10 about Costa Rican stamps whose answer is not in the sources. Only the
+  20 must never reach the web.
+
+### The three markers of the write call
+
+With the setting on, the write call says which of three things happened when it does not answer in full:
+`OUT_OF_SCOPE`, `NOT_COVERED` (in scope, the documents do not answer), or an answer that ends with a last line
+`PART_ONLY`. Two sentences of its instructions change and nothing else. Three runs of the 151 questions and the
+ten follow-ups; the first was graded.
+
+| | Run A | Run B | Run C |
+|---|---|---|---|
+| **The 20 questions outside the scope** | | | |
+| `OUT_OF_SCOPE` (no answer, never the web) | 19 | 20 | 20 |
+| An answer was written | 1 | 0 | 0 |
+| **The 10 not in the sources** | | | |
+| `NOT_COVERED` (no answer; the web is asked) | 9 | 10 | 9 |
+| `OUT_OF_SCOPE` | 1 | 0 | 0 |
+| An answer was written, marked as part | 0 | 0 | 1 |
+| **Catalogue questions with no answer** | 6, all `NOT_COVERED` | 5, all | 5, all |
+| **Written answers that end with `PART_ONLY`** | | | |
+| Literature | 20 of 41 | 17 of 40 | 17 of 40 |
+| Catalogue | 12 of 74 | 12 of 75 | 11 of 75 |
+| Follow-ups | 2 of 10 | 2 of 10 | 2 of 10 |
+
+- **The other counts of run A are inside the range of the served setting's earlier runs,** with one row one
+  answer above it: catalogue written 74, supported 61, correct 72; literature written 41, supported 27, in full
+  10, in part 29, gives what is asked 20 (14 to 19 before); out of scope with no answer 29 of 30; no citation
+  that did not hold.
+- **How the part marker agrees with the judge, run A.** Against "gives what is asked": on the literature
+  answers it fired on 7 of the 20 marked yes, 7 of the 14 marked partly and 6 of the 7 marked no; on the
+  catalogue answers on 12 of the 71 marked yes and on none of the 3 others. All together: **19 of 91 marked
+  yes, 13 of 24 marked partly or no.** Against "agrees with the reference", literature: 2 of 10 in full, 16 of
+  29 in part, 2 of 2 not.
+- **It is a weak signal on the literature answers.** It fires more often where the judge finds less, and it
+  still fires on a third of the answers the judge calls complete. The judge compares with a reference the
+  writer never sees.
+- **How steady it is, per question written in all three runs:** catalogue (74): never 61, in two runs 5, in all
+  three 8. Literature (40): never 17, in one run 6, in two 4, in all three 13.
+
+### Why it fired on catalogue answers, and what changed
+
+The 12 catalogue answers that fired were of three kinds of fact only (stamp quantity, varieties, Scott
+equivalent), the three whose questions name the catalogue ("Mena number 188"). No card said whose catalogue it
+is. With the setting on, the card's title as the model reads it now says so. The 80 catalogue questions once
+more, graded:
+
+| Catalogue, 80 questions | Before (run A) | With the catalogue named |
+|---|---|---|
+| A written answer | 74 | 80 |
+| Not covered | 6 | 0 |
+| Ends with `PART_ONLY` | 12 | 1 |
+| Supported | 61 | 67 |
+| Correct | 72 | 77 |
+| Supported and correct | 59 | 65 |
+| Gives what is asked | 71 | 77 |
+| The issue first / among the three shown | 75 / 80 | 75 / 80 |
+
+- **The counts moved above the range of every earlier run** (written 73 to 75, correct 69 to 74). By this one
+  run, the catalogue questions that ended "not covered" had the same cause as the marker.
+- **This is one run, and it is not what is served while the setting is off:** off, the model reads the card's
+  title as before, and the catalogue rows of the earlier parts stand.
+
+### A trial with real searches
+
+26 searches with the search service the code uses (Tavily, a basic search of five results), on the development
+questions for which a marker had asked for the web in run A. They were alternated into two halves: one with
+the fixed words "Costa Rica philately" after the question in the query, one without. The halves hold different
+questions, so the columns are not one question asked two ways.
+
+| | With the fixed words | Without |
+|---|---|---|
+| Questions asked again / asked the web | 24 / 14 | 24 / 12 |
+| A web part was shown | 10 | 6 |
+| Nothing to add, or no sentence left | 3 | 4 |
+| The web call said "out of scope" | 1 | 2 |
+| Results returned / kept | 70 / 61 | 60 / 54 |
+| Sentences written / removed for no citation | 38 / 18 | 23 / 8 |
+| Citations that did not hold | 0 of 25 | 0 of 16 |
+| Shown sentences the judge marked supported / partly / not | 16 / 3 / 1 | 12 / 3 / 0 |
+| Different sites among the results | 29 | 42 |
+
+- **Shown web sentences: 28 of 35 supported by the page they cite, 6 partly, 1 not.** For the answers written
+  from the catalogue and the literature the same judge gave 280, 30 and 2 of 312 (run A).
+- **The fixed words stay.** With them a web part was shown for 10 of 14 searches, from 29 sites; without them
+  for 6 of 12, from 42 sites, among them a customs service, a government's travel advice and sites that
+  prepare for a postal operator's exams.
+- **By case:** under a part answer, 12 web parts, 4 with nothing to add, and 1 stopped as out of scope (the one
+  question outside the scope that had got an answer). For the 9 questions about Costa Rican stamps whose answer
+  is not in the sources: 4 web parts, 3 nothing, 2 out of scope. Several of those 9 ask about something that
+  does not exist; a web part written for one cannot be checked here.
+- **Sites left out after the trial:** video and social sites, a marketplace and the search service's own site
+  were returned often and cited almost never. The code now drops them and asks the search not to return them.
+  The counts above are from before that.
+- The web call took 3,554 input and 526 output tokens on average, about 0.0006 USD, and 2.8 s on average (5.1
+  at most), after the search.
+- **The search service's count of credits runs behind.** After the 26 searches its usage route still gave the
+  earlier count eleven minutes after the first. The rule that allows a search reads that route, so the backend
+  also adds the searches it made itself in the last day (README, "What the limits are").
+
+Per-question outcomes: `eval/outcomes/answers_web-mk-a.json`, `-b`, `-c` and `answers_web-mk-cat.json` (as the
+other runs, with whether an answer covers all or part), and `eval/outcomes/web_trial.json` (for each question
+asked: how it ended, whether the web was asked, how the web part ended, its counts and the judge's marks; no
+question, no answer, no page's text, title or address).
+
 ## Other limits
 
 - The pool that produced the gold was built from keyword, vector and hybrid search, so those arms are favoured

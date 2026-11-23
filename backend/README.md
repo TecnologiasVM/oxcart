@@ -261,7 +261,11 @@ search; one search is made and counted.
   wrote. Status 432 (the plan used up), any other failure and a timeout give no web part.
 - **What is kept of a result:** an `https` address of at most 300 characters, with no user name or password,
   no space, control character or backslash, and a host name that parses; its title cut to 200 characters (the
-  host when it has none) and its text to 1,500. At most five.
+  host when it has none) and its text to 1,500. At most five. A host that is only numbers and dots is not a
+  name and is refused. **Sites left out:** video and social sites, a marketplace and the search service's own
+  site (`WEB_HOST_LABELS_LEFT_OUT`, `WEB_DOMAINS_LEFT_OUT` in `settings.py`): a result is dropped when its host
+  has one of those names as a label or is under one of those domains, and the domains go with the search
+  request as `exclude_domains`.
 - **The web call** (`answer_model.ClaudeModel.write_web`, purpose `web`): the same model and call settings as
   `write`; the kept results as documents with citations on; then, in the part case, the answer already given
   between `<answer_given>` marks, and the question between `<question>` marks (the marks' own characters taken
