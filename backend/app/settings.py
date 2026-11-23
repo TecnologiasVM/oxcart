@@ -22,6 +22,7 @@ The backend honours these contracts and they are enforced elsewhere:
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -131,6 +132,22 @@ GRAPH_RETRY_EVERY_SECONDS: float = float(os.getenv("GRAPH_RETRY_EVERY_SECONDS", 
 # background, so the first question does not wait for them. Opening the embedding's connection makes
 # one tiny embedding per start.
 ASK_WARM_ON_START: bool = os.getenv("ASK_WARM_ON_START", "1").strip().lower() not in ("0", "false", "no", "off")
+
+# Figures of the cited pages (app/figures.py). FIGURES_BASE is the address of the figures host, which
+# serves each crop as <digest>.png. Unset (or not an https address; http only on this machine, for
+# tests) means figures are off: no figure is named and the response is what it was without them. The
+# backend only switches on with it: the page builds each picture's address from its own build setting,
+# NEXT_PUBLIC_FIGURES_BASE, which names the same host.
+# FIGURES_REMOVED: digests never named, comma separated. A removal takes effect with a restart.
+FIGURES_BASE: str = os.getenv("FIGURES_BASE", "").strip()
+FIGURES_REMOVED: str = os.getenv("FIGURES_REMOVED", "")
+_FIGURES_BASE = re.compile(r"https://[A-Za-z0-9.-]+(?::\d+)?(?:/[A-Za-z0-9._~/-]*)?"
+                           r"|http://(?:127\.0\.0\.1|localhost)(?::\d+)?(?:/[A-Za-z0-9._~/-]*)?")
+
+
+def figures_base_ok(base: str) -> bool:
+    """An https address, or http on this machine (tests). Anything else leaves figures off."""
+    return bool(_FIGURES_BASE.fullmatch(base or ""))
 
 
 # ---------------------------------------------------------------------------

@@ -136,6 +136,22 @@ says what produced each part: `embedding` (`ok`, `failed`, `not configured`), `c
 `full-text index`, `unavailable`), `literature` (`vector`, `keyword`, `unavailable`). A store that cannot be
 reached costs its own block only; the question fails (503) when neither answers.
 
+**Figures.** A figure on a scanned page was cropped to a file of its own, `<document>_page_N_figure_M.png`, and
+the stored text of a passage names the crops of its page (a Markdown image; the reference is dropped from the
+shown text). With `FIGURES_BASE` set, a shown passage carries `figures`: for each crop its stored text names, in
+order, `{"id", "width", "height", "class"}`. `id` is the crop's public name, the first 20 hex characters of the
+SHA-256 of its own name normalised to NFC (the figures host serves `<id>.png`); `width` and `height` are the
+file's pixels; `class` is `A` (a stamp) or `B` (a cover or a postal marking). A crop is named only when its id is
+in the list the backend ships with, `app/data/figures.tsv` (8,216 lines: id, width, height, class; no name), and
+not in `FIGURES_REMOVED`. A crop's own name is never in a response, and a passage with no listed figure has no
+`figures` key. The model is not given the figures. The page builds each picture's address from its own build
+setting `NEXT_PUBLIC_FIGURES_BASE` and the id (`frontend/lib/figures.ts`): the response holds no address.
+
+| Setting | Effect |
+|---|---|
+| `FIGURES_BASE` | The address of the figures host, `https://...` (`http://127.0.0.1` or `localhost` for tests). Unset, or any other address: figures are off, no figure is named and the response is what it was without them. It must name the same host as the page's `NEXT_PUBLIC_FIGURES_BASE` |
+| `FIGURES_REMOVED` | Comma-separated ids never named, whatever the list says. A removal on request takes effect with a restart; no build. Remove the file from the host too: a conversation kept in a browser keeps the ids it was shown |
+
 With `OXCART_PUBLIC=1` the app runs in **hosted mode**:
 
 | | |
@@ -152,7 +168,8 @@ Settings, all from the environment (`app/settings.py`): `OXCART_PUBLIC`, `CORS_O
 `WEAVIATE_API_KEY` (a Weaviate Cloud cluster; without `WEAVIATE_URL` the local instance is used),
 `OPENAI_API_KEY`, `TURNSTILE_SECRET`, `SESSION_SIGNING_KEY`, `EVAL_ACCESS_KEY` (the eval's own way in, a secret
 header; empty means that door does not exist), `TRUSTED_PROXY_HOPS`, `VISITOR_ADDRESS_HEADER`, the `ASK_*` bounds,
-and for the written answer `ANTHROPIC_API_KEY` and the `ANSWER_*` settings.
+for the written answer `ANTHROPIC_API_KEY` and the `ANSWER_*` settings, and for figures `FIGURES_BASE` and
+`FIGURES_REMOVED`.
 
 Without `OXCART_PUBLIC` nothing changes for local use: the explorer's routes are mounted as before, and
 `/api/ask` and `/api/chat` work without a session.
@@ -225,7 +242,8 @@ Two parts, both on free plans that cannot bill: the backend as a container, the 
 
 **Backend.** `backend/Dockerfile`, built from the repository root. The image runs the hosted mode
 (`OXCART_PUBLIC=1` is set in it), listens on `PORT` (8000 without it), runs as a non-root user and writes no
-access log. It holds no key and no data. The host provides these settings, as secrets where it has them:
+access log. It holds no key and no data other than the list of figures that may be named (ids and pixel sizes,
+no name). The host provides these settings, as secrets where it has them:
 
 | Setting | What it is |
 |---|---|
@@ -237,6 +255,7 @@ access log. It holds no key and no data. The host provides these settings, as se
 | `TURNSTILE_SECRET` | The human check's secret key |
 | `SESSION_SIGNING_KEY` | A long random string; signs the session tokens |
 | `EVAL_ACCESS_KEY` | Optional: a long random string that lets the eval and the page's build in without the human check |
+| `FIGURES_BASE`, `FIGURES_REMOVED` | Optional: the figures host and the ids never named (see "Figures" above). Without `FIGURES_BASE` no figure is named |
 | `TRUSTED_PROXY_HOPS` | How many of the host's proxies stand in front of the app (default 1). Check it on the host: the visitor limit must follow the caller, and a made-up `X-Forwarded-For` must not change it |
 | `VISITOR_ADDRESS_HEADER` | Optional: the header in which the host's edge reports the visitor's address, for example `CF-Connecting-IP` where Cloudflare stands in front. With it the visitor limit follows that header; a request without it falls back to `TRUSTED_PROXY_HOPS`. Use it where no entry of `X-Forwarded-For` is the visitor, and check it the same way: a made-up value from a client must not change the count, and two real addresses must be counted apart |
 

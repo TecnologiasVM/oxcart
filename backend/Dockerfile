@@ -3,7 +3,8 @@
 #   docker build -f backend/Dockerfile -t oxcart-backend .
 #   docker run --rm -p 8000:8000 --env-file <your settings> oxcart-backend
 #
-# The image holds code and pinned packages. It holds no key, no address and no data: every
+# The image holds code, pinned packages and the list of figures that may be named (app/data/figures.tsv:
+# ids and pixel sizes, no name). It holds no key, no address and no other data: every
 # setting comes from the environment of the host that runs it (see backend/README.md).
 FROM python:3.12-slim
 

@@ -50,6 +50,23 @@ Endpoints consumed (see `lib/types.ts` + `lib/api.ts`):
 `GET /api/health`, `/api/overview`, `/api/graph`, `/api/graph/stamp/{cno}`,
 `/api/node?node_id=`, `/api/examples`, `/api/mena/*`, and `POST /api/query`.
 
+## Pictures
+
+The question page draws pictures from one figures host, named at build time by
+`NEXT_PUBLIC_FIGURES_BASE` (https; unset, no picture is drawn). `lib/figures.ts` builds every address
+as `<base>/<id>.png` from an id of 20 hex characters; nothing else in a response or a stored turn
+becomes an address.
+
+- **Figures of the cited pages.** The backend names a passage's figures by id, pixel size and class
+  (`backend/README.md`, "Figures"). Under the newest answer, one group per cited page, no picture taller
+  than 200 px; inside Evidence, at their own size under their passage. An older answer counts them.
+- **The first screen's plate.** `<base>/first-screen.json`, a list of `{digest, width, height}` in order,
+  read at run time: the set is changed on the host, with no build. Missing, malformed, or not there within
+  two seconds: no plate, and the first screen is as it was.
+
+The browser tests route the host `https://figures.invalid`: build with
+`NEXT_PUBLIC_FIGURES_BASE=https://figures.invalid` before `npx playwright test` against a built site.
+
 ## Tests
 
 ```bash

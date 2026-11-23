@@ -3843,3 +3843,232 @@ html:has(main.ask) {
     display: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Pictures. The figures of the cited pages stand last in the newest turn, under its Evidence
+   button, so their arrival never moves the answer, its sources or the button. A picture is never
+   enlarged: in the conversation it is no taller than 200 px, inside Evidence it is at its own
+   size. The page writes each one's width and height, so its box is held on a tint before the
+   file arrives. A turn without figures draws nothing here and keeps no room.
+   --------------------------------------------------------------------------- */
+.pics {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-hairline-strong);
+}
+.pics__say {
+  margin: 6px 0 0;
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--color-ink-muted);
+}
+.pics__pages {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 20px;
+}
+.pics__link {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-ink);
+  text-align: left;
+  cursor: pointer;
+}
+.pics__cap {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 18px;
+  line-height: 1.4;
+}
+.pics__cap .mark {
+  flex: none;
+  margin: 0;
+}
+.pics__what {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pics__doc {
+  font-weight: 600;
+}
+.pics__page {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--color-ink-muted);
+}
+.pics__go {
+  color: var(--color-cobalt);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+.pics__go::after {
+  content: "\00a0→";
+  display: inline-block;
+  text-decoration: none;
+}
+.pics__link:hover .pics__go {
+  text-decoration-thickness: 2px;
+}
+/* the hairline is drawn inside the picture (an outline), so a picture is exactly its written size */
+.pics img,
+.pfigs img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  outline: 1px solid var(--color-hairline-strong);
+  outline-offset: -1px;
+  background: var(--color-paper-3);
+}
+.pics__link:hover img {
+  outline-color: var(--color-ink);
+}
+/* on a phone two figures share a row, each no wider than its own pixels */
+.pics__row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, max-content));
+  gap: 12px;
+  align-items: end;
+}
+@media (min-width: 720px) {
+  .pics__row {
+    display: flex;
+    flex-wrap: wrap;
+  }
+}
+
+/* inside Evidence a page's figures stand in its passage's box, under its text, at their own size */
+.ask-chip--fig {
+  background: var(--color-paper-3);
+}
+.pfigs {
+  border-top: 1px solid var(--color-hairline-strong);
+  padding: 14px 16px 16px;
+  scroll-margin-top: 132px;
+}
+.pfigs ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+.pfigs li {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* the first screen's plate: a ruled grid of square cells, each crop at its own proportions and
+   never larger than its pixels; 12 cells on a phone, 24 from 720 px, 28 beside the box */
+.plate {
+  order: 3;
+  margin-block: 0;
+  padding-bottom: 48px;
+}
+.plate__grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--color-ink);
+  border-left: 1px solid var(--color-ink);
+}
+.plate__grid li {
+  position: relative;
+  min-width: 0;
+  aspect-ratio: 1;
+  border-right: 1px solid var(--color-ink);
+  border-bottom: 1px solid var(--color-ink);
+}
+.plate__grid li:nth-child(n + 13) {
+  display: none;
+}
+.plate__grid img {
+  position: absolute;
+  inset: 11%;
+  width: 78%;
+  height: 78%;
+  object-fit: scale-down;
+}
+.plate figcaption {
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--color-ink-muted);
+}
+@media (max-width: 1039px) {
+  /* the plate stands under the questions to try; a pinned status keeps its room under the plate */
+  .ask:has(.wake-pin) .conv--first:has(> .plate) .first__more {
+    padding-bottom: 48px;
+  }
+  .ask:has(.wake-pin) .conv--first > .plate {
+    padding-bottom: 200px;
+  }
+}
+@media (min-width: 720px) {
+  .plate__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .plate__grid li:nth-child(n + 13) {
+    display: block;
+  }
+  .plate__grid li:nth-child(n + 25) {
+    display: none;
+  }
+}
+/* from 1040 px the first screen has two columns when there is a plate: the box and the
+   questions on the left, the plate on the right. Without a plate it is today's single column */
+@media (min-width: 1040px) {
+  .conv--first:has(> .plate) {
+    display: grid;
+    grid-template-columns: minmax(var(--gutter), 1fr) minmax(0, 571px) 72px minmax(0, 517px) minmax(var(--gutter), 1fr);
+    grid-template-rows: auto auto auto auto auto 1fr;
+    align-items: start;
+  }
+  .conv--first:has(> .plate) > .first__part,
+  .conv--first:has(> .plate) > .check {
+    grid-column: 2;
+    max-width: none;
+    margin: 0;
+    padding-inline: 0;
+  }
+  .conv--first:has(> .plate) .threadbar {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .conv--first:has(> .plate) .strip {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .conv--first:has(> .plate) > .first__head {
+    grid-row: 3;
+  }
+  .conv--first:has(> .plate) > .check {
+    grid-row: 4;
+  }
+  .conv--first:has(> .plate) > .first__more {
+    grid-row: 5;
+  }
+  .conv--first:has(> .plate) > .plate {
+    grid-column: 4;
+    grid-row: 3 / 7;
+    padding-top: 40px;
+  }
+  .plate__grid li:nth-child(n + 25) {
+    display: block;
+  }
+  .plate__grid li:nth-child(n + 29) {
+    display: none;
+  }
+}

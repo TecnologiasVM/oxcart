@@ -7,6 +7,8 @@
  * page in this browser's local storage (see lib/conversation.ts).
  */
 import { API_BASE, stripVectors } from "./api";
+import type { Figure } from "./figures";
+import { keepFigures } from "./figures";
 
 export type Mode = {
   embedding: "ok" | "failed" | "not configured" | string;
@@ -21,6 +23,7 @@ export type Passage = {
   text: string;
   clipped: boolean;
   score: number | null;
+  figures?: Figure[]; // the figures the passage's page carries, by id (lib/figures.ts); only when the backend names some
 };
 
 export type CardStamp = {
@@ -140,7 +143,13 @@ async function refusal(res: Response): Promise<AskError> {
  * label, not a vector, and the page needs it to say which mode answered.
  */
 function clean(answer: AskAnswer): AskAnswer {
-  return { ...answer, issues: stripVectors(answer.issues ?? []), passages: stripVectors(answer.passages ?? []) };
+  const passages = stripVectors(answer.passages ?? []).map((p) => {
+    // a passage's figures are kept only when well formed: an id and a pixel size, never an address
+    const { figures, ...rest } = p;
+    const kept = keepFigures(figures);
+    return kept ? { ...rest, figures: kept } : rest;
+  });
+  return { ...answer, issues: stripVectors(answer.issues ?? []), passages };
 }
 
 /**

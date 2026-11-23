@@ -165,15 +165,16 @@ export default function Chat() {
     });
   }, [evidence]);
 
-  const openEvidence = useCallback((turnId: string, el: HTMLElement, source?: number) => {
-    if (source === undefined && evidence?.turnId === turnId) {
+  const openEvidence = useCallback((turnId: string, el: HTMLElement, source?: number, figures?: number) => {
+    if (source === undefined && figures === undefined && evidence?.turnId === turnId) {
       closeEvidence(); // the open answer's own button closes it
       return;
     }
     opener.current = el;
     if (source !== undefined) setTab("sources");
+    else if (figures !== undefined) setTab("found"); // a page's figures stand with its passage
     opened.current += 1;
-    setEvidence({ turnId, focus: { source, nonce: opened.current } });
+    setEvidence({ turnId, focus: { source, figures, nonce: opened.current } });
   }, [evidence, closeEvidence]);
 
   // --- the kept conversations

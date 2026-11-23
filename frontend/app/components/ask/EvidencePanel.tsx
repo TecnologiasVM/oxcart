@@ -17,11 +17,13 @@ import type { AnswerGraph, GNode, TreeIssue } from "@/lib/answer-graph";
 import type { AskAnswer, IssueCard, ModelCall } from "@/lib/ask";
 import type { Turn } from "@/lib/conversation";
 import { actLine, dateLabel, formatDate, sourceTitle } from "@/lib/evidence-text";
+import { figureSrc, figuresOf, ratio } from "@/lib/figures";
 import type { Labels, Lang } from "@/lib/i18n";
-import { answered, PANEL_ID, sourceId, Warn } from "./parts";
+import { answered, figuresId, PANEL_ID, sourceId, Warn } from "./parts";
 
 export type TabKey = "graph" | "sources" | "found" | "made";
-export type PanelFocus = { source?: number; nonce: number };
+/** Where Evidence opens: at a source (Sources), at a passage's figures (Cards and passages), or at its tab. */
+export type PanelFocus = { source?: number; figures?: number; nonce: number };
 
 type Props = {
   turn: Turn;
@@ -50,13 +52,18 @@ export default function EvidencePanel({ turn, t, lang, tab, onTab, onClose, shee
   const ok = tabs.includes("sources");
   const names: Record<TabKey, [string, string]> = { graph: t.tabGraph, sources: t.tabSources, found: t.tabFound, made: ok ? t.tabMade : t.tabSearched };
 
-  // opened: focus the source it was opened at, or the tab it shows
+  // opened: focus the source or the figures it was opened at, or the tab it shows
+  const at = focus.source !== undefined || focus.figures !== undefined;
   useEffect(() => {
     const target = focus.source !== undefined
       ? document.getElementById(sourceId(turn.id, focus.source))
-      : panel.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
-    target?.focus({ preventScroll: focus.source === undefined });
-    if (focus.source !== undefined) target?.scrollIntoView({ block: "start" });
+      : focus.figures !== undefined
+        ? document.getElementById(figuresId(turn.id, focus.figures))
+        : panel.current?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    const fold = target?.closest("details");
+    if (fold) fold.open = true;
+    target?.focus({ preventScroll: !at });
+    if (at) target?.scrollIntoView({ block: "start" });
     // only a new request to open moves focus; a tab change by keyboard moves it itself
   }, [focus.nonce, turn.id]);
 
@@ -84,7 +91,7 @@ export default function EvidencePanel({ turn, t, lang, tab, onTab, onClose, shee
       jumped.current = false; // a jump scrolls to its own target
       return;
     }
-    if (focus.source === undefined && panel.current) panel.current.scrollTop = 0;
+    if (!at && panel.current) panel.current.scrollTop = 0;
   }, [turn.id, current]);
 
   const onKeyDown = (e: KeyboardEvent<HTMLElement>) => {
@@ -414,17 +421,35 @@ function FoundTab({ turn, t, lang, storedNote }: { turn: Turn; t: Labels; lang: 
       ) : (
         evidence.passages.map((p, i) => {
           const n = cited("passage", i);
+          const figs = figuresOf(p);
           return (
             <details key={i} className="ev-card ev-passage" open={n !== undefined} data-testid="passage">
               <summary>
                 {n !== undefined && <b className="mark mark--solid">{n}</b>}
                 <span className="ev-passage__doc">{p.doc_id ?? "?"}</span>
                 <span className="ev-passage__page">{t.page} {p.page ?? "?"}</span>
+                {figs.length > 0 && <span className="ask-chip ask-chip--fig" data-testid="passage-figures-count">{t.nFigures(figs.length)}</span>}
                 {p.clipped && <span className="ask-chip">{t.clipped}</span>}
               </summary>
               <div className="ev-card__body">
                 {p.text ? <p className="ev-passage__text">{p.text}</p> : <p className="ev__none" data-testid="passage-no-text">{t.noText}</p>}
               </div>
+              {figs.length > 0 && (
+                // under the text, at their own size: never enlarged, narrowed only to the panel's width
+                <div className="pfigs" id={figuresId(turn.id, i)} tabIndex={-1} role="group" aria-labelledby={`${figuresId(turn.id, i)}-h`} data-testid="passage-figures">
+                  <p className="label" id={`${figuresId(turn.id, i)}-h`}>{t.pfigs((p.doc_id ?? "?").trim(), p.page ?? "?")}</p>
+                  <ul>
+                    {figs.map((f, k) => {
+                      const src = figureSrc(f.id);
+                      return src ? (
+                        <li key={f.id}>
+                          <img src={src} width={f.width} height={f.height} style={ratio(f)} loading="lazy" decoding="async" alt={t.figAlt(k + 1, figs.length, t.figKind[f.class])} data-testid="figure" />
+                        </li>
+                      ) : null;
+                    })}
+                  </ul>
+                </div>
+              )}
             </details>
           );
         })

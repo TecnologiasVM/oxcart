@@ -31,7 +31,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
-from app import settings
+from app import figures, settings
 from app.graph_link import GraphLink, Unavailable  # noqa: F401  (Unavailable is this module's error too)
 from app.passage_text import tidy
 
@@ -386,13 +386,20 @@ def answer(question: str, deps: AskDeps) -> dict:
         raise Unavailable("both stores")
 
     shown = []
+    with_figures = figures.on()
     for p in passages or []:
         if settings.ASK_EXCERPT == "nearest":
             text, clipped = excerpt(tidy(p.get("text", "")), question, settings.ASK_TEXT_LIMIT)
         else:
             text, clipped = clip(tidy(p.get("text", "")), settings.ASK_TEXT_LIMIT)
-        shown.append({"doc_id": p.get("doc_id"), "page": p.get("page"), "chunk_type": p.get("chunk_type"),
-                      "text": text, "clipped": clipped, "score": p.get("score")})
+        entry = {"doc_id": p.get("doc_id"), "page": p.get("page"), "chunk_type": p.get("chunk_type"),
+                 "text": text, "clipped": clipped, "score": p.get("score")}
+        if with_figures:
+            # the figures the whole stored passage names, not only its shown excerpt: by digest, never by name
+            named = figures.of_passage(p.get("text", ""))
+            if named:
+                entry["figures"] = named
+        shown.append(entry)
     timings["total_ms"] = int((time.time() - started) * 1000)
     return {
         "question": question,

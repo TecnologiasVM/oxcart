@@ -68,6 +68,8 @@ jobs:
           # Cloudflare's documented test site key that always passes: the browser tests run the
           # page with its human check on, and route Cloudflare's script to a stub (no network)
           NEXT_PUBLIC_TURNSTILE_SITE_KEY: 1x00000000000000000000AA
+          # the figures host the browser tests route (tests-e2e/helpers.ts); nothing is fetched from it
+          NEXT_PUBLIC_FIGURES_BASE: https://figures.invalid
       - name: Browser for the smoke test
         run: npx playwright install --with-deps chromium
       - name: Browser tests (the shell and the question page, backend mocked)
