@@ -103,7 +103,8 @@ export default function Conversations(props: Props) {
           <button type="button" ref={closeRef} className="rail__close linkbtn" onClick={props.onClose} data-testid="rail-close">{t.close}</button>
         </div>
         <button type="button" className="newbtn" onClick={props.onNew} data-testid="new-conversation">
-          <span aria-hidden="true">+</span> {t.newConv}
+          {/* one run of text, so a long name wraps under itself and the sign stays with its first word */}
+          <span><span aria-hidden="true">+</span>{"\u00a0"}{t.newConv}</span>
         </button>
         {keeping !== "kept" && <KeepNote text={keeping === "full" ? t.noRoom : t.notKept} />}
         <ol className="rail__list" data-testid="conversation-list">

@@ -60,24 +60,38 @@ export type AnswerGraph = {
 };
 
 // Geometry, for a panel about 640 px wide. With no answer the cards start at the left edge.
-const WITH_ANSWER = { W: 640, XA: 2, WA: 108, XS: 128, WS: 262, XC: 422, WC: 214, kid: 25, title: 27, titlePlain: 32 };
-const FOUND_ONLY = { W: 640, XA: 0, WA: 0, XS: 4, WS: 290, XC: 330, WC: 306, kid: 37, title: 36, titlePlain: 36 };
+const WITH_ANSWER = { W: 640, XA: 2, WA: 108, XS: 128, WS: 262, XC: 422, WC: 214 };
+const FOUND_ONLY = { W: 640, XA: 0, WA: 0, XS: 4, WS: 290, XC: 330, WC: 306 };
 const LH = 20;
 const PAD = 10;
 const MONO_CHAR = 7.4; // px per character of the 12 px mono face, to size stamp chips and cut ids
 const CHIP_H = 28;
 const GAP = 8;
 
-/** Break text into lines of at most `width` characters, at spaces. */
-export function wrap(text: string, width: number): string[] {
+/** The width of a line of text in the drawing's units, in the face its nodes are drawn in (15 px sans). */
+export type Measure = (text: string) => number;
+/** With nothing to measure in: wide on purpose, so that a line breaks too early rather than runs past its box. */
+export const ESTIMATE: Measure = (text) => text.length * 9.5;
+const INSET = 12; // a node's text starts this far inside its box, and keeps as much free on the right
+const MARK_W = 30; // the source's mark stands before the text of a cited node
+
+/** Break text into lines no wider than `room`, at spaces; a word wider than a whole line is broken inside. */
+export function wrap(text: string, room: number, measure: Measure = ESTIMATE): string[] {
   const lines: string[] = [];
   let line = "";
   for (const word of text.split(/\s+/).filter(Boolean)) {
-    if (line && line.length + 1 + word.length > width) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = line ? `${line} ${word}` : word;
+    const longer = line ? `${line} ${word}` : word;
+    if (measure(longer) <= room) {
+      line = longer;
+      continue;
+    }
+    if (line) lines.push(line);
+    line = word;
+    while (line.length > 1 && measure(line) > room) {
+      let k = line.length - 1;
+      while (k > 1 && measure(line.slice(0, k)) > room) k--;
+      lines.push(line.slice(0, k));
+      line = line.slice(k);
     }
   }
   if (line) lines.push(line);
@@ -98,9 +112,11 @@ function treeIssue(issue: Issue, lang: Lang, mark?: number): TreeIssue {
   };
 }
 
-export function answerGraph(evidence: AskAnswer, written: WrittenAnswer | undefined, words: GraphWords): AnswerGraph {
+export function answerGraph(evidence: AskAnswer, written: WrittenAnswer | undefined, words: GraphWords, measure: Measure = ESTIMATE): AnswerGraph {
   const ok = written?.state === "ok" && (written.sources ?? []).length > 0;
   const g = ok ? WITH_ANSWER : FOUND_ONLY;
+  // the room for text inside a node: its width less the inset on both sides, and the mark when it has one
+  const room = (w: number, mark?: number) => w - 2 * INSET - (mark !== undefined ? MARK_W : 0);
   const nodes: GNode[] = [];
   const edges: GEdge[] = [];
   const labels: GLabel[] = [];
@@ -120,11 +136,11 @@ export function answerGraph(evidence: AskAnswer, written: WrittenAnswer | undefi
   const issueBlock = (issue: Issue, index: number, key: string, top: number, found: boolean, mark?: number) => {
     const item = treeIssue(issue, words.lang, mark);
     const kids: { rel: string; lines?: string[]; chips?: string[]; names: string[] }[] = [];
-    for (const p of item.printers) kids.push({ rel: words.gPrinter, lines: wrap(p, g.kid), names: [`${item.title}, ${words.gPrinter}: ${p}`] });
-    for (const a of item.acts) kids.push({ rel: words.gAct, lines: wrap(a, g.kid), names: [`${item.title}, ${words.gAct}: ${a}`] });
+    for (const p of item.printers) kids.push({ rel: words.gPrinter, lines: wrap(p, room(g.WC), measure), names: [`${item.title}, ${words.gPrinter}: ${p}`] });
+    for (const a of item.acts) kids.push({ rel: words.gAct, lines: wrap(a, room(g.WC), measure), names: [`${item.title}, ${words.gAct}: ${a}`] });
     if (item.stamps.length) kids.push({ rel: words.gStamps, chips: item.stamps, names: item.stamps.map((s) => `${item.title}, ${words.gStamp} ${s}`) });
 
-    const titleLines = wrap(item.title, mark ? g.title : g.titlePlain);
+    const titleLines = wrap(item.title, room(g.WS, mark), measure);
     const titleH = PAD * 2 + LH * titleLines.length + LH - 2;
     let ky = top;
     const kidMids: number[] = [];
@@ -177,7 +193,7 @@ export function answerGraph(evidence: AskAnswer, written: WrittenAnswer | undefi
         y += block.h + 22;
       } else {
         const title = sourceTitle(source, evidence, words);
-        const lines = wrap(title, g.title);
+        const lines = wrap(title, room(g.WS, source.n), measure);
         const h = node({ key: `src-${source.n}`, kind: "doc", found: false, x: g.XS, y, w: g.WS, lines, mark: source.n, name: `${words.source} ${source.n}: ${title}`, target: { tab: "sources", n: source.n } });
         mids.push(y + h / 2);
         tree.cited.push({ kind: "doc", mark: source.n, title });
