@@ -18,7 +18,7 @@ tickets of the last two minutes invalid. A ticket is good once: its id is kept u
 
 **How many searches.** The account's credits used this month are read from the search service's usage
 route, at most once in five minutes. That route runs behind the searches made, so the searches this process
-made in the last day are added to what it says. A search is allowed while that is under a share of the month
+made in the last two hours are added to what it says. A search is allowed while that is under a share of the month
 (settings.py, ``WEB_SEARCHES_*``, ``WEB_USAGE_LAG_SECONDS``). When the usage cannot
 be read, a fixed number a day, counted in memory. Nothing is remembered across restarts: the next read gives
 the true number.

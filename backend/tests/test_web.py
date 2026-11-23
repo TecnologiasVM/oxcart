@@ -349,11 +349,12 @@ def test_video_social_marketplace_and_the_search_services_own_pages_are_left_out
     ok = {"title": "A made-up title", "content": "Made-up text."}
     out = ["www.youtube.com", "youtu.be", "m.facebook.com", "www.instagram.com", "www.tiktok.com", "pinterest.es", "x.com",
            "mobile.twitter.com", "www.ebay.com", "sv.ebay.com", "www.ebay.co.uk", "tavily.com", "docs.tavily.com",
-           "203.0.113.7", "198.51.100.4"]
-    kept = ["stamps.example", "www.max.example", "ebayish.example", "box.example", "x.example", "notx.com"]
+           "www.worthpoint.com", "www.delcampe.net", "www.hipstamp.com", "www.etsy.com", "www.amazon.es",
+           "articulo.mercadolibre.co.cr", "www.catawiki.com", "203.0.113.7", "198.51.100.4"]
+    kept = ["stamps.example", "www.max.example", "ebayish.example", "amazonaws.example", "x.example", "notx.com"]
     results = web_step.keep_results([{**ok, "url": f"https://{host}/page"} for host in out + kept])
     assert [r["host"] for r in results] == kept[: settings.WEB_MAX_RESULTS]
-    assert all(web_step.left_out(host) for host in out[:13]) and not any(web_step.left_out(host) for host in kept)
+    assert all(web_step.left_out(host) for host in out[:20]) and not any(web_step.left_out(host) for host in kept)
     assert web_step.host_of("https://203.0.113.7/page") is None and web_step.host_of("https://198.51.100.4/") is None
 
 
