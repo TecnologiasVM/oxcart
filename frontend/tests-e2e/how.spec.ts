@@ -120,9 +120,14 @@ test("the diagram says what the list says, and has a text alternative", async ({
   await expect(steps.first()).toContainText("Every question after the first is read against the conversation and rewritten only when it points back");
   await expect(page.locator(".pipe__fig figcaption")).toContainText("rewritten only when it points back");
   await expect(page.getByTestId("how")).not.toContainText("only a follow-up question");
-  // step 2 names the indexes
-  await expect(steps.nth(1)).toContainText("two vector indexes");
+  // step 2 names the indexes as the stores report them: HNSW for the catalogue, HFresh with RQ for the literature
+  const st = FIGURES.stores;
+  await expect(steps.nth(1)).toContainText(`two ${st.graph.index.type} vector indexes by ${st.graph.index.similarity}`);
   await expect(steps.nth(1)).toContainText("full-text index");
+  await expect(steps.nth(1)).toContainText(`from an ${st.literature.index.type} vector index with ${st.literature.index.compression} compression`);
+  // the catalogue's box and the lead carry the graph's counts
+  await expect(svg.locator('g[data-node="cat"]')).toContainText(`${st.graph.issues} issues`);
+  await expect(page.locator(".how__lead")).toContainText(`Neo4j (${st.graph.issues} issues, ${new Intl.NumberFormat("en").format(st.graph.stamps)} stamps)`);
 });
 
 test("the fold \"Versions and tests\" is closed, and opens and closes by keyboard with a visible ring", async ({ page }) => {
@@ -141,6 +146,8 @@ test("the fold \"Versions and tests\" is closed, and opens and closes by keyboar
   await expect(fold.locator("dl")).toBeVisible();
   const v = FIGURES.versions;
   await expect(fold).toContainText(`LangGraph ${v.langgraph}`);
+  await expect(fold).toContainText(`Neo4j ${FIGURES.stores.graph.neo4j}, on Aura Free`);
+  await expect(fold).toContainText(`Weaviate ${FIGURES.stores.literature.weaviate}, on Weaviate Cloud`);
   await expect(fold).toContainText(`Next.js ${v.next}, React ${v.react}, TypeScript ${v.typescript}`);
   await expect(fold).toContainText(`pytest ${v.pytest} (${v.tests.python} test functions) and Playwright ${v.playwright} (${v.tests.browser})`);
   await page.keyboard.press("Space");
@@ -150,7 +157,7 @@ test("the fold \"Versions and tests\" is closed, and opens and closes by keyboar
 test("the Spanish page writes its numbers as es-CR does; the English page as English", async ({ page }) => {
   const es = new Intl.NumberFormat("es-CR");
   const usd = (x: number) => new Intl.NumberFormat("es-CR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(x);
-  const passages = es.format(FIGURES.passages);
+  const passages = es.format(FIGURES.stores.literature.objects);
   expect(passages).toMatch(/^\d{2} \d{3}$/); // 41 126, a space that does not break
   await open(page, "es");
   const how = page.getByTestId("how");
@@ -167,7 +174,7 @@ test("the Spanish page writes its numbers as es-CR does; the English page as Eng
   await expect(page.getByTestId("trace").locator("tbody th").first()).toContainText(FIGURES.trace.issues[0].title);
   await expect(page.getByTestId("trace").locator("tbody th span").first()).toHaveAttribute("lang", "en");
   await page.getByTestId("lang-toggle").click();
-  await expect(page.locator(".how__lead")).toContainText(`${new Intl.NumberFormat("en").format(FIGURES.passages)} passages`);
+  await expect(page.locator(".how__lead")).toContainText(`${new Intl.NumberFormat("en").format(FIGURES.stores.literature.objects)} passages`);
 });
 
 test("the figures are the generated file's: the results, the sealed set first among the limits, the judges", async ({ page }) => {
@@ -199,6 +206,34 @@ test("the figures are the generated file's: the results, the sealed set first am
   await expect(trace.locator("tbody tr")).toHaveCount(FIGURES.trace.issues.length);
   await expect(trace.locator(".trace__q--a .mark")).toHaveCount(FIGURES.trace.answer.reduce((n, s) => n + s.sources.length, 0));
   await expect(trace.locator("tbody .mark")).toHaveCount(FIGURES.trace.issues.filter((i) => i.source != null).length);
+});
+
+test("page found, the two waits and \"gives what the question asks\" read right in both languages, when the run holds them", async ({ page }) => {
+  const run = FIGURES.run;
+  for (const lang of ["en", "es"] as const) {
+    const loc = lang === "es" ? "es-CR" : "en";
+    const of = lang === "es" ? "de" : "of";
+    const s2 = (x: number) => new Intl.NumberFormat(loc, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(x);
+    await open(page, lang);
+    const results = page.getByTestId("results");
+    if (run.page_found) {
+      const p = run.page_found;
+      await expect(results.locator('[data-result="page"] .ledger__n')).toHaveText(`${p.found} ${of} ${p.of}`);
+      await expect(results.locator('[data-result="page"]')).toContainText(
+        lang === "es" ? `entre los ${p.k} pasajes. Contando los ${p.drafts - p.of} borradores que quedaron fuera: ${p.found} de ${p.drafts}.`
+          : `among the ${p.k} passages. Counting the ${p.drafts - p.of} drafts left out: ${p.found} of ${p.drafts}.`);
+    }
+    if (run.literature.asks != null) {
+      await expect(results.locator('[data-result="literature"]')).toContainText(
+        lang === "es" ? `${run.literature.asks} de ${run.literature.of} dan lo que pide la pregunta` : `${run.literature.asks} of ${run.literature.of} give what the question asks`);
+    }
+    if (run.waits) {
+      const costs = page.getByTestId("costs").locator("li");
+      await expect(costs.nth(1)).toContainText(s2(run.waits.evidence));
+      await expect(costs.nth(2)).toContainText(s2(run.waits.answer));
+      await expect(costs.nth(2)).toContainText(lang === "es" ? `${s2(run.waits.answer_p95)} s en el percentil 95` : `${s2(run.waits.answer_p95)} s at the 95th percentile`);
+    }
+  }
 });
 
 test("on a phone the traced issues are a block each, every value with its column's name", async ({ page }) => {

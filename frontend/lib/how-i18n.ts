@@ -39,14 +39,14 @@ export function modelName(id: string): string {
 }
 
 type Node = { name: S; sub: S[]; tech?: S };
-type NodeArgs = { writer: S; embedding: S; passages: S; cards: S; shown: S };
+type NodeArgs = { writer: S; embedding: S; issues: S; passages: S; cards: S; shown: S };
 type Step = { h: S; text: (x: StepArgs) => S };
-type StepArgs = { writer: S; numbers: S; issues: S; passages: S };
+type StepArgs = { writer: S; numbers: S; issues: S; passages: S; graphIndex: S; litIndex: S; litCompression: S; similarity: S };
 type Lead<F> = { lead: S; text: F };
 
 export type HowWords = {
   title: S;
-  lead: (passages: S, embedding: S, writer: S) => S;
+  lead: (x: { issues: S; stamps: S; passages: S; embedding: S; writer: S }) => S;
   pipeH: (steps: number) => S;
   pipeTitle: S;
   pipeDesc: S;
@@ -102,8 +102,9 @@ export type HowWords = {
   privH: S;
   stackH: S;
   stack: {
-    steps: S; graph: S; lit: S; backend: S; page: S; tests: S; graphV: S;
-    litV: (v: S | null) => S;
+    steps: S; graph: S; lit: S; backend: S; page: S; tests: S;
+    graphV: (v: S) => S;
+    litV: (v: S) => S;
     backendV: (fastapi: S, python: S) => S;
     pageV: (next: S, react: S, ts: S) => S;
     testsV: (pytest: S, py: S, pw: S, browser: S) => S;
@@ -116,8 +117,8 @@ export type HowWords = {
 export const HOW: Record<Lang, HowWords> = {
   en: {
     title: "How it works, and how it was measured",
-    lead: (passages: S, embedding: S, writer: S) =>
-      `Oxcart answers questions about Costa Rican stamps, in Spanish or English, from two sources: the Mena catalogue, held as a graph in Neo4j, and ${passages} passages of scanned philatelic literature, held with their vectors in Weaviate. A question becomes one vector (OpenAI ${embedding}) and is searched in both at once. ${writer} writes a short answer with citations, and a sentence is shown only if its citation holds. The steps are a LangGraph graph in a FastAPI backend in Python; the page is Next.js and React in TypeScript.`,
+    lead: ({ issues, stamps, passages, embedding, writer }) =>
+      `Oxcart answers questions about Costa Rican stamps, in Spanish or English, from two sources: the Mena catalogue, held as a graph in Neo4j (${issues} issues, ${stamps} stamps), and ${passages} passages of scanned philatelic literature, held with their vectors in Weaviate. A question becomes one vector (OpenAI ${embedding}) and is searched in both at once. ${writer} writes a short answer with citations, and a sentence is shown only if its citation holds. The steps are a LangGraph graph in a FastAPI backend in Python; the page is Next.js and React in TypeScript.`,
     // 2. the path of a question
     pipeH: (steps: number) => `A question, in ${steps === 5 ? "five" : "four"} steps`,
     pipeTitle: "Diagram: the path of a question, from the question to the answer shown.",
@@ -126,7 +127,7 @@ export const HOW: Record<Lang, HowWords> = {
       q: { name: "Question", sub: ["in Spanish or English"] },
       s1: { name: "Rewritten", sub: ["every question after the first:", "read against the conversation,", "rewritten only if it points back"], tech: x.writer },
       s2: { name: "Searched", sub: ["one vector, two searches at once"], tech: `OpenAI ${x.embedding}` },
-      cat: { name: "Catalogue", sub: ["as a graph"], tech: "Neo4j" },
+      cat: { name: "Catalogue", sub: ["as a graph", `${x.issues} issues`], tech: "Neo4j" },
       lit: { name: "Literature", sub: ["by vectors", `${x.passages} passages`], tech: "Weaviate" },
       ev: { name: "Evidence", sub: [`up to ${x.cards} cards and ${x.shown} passages, shown first`] },
       s3: { name: "Written with citations", sub: ["a short answer, only from the evidence"], tech: `${x.writer}, citations on` },
@@ -144,8 +145,8 @@ export const HOW: Record<Lang, HowWords> = {
     steps: {
       s1: { h: "Rewritten", text: ({ writer }) =>
         `Every question after the first is read against the conversation and rewritten only when it points back: ${writer} rewrites “And who printed it?” so that it stands alone. A first question is searched as it is typed.` },
-      s2: { h: "Searched", text: ({ numbers, issues, passages }) =>
-        `One vector (${numbers} numbers) serves two searches at once. The catalogue, a graph in Neo4j, returns up to ${issues} issues with their cards: it is searched in two vector indexes of its issues, both by cosine, one made from an issue's whole text (quantized) and one from its title, years and section (not quantized), and in its full-text index when no vector can be made. The literature, in Weaviate, returns the ${passages} nearest passages, by cosine. The page shows this evidence first.` },
+      s2: { h: "Searched", text: ({ numbers, issues, passages, graphIndex, litIndex, litCompression, similarity }) =>
+        `One vector (${numbers} numbers) serves two searches at once. The catalogue, a graph in Neo4j, returns up to ${issues} issues with their cards, from two ${graphIndex} vector indexes by ${similarity} (one of an issue's whole text, quantized; one of its title, years and section, not quantized), or from its full-text index when no vector can be made. The literature, in Weaviate, returns the ${passages} nearest passages from an ${litIndex} vector index with ${litCompression} compression, by ${similarity}. The page shows this evidence first.` },
       s3: { h: "Written with citations", text: ({ writer }) =>
         `${writer} writes a short answer only from that evidence; each piece comes back with the exact text it cites.` },
       s4: { h: "Citations checked", text: () =>
@@ -173,8 +174,8 @@ export const HOW: Record<Lang, HowWords> = {
       `Literature questions with a page that answers among the ${k} passages. Counting the ${drafts} drafts left out: ${withDrafts}.` },
     catAnswers: { lead: "Catalogue answers", text: (supported: S) => `that state the value the catalogue holds. Every sentence stated by its sources: ${supported}.` },
     litAnswers: { lead: "Literature answers", text: (part: number, partS: S, not: number, notS: S, notWritten: number, notWrittenS: S) =>
-      `that agree with the reference answer in full. ${partS} ${part === 1 ? "agrees" : "agree"} in part, ${notS} ${not === 1 ? "does" : "do"} not${
-        notWritten ? `, and ${notWrittenS} got no written answer` : ""}.` },
+      `that agree with the reference answer in full. ${partS} ${part === 1 ? "agrees" : "agree"} in part${
+        not ? `, ${notS} ${not === 1 ? "does" : "do"} not` : ""}${notWritten ? `, and ${notWrittenS} got no written answer` : ""}.` },
     asks: (asks: S) => `${asks} give what the question asks: the thing asked, in agreement with the reference.`,
     removed: { lead: "Sentences removed:", text: (notHold: S, of: S) => `the model wrote them with no citation. Of ${of} citations, ${notHold} did not hold.` },
     limitsLead: "Limits:",
@@ -208,7 +209,7 @@ export const HOW: Record<Lang, HowWords> = {
     waitEvidence: "until the evidence is on the page (median).",
     waitAnswer: (p95: S) => `until the checked answer (median; ${p95} s at the 95th percentile).`,
     waitsWhere: {
-      host: "Waits measured from a laptop through the public service, with the service awake.",
+      host: "Waits measured through the public service, with the service awake.",
       development: "Waits measured on the development machine. The hosted backend is on a smaller machine.",
     },
     sleeps: "The service sleeps when unused and wakes in about half a minute.",
@@ -235,8 +236,8 @@ export const HOW: Record<Lang, HowWords> = {
       backend: "Backend",
       page: "Page",
       tests: "Tests",
-      graphV: "Neo4j, on Aura Free",
-      litV: (v: S | null) => (v ? `Weaviate ${v}, on Weaviate Cloud` : "Weaviate, on Weaviate Cloud"),
+      graphV: (v: S) => `Neo4j ${v}, on Aura Free`,
+      litV: (v: S) => `Weaviate ${v}, on Weaviate Cloud`,
       backendV: (fastapi: S, python: S) => `FastAPI ${fastapi}, Python ${python}, Docker, on Render`,
       pageV: (next: S, react: S, ts: S) => `Next.js ${next}, React ${react}, TypeScript ${ts}, static on Cloudflare Pages`,
       testsV: (pytest: S, py: S, pw: S, browser: S) =>
@@ -249,8 +250,8 @@ export const HOW: Record<Lang, HowWords> = {
   },
   es: {
     title: "Cómo funciona y cómo se midió",
-    lead: (passages: S, embedding: S, writer: S) =>
-      `Oxcart responde preguntas sobre los sellos de Costa Rica, en español o en inglés, a partir de dos fuentes: el catálogo Mena, guardado como grafo en Neo4j, y ${passages} pasajes de literatura filatélica escaneada, guardados con sus vectores en Weaviate. La pregunta se convierte en un vector (${embedding} de OpenAI) y se busca en las dos a la vez. ${writer} redacta una respuesta breve con citas, y una frase solo se muestra si su cita se sostiene. Los pasos son un grafo de LangGraph en un backend de FastAPI en Python; la página es Next.js y React en TypeScript.`,
+    lead: ({ issues, stamps, passages, embedding, writer }) =>
+      `Oxcart responde preguntas sobre los sellos de Costa Rica, en español o en inglés, a partir de dos fuentes: el catálogo Mena, guardado como grafo en Neo4j (${issues} emisiones, ${stamps} sellos), y ${passages} pasajes de literatura filatélica escaneada, guardados con sus vectores en Weaviate. La pregunta se convierte en un vector (${embedding} de OpenAI) y se busca en las dos a la vez. ${writer} redacta una respuesta breve con citas, y una frase solo se muestra si su cita se sostiene. Los pasos son un grafo de LangGraph en un backend de FastAPI en Python; la página es Next.js y React en TypeScript.`,
     pipeH: (steps: number) => `Una pregunta, en ${steps === 5 ? "cinco" : "cuatro"} pasos`,
     pipeTitle: "Diagrama: el camino de una pregunta, desde la pregunta hasta la respuesta mostrada.",
     pipeDesc: "La lista numerada que le sigue dice lo mismo.",
@@ -258,7 +259,7 @@ export const HOW: Record<Lang, HowWords> = {
       q: { name: "Pregunta", sub: ["en español o en inglés"] },
       s1: { name: "Reescrita", sub: ["cada pregunta tras la primera:", "se lee con la conversación y se", "reescribe solo si remite a ella"], tech: x.writer },
       s2: { name: "Buscada", sub: ["un vector, dos búsquedas a la vez"], tech: `OpenAI ${x.embedding}` },
-      cat: { name: "Catálogo", sub: ["como grafo"], tech: "Neo4j" },
+      cat: { name: "Catálogo", sub: ["como grafo", `${x.issues} emisiones`], tech: "Neo4j" },
       lit: { name: "Literatura", sub: ["por vectores", `${x.passages} pasajes`], tech: "Weaviate" },
       ev: { name: "Evidencia", sub: [`hasta ${x.cards} fichas y ${x.shown} pasajes; va primero`] },
       s3: { name: "Redactada con citas", sub: ["respuesta breve, solo de la evidencia"], tech: `${x.writer}, citas activadas` },
@@ -276,8 +277,8 @@ export const HOW: Record<Lang, HowWords> = {
     steps: {
       s1: { h: "Reescrita", text: ({ writer }) =>
         `Cada pregunta después de la primera se lee con la conversación y se reescribe solo cuando remite a ella: ${writer} reescribe «¿Y quién la imprimió?» para que se entienda sola. Una primera pregunta se busca tal como se escribió.` },
-      s2: { h: "Buscada", text: ({ numbers, issues, passages }) =>
-        `Un vector (${numbers} números) sirve para dos búsquedas a la vez. El catálogo, un grafo en Neo4j, devuelve hasta ${issues} emisiones con sus fichas: se busca en dos índices vectoriales de sus emisiones, ambos por coseno, uno hecho del texto completo de cada emisión (cuantizado) y otro de su título, sus años y su sección (sin cuantizar), y en su índice de texto completo cuando no se puede calcular el vector. La literatura, en Weaviate, devuelve los ${passages} pasajes más cercanos, por coseno. La página muestra primero esta evidencia.` },
+      s2: { h: "Buscada", text: ({ numbers, issues, passages, graphIndex, litIndex, litCompression, similarity }) =>
+        `Un vector (${numbers} números) sirve para dos búsquedas a la vez. El catálogo, un grafo en Neo4j, devuelve hasta ${issues} emisiones con sus fichas, de dos índices vectoriales ${graphIndex} por ${similarity === "cosine" ? "coseno" : similarity} (uno del texto completo de cada emisión, cuantizado; otro de su título, sus años y su sección, sin cuantizar), o de su índice de texto completo cuando no se puede calcular el vector. La literatura, en Weaviate, devuelve los ${passages} pasajes más cercanos de un índice vectorial ${litIndex} con compresión ${litCompression}, por ${similarity === "cosine" ? "coseno" : similarity}. La página muestra primero esta evidencia.` },
       s3: { h: "Redactada con citas", text: ({ writer }) =>
         `${writer} redacta una respuesta breve solo a partir de esa evidencia; cada parte vuelve con el texto exacto que cita.` },
       s4: { h: "Citas comprobadas", text: () =>
@@ -302,9 +303,9 @@ export const HOW: Record<Lang, HowWords> = {
     pageFound: { lead: "Página encontrada.", text: (k: S, drafts: S, withDrafts: S) =>
       `Preguntas de la literatura con una página que responde entre los ${k} pasajes. Contando los ${drafts} borradores que quedaron fuera: ${withDrafts}.` },
     catAnswers: { lead: "Respuestas del catálogo", text: (supported: S) => `que dan el valor que guarda el catálogo. Con todas sus frases respaldadas por sus fuentes: ${supported}.` },
-    litAnswers: { lead: "Respuestas de la literatura", text: (part: number, partS: S, _not: number, notS: S, notWritten: number, notWrittenS: S) =>
-      `que coinciden del todo con la respuesta de referencia. ${partS} ${part === 1 ? "coincide" : "coinciden"} en parte y ${notS} no${
-        notWritten ? `; ${notWrittenS} ${notWritten === 1 ? "quedó" : "quedaron"} sin respuesta redactada` : ""}.` },
+    litAnswers: { lead: "Respuestas de la literatura", text: (part: number, partS: S, not: number, notS: S, notWritten: number, notWrittenS: S) =>
+      `que coinciden del todo con la respuesta de referencia. ${partS} ${part === 1 ? "coincide" : "coinciden"} en parte${
+        not ? ` y ${notS} no` : ""}${notWritten ? `; ${notWrittenS} ${notWritten === 1 ? "quedó" : "quedaron"} sin respuesta redactada` : ""}.` },
     asks: (asks: S) => `${asks} dan lo que pide la pregunta: lo que se pregunta, de acuerdo con la referencia.`,
     removed: { lead: "Frases retiradas:", text: (notHold: S, of: S) => `el modelo las redactó sin cita. De ${of} citas, ${notHold} no se sostuvieron.` },
     limitsLead: "Límites:",
@@ -335,7 +336,7 @@ export const HOW: Record<Lang, HowWords> = {
     waitEvidence: "hasta que la evidencia está en la página (mediana).",
     waitAnswer: (p95: S) => `hasta la respuesta comprobada (mediana; ${p95} s en el percentil 95).`,
     waitsWhere: {
-      host: "Esperas medidas desde una computadora portátil a través del servicio público, con el servicio despierto.",
+      host: "Esperas medidas a través del servicio público, con el servicio despierto.",
       development: "Esperas medidas en la máquina de desarrollo. El backend alojado está en una máquina más pequeña.",
     },
     sleeps: "El servicio se duerme cuando nadie lo usa y despierta en cerca de medio minuto.",
@@ -360,8 +361,8 @@ export const HOW: Record<Lang, HowWords> = {
       backend: "Backend",
       page: "Página",
       tests: "Pruebas",
-      graphV: "Neo4j, en Aura Free",
-      litV: (v: S | null) => (v ? `Weaviate ${v}, en Weaviate Cloud` : "Weaviate, en Weaviate Cloud"),
+      graphV: (v: S) => `Neo4j ${v}, en Aura Free`,
+      litV: (v: S) => `Weaviate ${v}, en Weaviate Cloud`,
       backendV: (fastapi: S, python: S) => `FastAPI ${fastapi}, Python ${python}, Docker, en Render`,
       pageV: (next: S, react: S, ts: S) => `Next.js ${next}, React ${react}, TypeScript ${ts}, estática en Cloudflare Pages`,
       testsV: (pytest: S, py: S, pw: S, browser: S) =>

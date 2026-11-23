@@ -1,5 +1,43 @@
 {
- "what": "Figures of the page How it works (frontend/app/how-it-works) that are stated in the documents and held in no other outcome file. Each value carries the run or source it is from and the place that states it. Counts and names only: no question of the test set, no answer, no passage. frontend/scripts/how-figures.mjs reads this file; every other figure of the page is counted from the other outcome files, from backend/app/settings.py, or from the code.",
+ "what": "Figures of the page How it works (frontend/app/how-it-works) that are stated in the documents and held in no other outcome file. Each value carries the run or source it is from and the place that states it; `stores` was read from the served stores themselves. Counts and names only: no question of the test set, no answer, no passage. frontend/scripts/how-figures.mjs reads this file; every other figure of the page is counted from the other outcome files, from backend/app/settings.py, or from the code.",
+ "stores": {
+  "stated": "read from the served stores themselves on 2026-11-23, read-only: the graph's own components, indexes and label counts; the collection's own version and configuration",
+  "graph": {
+   "neo4j": "5.27",
+   "host": "Aura",
+   "issues": 819,
+   "stamps": 2764,
+   "indexes": {
+    "issue_vec_idx": {
+     "kind": "vector",
+     "type": "HNSW",
+     "similarity": "cosine",
+     "dimensions": 3072,
+     "quantization": true
+    },
+    "issue_short_vec_idx": {
+     "kind": "vector",
+     "type": "HNSW",
+     "similarity": "cosine",
+     "dimensions": 3072,
+     "quantization": false
+    },
+    "issue_text_idx": {
+     "kind": "full-text"
+    }
+   }
+  },
+  "literature": {
+   "weaviate": "1.40.5",
+   "objects": 41126,
+   "index": {
+    "type": "HFresh",
+    "similarity": "cosine",
+    "compression": "RQ"
+   },
+   "dimensions": 3072
+  }
+ },
  "judges": {
   "pages": {
    "first": "gpt-6.1-sol",

@@ -25,7 +25,6 @@ export type HowFigures = {
   };
   issue_found: { first: number; three: number; es_first: number; es_of: number } & Of;
   full_text: { first: number; three: number; es_first: number; es_of: number } & Of;
-  passages: number;
   tried: {
     whole: { passages: number; answered: number } & Of;
     kept_answered: number;
@@ -60,8 +59,10 @@ export type HowFigures = {
     pages: { first: string; second: string; sample: number; same_grade: number; same_answers_or_not: number };
     answers: { second: string; answers: number; same_mark: number; kappa: number };
   };
-  vector_numbers: number;
-  weaviate: string | null;
+  stores: {
+    graph: { neo4j: string; issues: number; stamps: number; index: { type: string; similarity: string } };
+    literature: { weaviate: string; objects: number; dimensions: number; index: { type: string; similarity: string; compression: string } };
+  };
   points_a_question: [number, number];
   after_first_usd: number | null;
   spend_limit: { usd: number; month: string } | null;

@@ -64,11 +64,22 @@ export default function HowItWorks() {
   const nodes = w.node({
     writer,
     embedding: F.limits.models.embedding,
-    passages: f.n(F.passages),
+    issues: f.n(F.stores.graph.issues),
+    passages: f.n(F.stores.literature.objects),
     cards: f.n(F.limits.issues),
     shown: f.n(F.limits.passages),
   });
-  const stepArgs = { writer, numbers: f.n(F.vector_numbers), issues: f.n(F.limits.issues), passages: f.n(F.limits.passages) };
+  const S = F.stores;
+  const stepArgs = {
+    writer,
+    numbers: f.n(S.literature.dimensions),
+    issues: f.n(F.limits.issues),
+    passages: f.n(F.limits.passages),
+    graphIndex: S.graph.index.type,
+    litIndex: S.literature.index.type,
+    litCompression: S.literature.index.compression,
+    similarity: S.literature.index.similarity,
+  };
   const stepKeys = (["s1", "s2", "s3", "s4", "s5"] as const).slice(0, steps);
 
   // ---------------------------------------------------------------- 4. results
@@ -104,7 +115,7 @@ export default function HowItWorks() {
   const st = tr.stronger;
   const span = (r: [number, number]) => (r[0] === r[1] ? f.n(r[0]) : w.range(f.n(r[0]), f.n(r[1])));
   const tried = [
-    { n: f.of(tr.whole.answered, tr.whole.of), text: w.triedWhole(f.n(tr.whole.passages), f.n(F.passages), f.n(tr.kept_answered)) },
+    { n: f.of(tr.whole.answered, tr.whole.of), text: w.triedWhole(f.n(tr.whole.passages), f.n(S.literature.objects), f.n(tr.kept_answered)) },
     { n: f.of(tr.hybrid.answered, tr.hybrid.of), text: w.triedHybrid(tr.hybrid.answered === tr.hybrid.vector, f.n(tr.hybrid.vector)) },
     { n: f.of(tr.thinking_off.cut, tr.thinking_off.of), text: w.triedOff },
     {
@@ -139,8 +150,8 @@ export default function HowItWorks() {
   const V = F.versions;
   const stack: [string, string][] = [
     [w.stack.steps, `LangGraph ${V.langgraph}`],
-    [w.stack.graph, w.stack.graphV],
-    [w.stack.lit, w.stack.litV(F.weaviate)],
+    [w.stack.graph, w.stack.graphV(S.graph.neo4j)],
+    [w.stack.lit, w.stack.litV(S.literature.weaviate)],
     [w.stack.backend, w.stack.backendV(V.fastapi, V.python)],
     [w.stack.page, w.stack.pageV(V.next, V.react, V.typescript)],
     [w.stack.tests, w.stack.testsV(V.pytest, f.n(V.tests.python), V.playwright, f.n(V.tests.browser))],
@@ -158,7 +169,7 @@ export default function HowItWorks() {
           <div className="how__top">
             <div className="how__intro">
               <h1>{w.title}</h1>
-              <p className="how__lead">{w.lead(f.n(F.passages), F.limits.models.embedding, writer)}</p>
+              <p className="how__lead">{w.lead({ issues: f.n(S.graph.issues), stamps: f.n(S.graph.stamps), passages: f.n(S.literature.objects), embedding: F.limits.models.embedding, writer })}</p>
             </div>
             <section className="how__pipe" aria-labelledby="h-pipe">
               <h2 id="h-pipe">{w.pipeH(steps)}</h2>
