@@ -75,6 +75,8 @@ export default function Chat() {
   const pinned = useRef(true); // the reader is at the foot of the thread
   const autoScrolled = useRef(0);
   const turnsNow = useRef<Turn[]>(turns);
+  const currentNow = useRef(conv.current);
+  currentNow.current = conv.current;
   const check = useHumanCheck();
   const sheet = useMedia("(max-width: 1279px)");
   const railRoom = useMedia("(min-width: 1100px)");
@@ -275,7 +277,16 @@ export default function Chat() {
       pinned.current = true;
       setBusy(true);
       setDraft("");
+      const first = turnsNow.current.length === 0;
+      const asking = currentNow.current;
       add({ id, question: q, at: new Date().toISOString(), pending: true, ...(thread.length ? { thread } : {}) });
+      // the first question replaces the first screen, and the control that had focus with it: focus goes to the box
+      if (first) {
+        requestAnimationFrame(() => {
+          const now = document.activeElement;
+          if (!now || now === document.body) document.querySelector<HTMLElement>("form.composer #q")?.focus({ preventScroll: true });
+        });
+      }
       const finish = (change: Partial<Turn>) => patch(id, { pending: false, ...change });
 
       // the evidence comes first and is shown at once; the written answer follows
@@ -332,7 +343,8 @@ export default function Chat() {
         // (a human check that did not finish says nothing about the service)
         if (!human) setService(err.status > 0 ? "ready" : "unreachable");
         finish({ error: { code: err.code, message: err.message }, writing: false, check: human && check.needsCheck ? "failed" : undefined });
-        setDraft(q); // the question goes back to the box: nothing is typed twice
+        // the question goes back to the box, nothing typed twice; unless the visitor has typed or opened another since
+        setDraft((now) => (now.trim() === "" && currentNow.current === asking ? q : now));
         if (DAY_CODES.includes(err.code)) setClosed(true);
       } finally {
         setBusy(false);
