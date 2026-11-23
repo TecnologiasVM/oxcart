@@ -134,7 +134,10 @@ router file by the agents who write them). The intended surface:
 The answer carries `issues`, `passages` (five, text clipped to 700 characters), `timings`, and a `mode` block that
 says what produced each part: `embedding` (`ok`, `failed`, `not configured`), `catalogue` (`vector index`,
 `full-text index`, `unavailable`), `literature` (`vector`, `keyword`, `unavailable`). A store that cannot be
-reached costs its own block only; the question fails (503) when neither answers.
+reached costs its own block only; the question fails (503) when neither answers. A store that has not answered
+within `ASK_STORE_SECONDS` (12 s) counts as unavailable for that question, and the other's evidence is returned:
+a store that hangs no longer holds back the other. The searches run on two pools of four threads that live as
+long as the process, one per store; a late search is not waited for and what it returns is dropped.
 
 **Figures.** A figure on a scanned page was cropped to a file of its own, `<document>_page_N_figure_M.png`, and
 the stored text of a passage names the crops of its page (a Markdown image; the reference is dropped from the
@@ -159,7 +162,7 @@ With `OXCART_PUBLIC=1` the app runs in **hosted mode**:
 | Routes mounted | `GET /api/health`, `GET /api/ask/examples`, `POST /api/session`, `POST /api/ask`, `POST /api/chat`, and `POST /api/chat/web` only with `ASK_WEB` on. Nothing else: no explorer routes, no export, no figures |
 | Docs | `/docs`, `/redoc` and `/openapi.json` are off |
 | Human check | The page solves a Cloudflare Turnstile challenge and posts its token to `/api/session`; the backend verifies it with Cloudflare and returns a signed token valid for an hour, sent as `X-Oxcart-Session` with each question. If the check cannot be verified, questions are refused with a message |
-| Limits | 10 questions a minute and 100 a day per visitor, 2,000 a day for the service, in memory; a question is at most 300 characters and a request 2 kB. A visitor is counted twice, by address and by session token, and a question passes only when both are under the limits |
+| Limits | 10 questions a minute and 100 a day per visitor, 2,000 a day for the service, in memory; a question is at most 300 characters and a request 2 kB (a chat 8 kB, a web part about 61 kB, the human check's token up to 2,048 characters, any other POST the smallest). A body's size is held before it is read (`app/body_limit.py`): a missing or larger `Content-Length` is refused with 413 at once, and so is a body whose bytes pass the limit whatever the header said; a body must arrive within `BODY_READ_SECONDS` (10 s), or 408. A visitor is counted twice, by address (an IPv6 address by its first 64 bits) and by session token, and a question passes only when both are under the limits |
 | CORS | The origins in `CORS_ORIGINS`, GET and POST, no credentials |
 | Errors | `{"error": code, "message": text}`; no exception text, nothing of the request repeated |
 | Logs | One line per question with the mode, the timings and error classes. No question text, no address |
@@ -167,7 +170,8 @@ With `OXCART_PUBLIC=1` the app runs in **hosted mode**:
 Settings, all from the environment (`app/settings.py`): `OXCART_PUBLIC`, `CORS_ORIGINS`, `WEAVIATE_URL` and
 `WEAVIATE_API_KEY` (a Weaviate Cloud cluster; without `WEAVIATE_URL` the local instance is used),
 `OPENAI_API_KEY`, `TURNSTILE_SECRET`, `SESSION_SIGNING_KEY`, `EVAL_ACCESS_KEY` (the eval's own way in, a secret
-header; empty means that door does not exist), `TRUSTED_PROXY_HOPS`, `VISITOR_ADDRESS_HEADER`, the `ASK_*` bounds,
+header; empty means that door does not exist), `TRUSTED_PROXY_HOPS`, `VISITOR_ADDRESS_HEADER`, the `ASK_*` bounds
+(among them `ASK_STORE_SECONDS`), `BODY_READ_SECONDS`,
 for the written answer `ANTHROPIC_API_KEY` and the `ANSWER_*` settings, for figures `FIGURES_BASE` and
 `FIGURES_REMOVED`, and for the web step `ASK_WEB`, `TAVILY_API_KEY` and `WEB_QUERY_SUFFIX`.
 
@@ -200,11 +204,15 @@ the same evidence followed by a short answer whose sentences cite it. The steps 
   standing between two sentences, counts as the citation of the sentence before it and is not printed. The part
   of a kept sentence outside its cited text is not removed.
 - **Where a sentence ends.** At a line break, or at an end mark followed by space when what follows can start a
-  sentence. Not at an abbreviation's full stop ("No.", "núm.", "pp.", "Sc.", "Co." and the like), and not
-  before a number or a lower-case letter: "a copy of Guanacaste No. 7 with double overprints" is one sentence.
-  The cost is that two sentences are sometimes taken for one ("… in 1889. 500 were printed."), and then one
-  citation keeps both; a sentence cut in two inside a number or a name was the worse error, because each piece
-  needed a citation of its own and a source mark stood in the middle of it.
+  sentence. Not at the full stop of an abbreviation of a list ("No.", "núm.", "pp.", "Sc.", "Co." and the
+  like) or of an initial ("Dr. N. M. Somebody", "U. S."); not before a number; and not before a lower-case
+  letter when what stands before the stop reads as an abbreviation (a single letter, letters with full stops
+  between them, "etc.", "cts."): "a copy of Guanacaste No. 7 with double overprints" is one sentence. After a
+  word or a number, a full stop before a lower-case letter does end the sentence: a model at times starts one
+  that way. The cost is that two sentences are sometimes taken for one ("… in 1889. 500 were printed.",
+  "… & Co. It was …", "… of type A. The …"), and then one citation keeps both; a sentence cut in two inside a
+  number or a name was the worse error, because each piece needed a citation of its own and a source mark stood
+  in the middle of it.
 - **The evidence is untrusted text.** It enters a request as document content only, never in the instructions;
   the instructions say that text inside a document is not to be followed; the model has no tools. The earlier
   turns are treated the same way.
@@ -219,12 +227,19 @@ was cited for), `not_covered` (the evidence does not answer the question), or th
 `no_key`, `daily_cap`, `no_evidence`, `timeout`, `key_refused`, `rate_limited`, `request_refused`,
 `model_unavailable`, `declined`, `cut` (the answer hit its length limit), `uncited` (no sentence carried a
 citation that holds), `empty`, `stopped`, `failed`. In every one of those the evidence has already been sent.
+A shown sentence that took a citation from a quote standing after it carries `quoted`: `all` when every citation
+it has came from quotes (without that rule it would not be shown), `some` when it has one of its own too; `counts`
+says how many shown sentences are of each kind (`sentences_cited_by_a_quote_only`, `sentences_cited_by_a_quote_too`).
+A web part's sentences carry the same field and counts.
 
 The route stands behind the same guard as `/api/ask`: the session token, both visitor counts (a question here
 counts as a question there), the service's daily limit, and the eval's way in. On top of that, the whole service
 makes at most `ANSWER_LIMIT_PER_DAY` model calls a day (200; the call that reads a later question against its
 conversation counts, so a question after the first takes two); the eval's way in
-does not skip it. Past it the route answers with the evidence only.
+does not skip it. Past it the route answers with the evidence only. When nobody waits for the answer any more
+(the route answered 504 or 503, or the visitor left before the answer line was sent), no call is taken from
+that allowance and the model is not called; a call already under way is not stopped. Once the evidence is sent,
+the answer is waited for at most the write call's timeout and 5 s; past it, it says `failed`.
 
 **Every one of these counts lives in the process's memory and starts again when the process does**, and on a
 host that puts an idle service to sleep that is often: the visitor limits, the service's daily limit and the 200
@@ -247,24 +262,34 @@ With `ASK_WEB` on, the write call tells apart three ways of not answering in ful
 are counted and is never sent to the page. The model is also told that a card is from the Mena catalogue.
 
 For `not_covered`, and for `ok` with `covers: "part"`, when `TAVILY_API_KEY` is set and a search is allowed
-(below), the chat reply's answer carries `web: {"ticket": .., "expires_in": 120}`. `out_of_scope` never does.
+(below), the chat reply's answer carries `web: {"ticket": .., "expires_in": 120}`. `out_of_scope` never does,
+and no ticket is made when the catalogue or the literature did not answer: that our sources do not cover the
+question is not known then.
 The ticket is an HMAC-SHA256, with a key made when the process starts and held in memory only (no secret to
 set), over a random id, a digest of the question as it was searched (`evidence.question`), a digest of the
 answer's text (its shown sentences joined with a space; empty for `not_covered`), the state and an expiry
 120 s ahead. It holds no text. A restart makes the tickets of the last two minutes invalid.
 
-`POST /api/chat/web` takes `{"question": <evidence.question>, "answer": <the answer's text, or "">, "ticket": ..}`
-(at most 4 kB). It stands behind the chat route's guard (the session in hosted mode, both visitor counts, where
+`POST /api/chat/web` takes `{"question": <evidence.question>, "answer": <the answer's text, or "">, "ticket": ..}`.
+The answer's text is the whole written answer, since the ticket signs it, so it has a limit of its own,
+`WEB_ANSWER_CHARS` (10,000 characters: five for each token the write call may use, its 500 and the thinking's
+1,500, where English and Spanish prose take about four or fewer), and the body `WEB_MAX_BODY_BYTES` (62,612
+bytes: the answer and the question at six bytes a character, as JSON can write an accented letter, the ticket
+and the JSON around them). The model is given that answer whole: it is the backend's own text, as the ticket
+proves. It stands behind the chat route's guard (the session in hosted mode, both visitor counts, where
 it counts as a question, the service's daily limit, the eval's way in), then refuses with 403 `ticket_refused` a
 ticket that does not verify for that question and answer, is expired or was used (a ticket is good once; used
-ids are kept in memory until they expire). Then, in this order: a search must still be allowed; one model call
-is taken from the day's allowance (`ANSWER_LIMIT_PER_DAY`), so a day whose calls are spent never spends a
-search; one search is made and counted.
+ids are kept in memory until they expire). Then, in this order: a search is reserved, the check that it is
+allowed and its count in one step, so two requests at the limit cannot both search; one model call is taken
+from the day's allowance (`ANSWER_LIMIT_PER_DAY`), so a day whose calls are spent never spends a search (the
+reservation is then released); the search is made, and stays counted whatever it returns, since the service
+may have charged it. When the search fails, times out or leaves no result to write from, the model is not
+called and the call that was taken is given back.
 
 - **The search** (`app/web_step.py`, `Tavily`): `POST https://api.tavily.com/search` with the key as a bearer
   token, `search_depth: "basic"`, `max_results: 5`, no answer, no raw content, no images, `topic: "general"`,
-  6 s. The query is the question as it was searched, then the fixed words of `WEB_QUERY_SUFFIX`; nothing a model
-  wrote. Status 432 (the plan used up), any other failure and a timeout give no web part.
+  6 s. The query is the question as it was searched (for a follow-up, as the rewrite step wrote it), then the
+  fixed words of `WEB_QUERY_SUFFIX`; nothing of an answer a model wrote is in it. Status 432 (the plan used up), any other failure and a timeout give no web part.
 - **What is kept of a result:** an `https` address of at most 300 characters, with no user name or password,
   no space, control character or backslash, and a host name that parses; its title cut to 200 characters (the
   host when it has none) and its text to 1,500. At most five. A host that is only numbers and dots is not a
@@ -308,7 +333,9 @@ error, a timeout, another shape), 30 searches a day (UTC), counted in memory. No
 restarts. One log line (`{"event": "web_rule", "rule": "usage" | "per_day"}`) when the rule in use changes, with
 no number of the account. The numbers are constants in `app/settings.py` (`WEB_SEARCHES_AT_MONTH_START`,
 `WEB_SEARCHES_OVER_THE_MONTH`, `WEB_SEARCHES_PER_DAY_FALLBACK`, `WEB_USAGE_EVERY_SECONDS`), as are the time-outs
-and the cuts (`WEB_*`). The read can add up to 4 s to a chat answer that asks for the web, once in five minutes.
+and the cuts and sizes (`WEB_*`). The read is made by one request at a time and outside the lock that counts the searches;
+other requests meanwhile use the last value read. It can add up to 4 s to the one chat answer that makes it,
+once in five minutes.
 
 **Logs.** The chat line gains `web_ticket` (true or false) with `ASK_WEB` on. The web route's line holds the
 ticket's state, the reply's state and why (`reason`), the rule in use, the counts, the timings (`search_ms`,
@@ -346,6 +373,8 @@ no name). The host provides these settings, as secrets where it has them:
 | `ASK_WEB` | Optional (`1`, `true`, `yes`, `on`): the three markers of the write call and the web step (see "The web step"). Unset: as before |
 | `TAVILY_API_KEY` | Optional, with `ASK_WEB`: the search service's key, its own and no other's. Without it no ticket is made and no search is ever made |
 | `WEB_QUERY_SUFFIX` | Optional: the fixed words after the question in a search (default `Costa Rica philately`; empty means none) |
+| `ASK_STORE_SECONDS` | Optional: each store's deadline for one question, in seconds (default 12). A store that has not answered by then is unavailable for that question |
+| `BODY_READ_SECONDS` | Optional: the time a POST's whole body may take to arrive, in seconds (default 10); past it the answer is 408 |
 | `TRUSTED_PROXY_HOPS` | How many of the host's proxies stand in front of the app (default 1). Check it on the host: the visitor limit must follow the caller, and a made-up `X-Forwarded-For` must not change it |
 | `VISITOR_ADDRESS_HEADER` | Optional: the header in which the host's edge reports the visitor's address, for example `CF-Connecting-IP` where Cloudflare stands in front. With it the visitor limit follows that header; a request without it falls back to `TRUSTED_PROXY_HOPS`. Use it where no entry of `X-Forwarded-For` is the visitor, and check it the same way: a made-up value from a client must not change the count, and two real addresses must be counted apart |
 
@@ -368,7 +397,9 @@ process starts, in the background too (`ASK_WARM_ON_START`, on by default); the 
 with one tiny embedding per start, and later questions reuse it while it is kept open. `/api/health` reports
 them beside the graph: `literature` and `embedding` are `connecting`, `connected` or `unavailable` (`not started`
 when nothing was opened at startup; `embedding` is `not configured` without a key). The page says "connecting"
-while any of the three is `connecting`.
+while any of the three is `connecting`. A literature search that fails retires the client it used, unless a
+newer one has replaced it; the next search opens a new one, and a retired client is closed once no search is
+using it.
 
 **Page.** In `frontend/`: `npm ci && npm run build:hosted` writes the static site to `out/` (the question page
 only). At build time:

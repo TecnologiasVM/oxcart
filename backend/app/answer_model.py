@@ -43,6 +43,10 @@ OUT_OF_SCOPE = "OUT_OF_SCOPE"       # with ASK_WEB: the question is outside the 
 PART_ONLY = "PART_ONLY"             # with ASK_WEB: a last line after an answer that covers part of the question
 
 UNCHANGED = "UNCHANGED"
+
+# How many times the SDK tries a call again after the first: none. A call takes at most its own timeout (the
+# SDK's timeout bounds each phase of the request: the connection, the sending and the wait between two reads).
+MAX_RETRIES = 0
 # The rewrite's reply is held to this shape, so reasons cannot stand before the question that is searched
 # (seen with a free-text reply: "…points back to the issue, so it needs rewriting. Which decree…").
 REWRITE_SCHEMA = {"type": "object", "additionalProperties": False, "required": ["stands_alone", "question"],
@@ -240,7 +244,7 @@ class ClaudeModel:
             if self._client is None:
                 import anthropic
 
-                self._client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, max_retries=0)
+                self._client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, max_retries=MAX_RETRIES)
             return self._client
 
     def warm_in_background(self) -> Optional[threading.Thread]:

@@ -140,5 +140,40 @@ class FindIssues(unittest.TestCase):
         self.assertEqual(session.calls, [])
 
 
+class CardSession:
+    """Answers the card query with one made-up record."""
+
+    def __init__(self, record):
+        self.record = record
+
+    def run(self, query, **params):
+        assert "HAS_STAMP" in query and params["issue_id"] == self.record["issue_id"]
+        return type("Result", (), {"single": lambda _self: dict(self.record)})()
+
+
+def card_record(issue_id, stamps):
+    return {"issue_id": issue_id, "title": "A made-up issue", "section": None, "issue_dates": "{}", "perforation": None,
+            "printers": [], "acts": [], "stamps": [{"varieties": [], "scott": [], "color": None, "quantity": None,
+                                                    "perforation": None, "status": None, **s} for s in stamps]}
+
+
+class Denomination(unittest.TestCase):
+    def test_mena_1a_of_the_first_issue_is_the_half_real_on_the_card_and_no_other_value_changes(self):
+        stamps = [{"catalog_no": "1A", "value": 1.5, "unit": "real"}, {"catalog_no": "2", "value": 2, "unit": "reales"}]
+        card = cl.issue_card(CardSession(card_record(cl.FIRST_ISSUE_ID, stamps)), cl.FIRST_ISSUE_ID)
+        self.assertEqual([(s["catalog_no"], s["value"], s["unit"]) for s in card["stamps"]],
+                         [("1A", 0.5, "real"), ("2", 2, "reales")])
+
+    def test_a_stamp_numbered_1a_of_another_issue_keeps_its_value(self):
+        stamps = [{"catalog_no": "1A", "value": 1.5, "unit": "made-up unit"}]
+        card = cl.issue_card(CardSession(card_record("CR-1999-MADE-UP", stamps)), "CR-1999-MADE-UP")
+        self.assertEqual((card["stamps"][0]["value"], card["stamps"][0]["unit"]), (1.5, "made-up unit"))
+
+    def test_the_first_issue_is_the_one_the_explorer_shows(self):
+        from oxcart import config
+
+        self.assertEqual(cl.FIRST_ISSUE_ID, config.ISSUE_ID)
+
+
 if __name__ == "__main__":
     unittest.main()

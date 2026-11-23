@@ -41,9 +41,11 @@ from __future__ import annotations
 
 import operator
 import re
+import threading
+import time
 import unicodedata
-from dataclasses import dataclass
-from typing import Annotated, Any, Callable, Literal
+from dataclasses import dataclass, field
+from typing import Annotated, Any, Callable, Literal, Optional
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.runtime import Runtime
@@ -101,6 +103,23 @@ class Deps:
     retrieve: Callable[[str], dict]     # ask_service.answer for this process's stores
     model: Any                          # answer_model.ClaudeModel, or a fake with the same three members
     take: Callable[[], bool]            # one model call from the day's allowance; False when it is spent
+    # Set by the route when nobody waits for the answer any more (it gave up, refused, or the visitor left):
+    # no step then takes a call from the allowance or calls the model.
+    gone: threading.Event = field(default_factory=threading.Event)
+    # Set by the route once the evidence line is sent and the visitor is still there. ``write`` waits for it (or
+    # for ``gone``) before it takes a call. None: no route stands in front, nothing is waited for.
+    evidence_sent: Optional[threading.Event] = None
+
+
+def _somebody_waits(deps: Deps) -> bool:
+    """Is the answer still wanted? Waits, when the route said it would tell, until the evidence was sent or
+    nobody waits any more; at most ASK_TIMEOUT_SECONDS (a route that never said either: nobody waits)."""
+    if deps.evidence_sent is not None:
+        deadline = time.monotonic() + settings.ASK_TIMEOUT_SECONDS
+        while not deps.evidence_sent.wait(0.02):
+            if deps.gone.is_set() or time.monotonic() > deadline:
+                return False
+    return not deps.gone.is_set()
 
 
 def _call(purpose: str, reply: Reply) -> dict:
@@ -255,6 +274,12 @@ _ABBREVIATIONS = frozenset("""
     dr dra sr sra srta sres st sta sto co cia inc ltd mr mrs ms jr prof gen gral av approx aprox vs
 """.split())
 _WORD_BEFORE_THE_STOP = re.compile(r"([^\W\d_]+)\.[\"'”’»)\]]*$")
+# Before a lower-case letter a full stop is not a sentence's end only after one of these, a single letter
+# ("5 c. on the first day") or letters with full stops between them ("the U.P.U. or another body"). After a
+# longer word or a number it is: a model at times starts a sentence with a lower-case letter, and joined to the
+# sentence before it, that sentence would be shown on a citation that is not its own.
+_ONLY_BEFORE_LOWER_CASE = frozenset("etc cts ctvs ct".split())
+_CLOSING = "\"'”’»)]"
 
 
 def _plain_letters(word: str) -> str:
@@ -262,9 +287,26 @@ def _plain_letters(word: str) -> str:
 
 
 def _stops_an_abbreviation(before: str) -> bool:
-    """Does ``before`` end with the full stop of an abbreviation?"""
+    """Does ``before`` end with the full stop of an abbreviation of the list, or of an initial (one capital
+    letter: "Dr. Nobody M. Madeup", "the U. S. mail")?"""
     word = _WORD_BEFORE_THE_STOP.search(before)
-    return bool(word) and _plain_letters(word.group(1)) in _ABBREVIATIONS
+    if not word:
+        return False
+    letters = word.group(1)
+    return (len(letters) == 1 and letters.isupper()) or _plain_letters(letters) in _ABBREVIATIONS
+
+
+def _goes_on_before_lower_case(before: str) -> bool:
+    """``before`` ends with an end mark and a lower-case letter follows: does the sentence go on? After "…",
+    "!" or "?" it does. After a full stop only when what stands before it reads as an abbreviation."""
+    before = before.rstrip(_CLOSING)
+    if not before.endswith("."):
+        return True
+    token = (before[:-1].split() or [""])[-1].lstrip("\"'“‘«([")
+    letters = token.replace(".", "")
+    if not letters.isalpha():
+        return False                                   # a number, or anything that is not letters
+    return len(token) == 1 or "." in token or _plain_letters(token) in _ONLY_BEFORE_LOWER_CASE
 
 
 def ends_a_sentence(before: str) -> bool:
@@ -276,15 +318,18 @@ def sentence_spans(text: str) -> list:
     """(start, end) of each sentence of ``text``, without the space around it.
 
     A sentence ends at a line break, or at an end mark followed by space when what follows can start a
-    sentence. It does not end at an abbreviation's full stop, nor before a number or a lower-case letter: "a
-    copy of Guanacaste No. 7 with double overprints" is one sentence. Two sentences can be taken for one that
-    way ("... in 1889. 500 were printed."); one is never cut in two inside a number or a name, which is the
-    worse error here, because each piece then needs a citation of its own to be shown."""
+    sentence. It does not end at the full stop of an abbreviation of the list or of an initial, nor before a
+    number, nor before a lower-case letter when what stands before the stop reads as an abbreviation: "a copy
+    of Guanacaste No. 7 with double overprints" is one sentence. Two sentences can be taken for one that way
+    ("... in 1889. 500 were printed.", "... by Madeup & Co. It was ...", "... of type A. The ..."); the rules
+    are kept narrow because the second is then shown on the first one's citation."""
     spans, start = [], 0
     for match in _SENTENCE_END.finditer(text):
         if "\n" not in match.group(0):
             following = text[match.end():match.end() + 1]
-            if _stops_an_abbreviation(text[:match.start()]) or following.isdigit() or following.islower():
+            before = text[:match.start()]
+            if (_stops_an_abbreviation(before) or following.isdigit()
+                    or (following.islower() and _goes_on_before_lower_case(before))):
                 continue
         spans.append((start, match.start() + len(match.group(0).rstrip())))
         start = match.end()
@@ -302,7 +347,7 @@ def sentence_spans(text: str) -> list:
 def contextualize(state: FollowUp, runtime: Runtime[Deps]) -> dict:
     deps = runtime.context
     question = state["question"]
-    if not deps.model.configured or not deps.take():
+    if deps.gone.is_set() or not deps.model.configured or not deps.take():
         return {"search_question": question, "rewritten": False}
     reply = deps.model.rewrite(question, state["thread"])
     rewritten = " ".join(reply.text.split())
@@ -330,6 +375,8 @@ def write(state: Found, runtime: Runtime[Deps]) -> dict:
         return {"draft": {"state": "no_evidence"}}
     if not deps.model.configured:
         return {"draft": {"state": "no_key"}}
+    if not _somebody_waits(deps):
+        return {"draft": {"state": "nobody_waiting"}}
     if not deps.take():
         return {"draft": {"state": "daily_cap"}}
     reply = deps.model.write(state["search_question"], sources)
@@ -370,7 +417,11 @@ def cited_sentences(blocks: list, sources: list, markers: tuple = ()) -> tuple[l
     (``kind`` "issue", with ``lines``) or anything else with a ``text``, and has a ``kind``, an ``index`` and a
     ``title``. Returns the sentences kept, each with the numbers of the sources it cites; the sources cited,
     numbered in the order they are first cited, each with the text it was cited for; and the counts. A
-    sentence that holds one of ``markers`` is never kept."""
+    sentence that holds one of ``markers`` is never kept.
+
+    A kept sentence that took a citation from a quote standing after it says so: ``"quoted": "all"`` when every
+    citation it has came from quotes (without that rule it would not be shown), ``"some"`` when it also has one
+    of its own; without a quote it has no such field. The counts say how many shown sentences are of each kind."""
     # The text that is printed, and where each citation that holds is attached to it.
     text, pieces, quotes, given, held = "", [], [], 0, 0        # pieces: (start, end, citations); quotes: (at, citations)
     for block in blocks:
@@ -393,8 +444,9 @@ def cited_sentences(blocks: list, sources: list, markers: tuple = ()) -> tuple[l
     spans = [(a, b) for a, b in sentence_spans(text) if _HAS_A_WORD.search(text[a:b])]
     for position, (a, b) in enumerate(spans):
         after = spans[position + 1][0] if position + 1 < len(spans) else len(text) + 1
-        attached = [c for start, end, holding in pieces if text[max(a, start):min(b, end)].strip() for c in holding]
-        attached += [c for at, holding in quotes if (a < at < after) or (at == 0 and position == 0) for c in holding]
+        own = [c for start, end, holding in pieces if text[max(a, start):min(b, end)].strip() for c in holding]
+        quoted = [c for at, holding in quotes if (a < at < after) or (at == 0 and position == 0) for c in holding]
+        attached = own + quoted
         cites = []
         for citation in attached:
             source = sources[citation["document"]]
@@ -410,10 +462,15 @@ def cited_sentences(blocks: list, sources: list, markers: tuple = ()) -> tuple[l
             if numbers[key] not in cites:
                 cites.append(numbers[key])
         if cites and not any(marker in text[a:b] for marker in markers):
-            sentences.append({"text": text[a:b], "cites": cites})
+            sentence = {"text": text[a:b], "cites": cites}
+            if quoted:                  # shown thanks to the quote rule ("all"), or also with a citation of its own
+                sentence["quoted"] = "some" if own else "all"
+            sentences.append(sentence)
 
     counts = {"sentences": len(spans), "sentences_without_citation": len(spans) - len(sentences),
-              "citations": given, "citations_that_do_not_hold": given - held}
+              "citations": given, "citations_that_do_not_hold": given - held,
+              "sentences_cited_by_a_quote_only": sum(s.get("quoted") == "all" for s in sentences),
+              "sentences_cited_by_a_quote_too": sum(s.get("quoted") == "some" for s in sentences)}
     cited_numbers = {n for sentence in sentences for n in sentence["cites"]}
     return sentences, [source for source in used if source["n"] in cited_numbers], counts
 

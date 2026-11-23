@@ -22,6 +22,7 @@ from app.deps import sanitize_props
 from app.schemas import GraphEdge, GraphNode, GraphResponse, NodeDetail
 
 from oxcart import config
+from oxcart.catalogue_lookup import denomination
 
 # --------------------------------------------------------------------------- #
 # Constants
@@ -47,19 +48,16 @@ def _issue_props(issue_node: Any) -> dict[str, Any]:
 
 # Display-only corrections for known Mena source-data errors. The read-only Mena
 # graph is NEVER mutated; we correct the value only when projecting for the UI.
-# Mena 1A is the second-plate half real (Scott 1a, light blue) — a 1/2 real (0.5)
-# — but the Mena source records denomination_value=1.5. Show the true value.
-_DENOMINATION_OVERRIDES: dict[str, tuple[float, str]] = {
-    "1A": (0.5, "real"),
-}
-
-
+# The corrections, and why each one is made, are kept in one place for the
+# explorer and the question path: oxcart.catalogue_lookup.DENOMINATION_CORRECTIONS
+# (Mena 1A of the first issue is the half real; the source records 1.5).
 def _display_denom(props: dict[str, Any]) -> tuple[Any, Any]:
-    """Return (value, unit) for display, applying known Mena display corrections."""
-    cno = str(props.get("catalog_no") or "")
-    if cno in _DENOMINATION_OVERRIDES:
-        return _DENOMINATION_OVERRIDES[cno]
-    return props.get("denomination_value"), props.get("denomination_unit")
+    """Return (value, unit) for display, applying known Mena display corrections.
+
+    The explorer shows the first issue (``config.ISSUE_ID``): a row without an
+    ``issue_id`` of its own is read as one of its stamps."""
+    return denomination(props.get("issue_id") or config.ISSUE_ID, props.get("catalog_no"),
+                        props.get("denomination_value"), props.get("denomination_unit"))
 
 
 # --------------------------------------------------------------------------- #

@@ -157,8 +157,8 @@
   "playwright": "1.60.0",
   "pytest": "9.2.0",
   "tests": {
-   "python": 220,
-   "python_files": 15,
+   "python": 258,
+   "python_files": 16,
    "browser": 168,
    "browser_files": 24
   }

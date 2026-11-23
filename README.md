@@ -67,8 +67,9 @@ First Issue runs locally and writes no answer. The [roadmap](#roadmap) lists wha
   - *How it is asked:* the write call says which of three things happened (outside the scope, not covered,
     part only). The answer from our sources comes first; the page then asks for the web part in a request of
     its own, with a ticket the backend signed, so the answer waits no longer than before.
-  - *What it never does:* a question outside the scope gets no answer and no search. Nothing a model wrote is
-    in the search query, and nothing it writes becomes a link.
+  - *What it never does:* a question outside the scope gets no answer and no search. The search query is the
+    question as it was searched (for a follow-up, as the rewrite step wrote it) and fixed words: nothing of an
+    answer a model wrote is in it, and nothing a model writes becomes a link.
   - *Two settings turn it on:* `ASK_WEB` on the backend (with a search key) and `NEXT_PUBLIC_WEB` in the page's
     build. A page built without the second ignores the ticket and makes no request, so a search can only start
     from a page whose privacy details name the search service.

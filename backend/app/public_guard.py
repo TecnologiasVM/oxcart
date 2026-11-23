@@ -23,6 +23,7 @@ from __future__ import annotations
 import base64
 import collections
 import hashlib
+import ipaddress
 import hmac
 import os
 import secrets
@@ -125,6 +126,8 @@ def visitor_key(forwarded_for: Optional[str], peer: Optional[str], named: Option
     that setting names a header. With it, the visitor is that value. Without it (setting
     empty, or a request that does not carry the header) the rule is the older one: the
     entry TRUSTED_PROXY_HOPS from the right of X-Forwarded-For, or the socket's peer.
+
+    An IPv6 address is counted by its first 64 bits (``counted_address``).
     """
     address = peer or "unknown"
     named = (named or "").strip()
@@ -136,7 +139,22 @@ def visitor_key(forwarded_for: Optional[str], peer: Optional[str], named: Option
             entries = [e.strip() for e in forwarded_for.split(",") if e.strip()]
             if len(entries) >= hops:
                 address = entries[-hops]      # counted from the right: the left side is whatever the client sent
-    return hashlib.sha256(_SALT + address.encode("utf-8", "replace")).hexdigest()[:24]
+    return hashlib.sha256(_SALT + counted_address(address).encode("utf-8", "replace")).hexdigest()[:24]
+
+
+def counted_address(address: str) -> str:
+    """The address a visitor is counted by. A subscriber is usually given 64 bits of IPv6 addresses or more and
+    can change the rest at will, so an IPv6 address is counted by its first 64 bits; an IPv4 address written
+    inside an IPv6 one is counted as that IPv4 address. Anything that is not an address is counted as given."""
+    try:
+        ip = ipaddress.ip_address(address.strip().strip("[]").split("%", 1)[0])
+    except ValueError:
+        return address
+    if ip.version == 4:
+        return str(ip)
+    if ip.ipv4_mapped is not None:
+        return str(ip.ipv4_mapped)
+    return f"{ipaddress.IPv6Address(int(ip) >> 64 << 64)}/64"
 
 
 def token_key(payload: bytes) -> str:
@@ -221,3 +239,11 @@ class DayCount:
                 return False
             self._count = (day, count + 1)
             return True
+
+    def give_back(self) -> None:
+        """One call that was taken and then not made (the web step's search failed) is not counted."""
+        day = int(self.now() // 86400)
+        with self._lock:
+            counted_day, count = self._count
+            if counted_day == day and count > 0:
+                self._count = (day, count - 1)
