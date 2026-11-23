@@ -355,7 +355,8 @@ export default function Chat() {
 
   const showStored = (example: StoredExample) => {
     pinned.current = true;
-    add({ id: newId("t"), question: example.question, at: new Date().toISOString(), answer: example.answer, stored: true, storedDate });
+    // a stored example's language is known: its question keeps it, whatever the page's language
+    add({ id: newId("t"), question: example.question, at: new Date().toISOString(), answer: example.answer, stored: true, storedDate, lang: example.lang });
   };
   const pick = (example: Example) => {
     const saved = stored.find((s) => s.question === example.question);
