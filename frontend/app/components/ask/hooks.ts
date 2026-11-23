@@ -175,23 +175,35 @@ const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  */
 export function useService(busy: boolean) {
   const [service, setService] = useState<Service>("checking");
+  // what a question's own reply said, and when: a health reply asked before it is older news and is dropped
+  const told = useRef({ at: 0, state: "checking" as Service });
+  const tell = useCallback((state: Service) => {
+    told.current = { at: told.current.at + 1, state };
+    setService(state);
+  }, []);
   useEffect(() => {
     let stop = false;
     (async () => {
       const started = Date.now();
       let heard = started; // when the service last answered anything (or when the page started looking)
       const left = () => Math.min(NOT_ANSWERING_AFTER_MS - (Date.now() - heard), STOP_LOOKING_AFTER_MS - (Date.now() - started));
+      let asked = told.current.at;
       let state = await serviceState(4000);
       while (!stop) {
-        setService(fromState(state));
-        if (state === "ready") return;
+        if (asked === told.current.at) {
+          setService(fromState(state));
+          if (state === "ready") return;
+        } else if (told.current.state === "ready") {
+          return; // a question's reply said it is up after this was asked
+        }
         if (state === "connecting") heard = Date.now(); // it answers: it is not "not answering"
         if (left() <= 0) break;
         await pause(Math.min(POLL_EVERY_MS, left()));
         if (stop) return;
+        asked = told.current.at;
         state = await serviceState(Math.max(1000, Math.min(8000, left())));
       }
-      if (!stop) setService("unreachable");
+      if (!stop && asked === told.current.at) setService("unreachable");
     })();
     return () => {
       stop = true;
@@ -202,9 +214,10 @@ export function useService(busy: boolean) {
     let stop = false;
     const timer = setTimeout(async () => {
       while (!stop) {
+        const asked = told.current.at;
         const state = await serviceState(8000);
         if (stop) return;
-        setService(fromState(state));
+        if (asked === told.current.at) setService(fromState(state));
         await pause(POLL_EVERY_MS);
       }
     }, WAIT_LINES_AFTER_SECONDS * 1000);
@@ -213,7 +226,7 @@ export function useService(busy: boolean) {
       clearTimeout(timer);
     };
   }, [busy]);
-  return [service, setService] as const;
+  return [service, tell] as const;
 }
 
 // ---------------------------------------------------------------- the human check
