@@ -155,7 +155,7 @@ export default function HowItWorks() {
     [w.stack.lit, w.stack.litV(S.literature.weaviate)],
     [w.stack.backend, w.stack.backendV(V.fastapi, V.python)],
     [w.stack.page, w.stack.pageV(V.next, V.react, V.typescript)],
-    [w.stack.tests, w.stack.testsV(V.pytest, f.n(V.tests.python), V.playwright, f.n(V.tests.browser))],
+    [w.stack.tests, w.stack.testsV(V.pytest, V.playwright)],
   ];
 
   const J = F.judges;

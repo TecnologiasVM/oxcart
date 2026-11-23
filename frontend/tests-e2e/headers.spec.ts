@@ -66,25 +66,26 @@ test("the policy names the backend's and the figures host's origins, and no figu
   expect(policy({ hashes, apiBase: API, figuresBase: FIGS, manifest: true })).toMatch(/; manifest-src 'self'$/);
 });
 
-test("the file: one rule for every path, the policy report-only, the four other headers", () => {
+test("the file: one rule for every path, the policy enforced, the other headers", () => {
   const dir = madeUpOut();
   try {
     const made = writeHeaders(dir, { NEXT_PUBLIC_API_BASE: API, NEXT_PUBLIC_FIGURES_BASE: FIGS });
     const text = readFileSync(join(dir, "_headers"), "utf-8");
     expect(text).toBe(made.text);
-    expect(CSP_HEADER).toBe("Content-Security-Policy-Report-Only");
-    expect(made.header).toBe("Content-Security-Policy-Report-Only");
+    expect(CSP_HEADER).toBe("Content-Security-Policy");
+    expect(made.header).toBe("Content-Security-Policy");
     expect(made.hashes).toBe(2);
     const lines = text.trimEnd().split("\n");
     expect(lines[0]).toBe("/*");
-    expect(lines[1]).toMatch(/^ {2}Content-Security-Policy-Report-Only: default-src 'none'; script-src 'self' /);
+    expect(lines[1]).toMatch(/^ {2}Content-Security-Policy: default-src 'none'; script-src 'self' /);
     expect(lines.slice(2)).toEqual([
       "  X-Content-Type-Options: nosniff",
       "  Referrer-Policy: strict-origin-when-cross-origin",
       "  X-Frame-Options: DENY",
       "  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()",
+      "  Strict-Transport-Security: max-age=86400",
     ]);
-    expect(text).not.toMatch(/^ {2}Content-Security-Policy:/m);
+    expect(text).not.toContain("Report-Only");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -103,4 +104,12 @@ test("a policy line longer than Cloudflare's 2,000 characters fails, and nothing
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("Strict-Transport-Security is there for one day, without includeSubDomains or preload", () => {
+  const text = headersText(policy({ hashes: [ALERT], apiBase: API, figuresBase: FIGS }));
+  const hsts = text.split("\n").filter((l) => l.startsWith("  Strict-Transport-Security:"));
+  expect(hsts).toEqual(["  Strict-Transport-Security: max-age=86400"]);
+  expect(text).not.toMatch(/includeSubDomains/i);
+  expect(text).not.toMatch(/preload/i);
 });

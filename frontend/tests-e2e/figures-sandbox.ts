@@ -4,8 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 /*
- * For the specs of the generated figures: scripts/how-figures.mjs run in a sandbox, a temp copy of exactly the
- * files it reads, so a test can change one of them without touching the repository.
+ * For the specs of the generated figures: scripts/how-figures.mjs run in a sandbox, a temp copy of the files it
+ * reads, so a test can change one of them without touching the repository. The test folders are copied too, though
+ * the generator no longer reads them, so a spec can show that a new test changes nothing.
  */
 export const FRONTEND = join(__dirname, "..");
 const REPO = join(FRONTEND, "..");
@@ -28,6 +29,7 @@ export function sandbox() {
       return { status: r.status, out: r.stdout + r.stderr, figures: r.status === 0 ? JSON.parse(readFileSync(path("frontend/lib/how-figures.json"), "utf-8")) : null };
     },
     runFile: (rel: string) => readFileSync(path(rel), "utf-8"),
+    append: (rel: string, text: string) => writeFileSync(path(rel), readFileSync(path(rel), "utf-8") + text),
     done: () => rmSync(dir, { recursive: true, force: true }),
   };
 }

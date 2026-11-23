@@ -54,7 +54,6 @@ export type HowFigures = {
     typescript: string;
     playwright: string;
     pytest: string;
-    tests: { python: number; python_files: number; browser: number; browser_files: number };
   };
   judges: {
     pages: { first: string; second: string; sample: number; same_grade: number; same_answers_or_not: number };

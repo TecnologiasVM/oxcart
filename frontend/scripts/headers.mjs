@@ -2,11 +2,12 @@
 // output. Written by build-hosted.mjs after the build; `npm run build` writes none.
 //
 // One rule, for every path:
-//   - a content security policy, built from what the two pages load and nothing wider. It is sent as
-//     Content-Security-Policy-Report-Only for this first step (CSP_HEADER, below): a browser reports what it
-//     would block, in its console, and blocks nothing. A later change sets CSP_HEADER to
-//     "Content-Security-Policy", once the report-only header has been seen to report nothing.
-//   - four headers enforced from the start, which break nothing on a static site.
+//   - a content security policy, built from what the two pages load and nothing wider, and enforced
+//     (CSP_HEADER, below): a browser blocks what it does not allow. It was first sent report-only, and read on the
+//     served site: the site's own scripts, styles and fonts, the figures host, the backend and the human check
+//     reported nothing. A script the host adds to the pages of its own (Cloudflare's analytics) is not allowed.
+//   - four headers enforced from the start, which break nothing on a static site, and Strict-Transport-Security
+//     for one day.
 //
 // The policy:
 //   script-src   'self', the sha256 hash of every inline script of every page of this build (Next's static export
@@ -26,8 +27,8 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-/** The policy's header. Report-only for now; a later change makes it "Content-Security-Policy". */
-export const CSP_HEADER = "Content-Security-Policy-Report-Only";
+/** The policy's header: enforced. (It was "Content-Security-Policy-Report-Only" while the served site was read.) */
+export const CSP_HEADER = "Content-Security-Policy";
 export const MAX_LINE = 2000;
 export const TURNSTILE = "https://challenges.cloudflare.com";
 export const ENFORCED = [
@@ -35,6 +36,9 @@ export const ENFORCED = [
   ["Referrer-Policy", "strict-origin-when-cross-origin"],
   ["X-Frame-Options", "DENY"],
   ["Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()"],
+  // https only, for one day. A browser remembers this header for its whole max-age, and keeps to https for that long
+  // whatever the site does next, so it starts short; no includeSubDomains and no preload
+  ["Strict-Transport-Security", "max-age=86400"],
 ];
 
 // a script element's type the browser runs (no type, or a JavaScript one); others (JSON data) run nothing
