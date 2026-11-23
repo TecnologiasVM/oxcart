@@ -4,9 +4,10 @@ and a short part written from the pages it returned.
     POST /api/chat     an answer "not_covered", or "ok" with covers "part", and a search allowed
                        -> the answer carries web: {"ticket", "expires_in"}
     POST /api/chat/web the question as it was searched, the answer's text, the ticket
-                       -> the ticket checked -> a search allowed? -> one model call taken from the day's
-                          allowance -> one search -> the results kept -> the web call -> the same check as
-                          an answer's -> {"state", "sentences", "results", "counts", "calls"}
+                       -> the ticket checked -> a search reserved (checked and counted in one step) -> one
+                          model call taken from the day's allowance -> one search -> the results kept -> the
+                          web call -> the same check as an answer's
+                          -> {"state", "sentences", "results", "counts", "calls"}
 
 It is its own request, made by the page once the answer is on screen, so the answer waits no longer
 than it did before this step existed.
@@ -21,7 +22,9 @@ route, at most once in five minutes. That route runs behind the searches made, s
 made in the last two hours are added to what it says. A search is allowed while that is under a share of the month
 (settings.py, ``WEB_SEARCHES_*``, ``WEB_USAGE_LAG_SECONDS``). When the usage cannot
 be read, a fixed number a day, counted in memory. Nothing is remembered across restarts: the next read gives
-the true number.
+the true number. The usage is read by one request at a time and outside the lock; the others use the last
+value read. A search is reserved, checked and counted in one step, so two requests at the limit cannot both
+search; a reservation is released when the model call cannot be taken.
 
 **What goes where.** The query is the question as it was searched and fixed words (``WEB_QUERY_SUFFIX``):
 nothing a model wrote. The model is given the kept results as documents and, in the part case, the answer
@@ -146,6 +149,7 @@ class Searches:
         self.read_usage, self.now = read_usage, now
         self._lock = threading.Lock()
         self._read_at: Optional[float] = None
+        self._reading = False        # a read of the usage is under way, outside the lock
         self._used = 0               # at the last read
         self._made: list = []        # when each search of this process was made, oldest first
         self._day = (0, 0)           # (day, searches made that day): every search, whatever the rule
@@ -156,34 +160,74 @@ class Searches:
             self.rule = rule
             log.info(json.dumps({"event": "web_rule", "rule": rule}))
 
+    def _refresh(self) -> None:
+        """Read the usage when it is due. The read is made outside the lock and by one caller at a time: the
+        others go on with the last value read (before the first read, the per-day rule)."""
+        t = self.now()
+        with self._lock:
+            if self._reading or (self._read_at is not None and t - self._read_at < settings.WEB_USAGE_EVERY_SECONDS):
+                return
+            self._reading = True
+        try:
+            used = self.read_usage()
+        except Exception as exc:
+            log.warning("web usage not read: %s", type(exc).__name__)
+            used = None
+        with self._lock:
+            self._reading, self._read_at = False, t
+            if used is None:
+                self._set_rule("per_day")
+            else:
+                self._used = used
+                self._set_rule("usage")
+
+    def _allowed(self, t: float) -> bool:
+        """Under the lock: is a search allowed at ``t``, by the rule in use?"""
+        if self.rule == "usage":
+            # searches too recent to be in what the route says, and of this month (a new month starts from zero)
+            now = datetime.fromtimestamp(t, tz=timezone.utc)
+            since = max(t - settings.WEB_USAGE_LAG_SECONDS, datetime(now.year, now.month, 1, tzinfo=timezone.utc).timestamp())
+            self._made = [made for made in self._made if made >= since]
+            return self._used + len(self._made) < (settings.WEB_SEARCHES_AT_MONTH_START
+                                                   + settings.WEB_SEARCHES_OVER_THE_MONTH * month_share(t))
+        day, count = self._day
+        return (count if day == int(t // 86400) else 0) < settings.WEB_SEARCHES_PER_DAY_FALLBACK
+
+    def _count(self, t: float) -> None:
+        day = int(t // 86400)
+        self._made = self._made[-5000:] + [t]
+        self._day = (day, (self._day[1] if self._day[0] == day else 0) + 1)
+
     def allowed(self) -> bool:
+        """Is a search likely allowed now? A hint only (a chat reply's ticket): ``reserve`` decides."""
+        self._refresh()
+        with self._lock:
+            return self._allowed(self.now())
+
+    def reserve(self) -> Optional[float]:
+        """One search, checked and counted in one step: two requests at the limit cannot both pass. The
+        reservation (give it to ``release`` when the search is then not made), or None when none is allowed."""
+        self._refresh()
         with self._lock:
             t = self.now()
-            if self._read_at is None or t - self._read_at >= settings.WEB_USAGE_EVERY_SECONDS:
-                used = self.read_usage()
-                self._read_at = t
-                if used is None:
-                    self._set_rule("per_day")
-                else:
-                    self._used = used
-                    self._set_rule("usage")
-            if self.rule == "usage":
-                # searches too recent to be in what the route says, and of this month (a new month starts from zero)
-                now = datetime.fromtimestamp(t, tz=timezone.utc)
-                since = max(t - settings.WEB_USAGE_LAG_SECONDS, datetime(now.year, now.month, 1, tzinfo=timezone.utc).timestamp())
-                self._made = [made for made in self._made if made >= since]
-                return self._used + len(self._made) < (settings.WEB_SEARCHES_AT_MONTH_START
-                                                       + settings.WEB_SEARCHES_OVER_THE_MONTH * month_share(t))
+            if not self._allowed(t):
+                return None
+            self._count(t)
+            return t
+
+    def release(self, reserved: float) -> None:
+        """A reserved search that was not made is not counted."""
+        with self._lock:
+            if reserved in self._made:
+                self._made.remove(reserved)
             day, count = self._day
-            return (count if day == int(t // 86400) else 0) < settings.WEB_SEARCHES_PER_DAY_FALLBACK
+            if day == int(reserved // 86400) and count > 0:
+                self._day = (day, count - 1)
 
     def counted(self) -> None:
-        """One search was made."""
+        """One search was made, counted without a check (``reserve`` checks and counts in one step)."""
         with self._lock:
-            t = self.now()
-            day = int(t // 86400)
-            self._made = self._made[-5000:] + [t]
-            self._day = (day, (self._day[1] if self._day[0] == day else 0) + 1)
+            self._count(self.now())
 
 
 # --------------------------------------------------------------------------- the search service
@@ -350,14 +394,17 @@ class WebStep:
 
         if not self.client.configured or not model.configured:
             return done({"state": "unavailable"}, "not_configured")
-        if not self.searches.allowed():
+        # the search is reserved (checked and counted in one step), then the model call is taken, before the
+        # search: a day whose calls are spent never spends a search. The call is given back when the search
+        # leaves nothing to write from; a search that was sent stays counted whatever it returned (the service
+        # may have charged it).
+        reserved = self.searches.reserve()
+        if reserved is None:
             return done({"state": "unavailable"}, "not_allowed")
-        # the model call is taken before the search, so a day whose calls are spent never spends a search;
-        # it is given back when the search leaves nothing to write from
         if not take():
+            self.searches.release(reserved)
             return done({"state": "unavailable"}, "daily_cap")
         query = " ".join(f"{question} {settings.WEB_QUERY_SUFFIX}".split())
-        self.searches.counted()
         searched = time.time()
         outcome, raw = self.client.search(query)
         timings["search_ms"] = round((time.time() - searched) * 1000)

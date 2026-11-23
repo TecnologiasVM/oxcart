@@ -4,6 +4,8 @@ route. A fake search service and a fake model: no network, no key. Every text he
 import base64
 import json
 import logging
+import threading
+import time
 from datetime import datetime, timezone
 
 import httpx
@@ -290,6 +292,71 @@ def test_one_log_line_when_the_rule_changes_naming_it_and_no_number_of_the_accou
     assert [json.loads(r) for r in records] == [{"event": "web_rule", "rule": "usage"}, {"event": "web_rule", "rule": "per_day"},
                                                 {"event": "web_rule", "rule": "usage"}]
     assert str(ACCOUNT_USED) not in json.dumps(records)
+
+
+def test_two_requests_at_the_limit_reserve_at_once_and_exactly_one_gets_a_search():
+    searches = web_step.Searches(lambda: None, now=Clock(at(2026, 11, 16, 12)))
+    assert searches.allowed() and searches.rule == "per_day"
+    for _ in range(settings.WEB_SEARCHES_PER_DAY_FALLBACK - 1):          # 29 of 30
+        searches.counted()
+    barrier, got = threading.Barrier(2), []
+
+    def request():
+        barrier.wait(5)
+        got.append(searches.reserve())
+
+    threads = [threading.Thread(target=request) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(5)
+    assert len(got) == 2 and sum(r is not None for r in got) == 1
+    assert not searches.allowed()
+
+
+def test_a_search_reserved_and_then_not_made_for_want_of_a_model_call_is_not_counted(tavily):
+    tavily.used = None                                                   # the per-day rule
+    step = web_step.WebStep(client=tavily, now=Clock(at(2026, 11, 16, 12)))
+    for _ in range(settings.WEB_SEARCHES_PER_DAY_FALLBACK - 1):
+        step.searches.counted()
+    reply, note = step.run(QUESTION, "", "not_covered", WebModel(), take=lambda: False)
+    assert reply["state"] == "unavailable" and note["reason"] == "daily_cap" and tavily.queries == []
+    assert step.searches.reserve() is not None                          # the 30th is still there
+    assert step.searches.reserve() is None
+
+
+def test_a_search_that_was_sent_stays_counted_whatever_it_returned(tavily):
+    tavily.used, tavily.outcome = None, ("failed", [])
+    step = web_step.WebStep(client=tavily, now=Clock(at(2026, 11, 16, 12)))
+    for _ in range(settings.WEB_SEARCHES_PER_DAY_FALLBACK - 1):
+        step.searches.counted()
+    given_back = []
+    reply, _ = step.run(QUESTION, "", "not_covered", WebModel(), take=lambda: True, give_back=lambda: given_back.append(1))
+    assert reply["state"] == "unavailable" and len(tavily.queries) == 1 and given_back == [1]
+    assert step.searches.reserve() is None                              # the failed search counted: 30 of 30
+
+
+def test_reading_the_usage_does_not_hold_back_a_second_caller():
+    reading, release = threading.Event(), threading.Event()
+
+    def slow_read():
+        reading.set()
+        release.wait(5)
+        return ACCOUNT_USED
+
+    searches = web_step.Searches(slow_read, now=Clock(LATE_IN_A_MONTH))
+    first = threading.Thread(target=searches.allowed)
+    first.start()
+    try:
+        assert reading.wait(5)
+        t0 = time.time()
+        searches.allowed()                       # the read is under way: the last value (none yet: the per-day rule)
+        assert searches.reserve() is not None
+        assert time.time() - t0 < 1
+    finally:
+        release.set()
+        first.join(5)
+    assert searches.rule == "usage"
 
 
 # ---------------------------------------------------------------- the search service's client
