@@ -7,6 +7,7 @@
  */
 import type { Example, StoredExample } from "@/lib/ask";
 import { MAX_QUESTION_CHARS } from "@/lib/ask";
+import type { Conversation } from "@/lib/conversation";
 import type { Labels } from "@/lib/i18n";
 import { HOW_URL, PrivacyLine } from "./parts";
 
@@ -21,9 +22,14 @@ type Props = {
   stored: StoredExample[];
   pick: (example: Example) => void;
   onBoxFocus: () => void; // the human check starts here
+  mine: Conversation[]; // the kept conversations, newest first: listed here where there is no rail
+  onOpen: (id: string) => void;
+  onAll: () => void;
 };
 
-export default function FirstScreen({ t, draft, setDraft, submit, busy, closed, examples, stored, pick, onBoxFocus }: Props) {
+const MINE_SHOWN = 3;
+
+export default function FirstScreen({ t, draft, setDraft, submit, busy, closed, examples, stored, pick, onBoxFocus, mine, onOpen, onAll }: Props) {
   const left = MAX_QUESTION_CHARS - draft.length;
   return (
     <>
@@ -65,6 +71,21 @@ export default function FirstScreen({ t, draft, setDraft, submit, busy, closed, 
       </div>
       {/* the human check's element stands between these two parts (Chat.tsx) */}
       <div className="first__part first__more">
+        {mine.length > 0 && (
+          // below the rail's width the kept conversations stand under the box
+          <section className="mine" aria-labelledby="mine-h" data-testid="mine">
+            <h2 id="mine-h" className="label">{t.convs}</h2>
+            <p className="examples__note">{t.kept}</p>
+            <ul>
+              {mine.slice(0, MINE_SHOWN).map((c) => (
+                <li key={c.id}>
+                  <button type="button" onClick={() => onOpen(c.id)}>{c.turns[0]?.question}</button>
+                </li>
+              ))}
+            </ul>
+            <p className="mine__all"><button type="button" className="linkbtn" onClick={onAll} data-testid="all-conversations">{t.allConvs}</button></p>
+          </section>
+        )}
         {examples.length > 0 && (
           <section className="examples" aria-labelledby="examples-h">
             <h2 id="examples-h" className="label">{t.examples}</h2>

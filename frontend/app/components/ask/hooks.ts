@@ -1,41 +1,156 @@
 "use client";
 
 /*
- * The question page's state that outlives a render: the conversation and its storage,
+ * The question page's state that outlives a render: the conversations and their storage,
  * where the service is, the human check, and two small facts about the screen.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AskError, openSession, serviceState, TURNSTILE_SITE_KEY } from "@/lib/ask";
 import type { ServiceState } from "@/lib/ask";
-import { loadTurns, saveTurns } from "@/lib/conversation";
-import type { Turn } from "@/lib/conversation";
+import { lastAt, loadStore, mergeTurns, newId, readStore, removeConversations, STORE_KEY, writeConversation, writeCurrent } from "@/lib/conversation";
+import type { Conversation, Keeping, Turn } from "@/lib/conversation";
 
-// ---------------------------------------------------------------- the conversation
+// ---------------------------------------------------------------- the conversations
 
 /**
- * The one conversation of this browser, oldest turn first, kept in local storage as it
- * changes. Storage blocked or full: the conversation lives as long as the page.
+ * The conversations of this browser, and the one open now, kept in local storage as they
+ * change. The open one may be new and empty: the page then shows its first screen.
+ * When the browser keeps nothing, the list holds only the open conversation.
+ *
+ * Two tabs on one browser share the store and do not overwrite each other: a tab writes only
+ * the conversation it changed (lib/conversation.ts), and follows what another tab writes (the
+ * `storage` event). The open conversation is each tab's own. A conversation deleted in another
+ * tab is never written back: the tab showing it closes it and opens a new one, and what the
+ * visitor was typing stays in the box.
  */
-export function useConversation() {
-  const [id, setId] = useState("");
-  const [turns, setTurns] = useState<Turn[]>([]);
+export function useConversations() {
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [current, setCurrent] = useState("");
+  const [keeping, setKeeping] = useState<Keeping>("kept");
   const [loaded, setLoaded] = useState(false);
+  const written = useRef(new Map<string, Conversation>()); // per id, the copy last written or read: what needs no write
+  const known = useRef(new Set<string>()); // the ids this tab has seen in the store
+  const state = useRef({ conversations, current });
+  state.current = { conversations, current };
+
   useEffect(() => {
-    const kept = loadTurns();
-    setId(kept.id);
-    setTurns(kept.turns);
+    const kept = loadStore();
+    for (const c of kept.conversations) {
+      written.current.set(c.id, c);
+      known.current.add(c.id);
+    }
+    setConversations(kept.conversations);
+    setCurrent(kept.current);
+    setKeeping(kept.keeping);
     setLoaded(true);
   }, []);
-  useEffect(() => {
-    if (loaded) saveTurns(id, turns);
-  }, [id, turns, loaded]);
 
-  /** A new turn at the foot. A refused turn above it has done its work (its question went back to the box). */
-  const add = useCallback((turn: Turn) => setTurns((prev) => [...prev.filter((t) => !t.error), turn]), []);
+  /** Another tab deleted this one: drop it here too, never write it back. */
+  const dropped = useCallback((id: string) => {
+    written.current.delete(id);
+    known.current.delete(id);
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+    if (state.current.current === id) setCurrent(newId("c"));
+  }, []);
+
+  // write what this tab changed, one conversation at a time
+  useEffect(() => {
+    if (!loaded) return;
+    for (const c of conversations) {
+      if (written.current.get(c.id) === c) continue;
+      written.current.set(c.id, c);
+      const result = writeConversation(c, current, known.current.has(c.id));
+      if (result === "deleted") {
+        dropped(c.id);
+        continue;
+      }
+      setKeeping(result);
+      if (result === "kept" && c.turns.some((t) => t.answer && !t.pending)) known.current.add(c.id);
+    }
+  }, [conversations, current, loaded, dropped]);
+  // which conversation a new tab opens with
+  const firstCurrent = useRef(true);
+  useEffect(() => {
+    if (!loaded) return;
+    if (firstCurrent.current) {
+      firstCurrent.current = false;
+      return;
+    }
+    setKeeping(writeCurrent(current));
+  }, [current, loaded]);
+
+  // follow another tab: its new and changed conversations come in, its deletions go
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== STORE_KEY) return;
+      const fresh = readStore();
+      if (!fresh) return;
+      const mine = state.current.conversations;
+      const freshIds = new Set(fresh.conversations.map((c) => c.id));
+      const next: Conversation[] = [];
+      for (const f of fresh.conversations) {
+        const local = mine.find((c) => c.id === f.id);
+        const merged = local ? { ...local, turns: mergeTurns(f.turns, local.turns) } : f;
+        // unchanged here: keep the same copy, so nothing is written back
+        const same = local && local.turns.length === merged.turns.length && local.turns.every((t, i) => t === merged.turns[i]);
+        const kept = same ? local! : merged;
+        written.current.set(kept.id, kept);
+        known.current.add(kept.id);
+        next.push(kept);
+      }
+      for (const c of mine) {
+        if (freshIds.has(c.id)) continue;
+        if (known.current.has(c.id)) {
+          known.current.delete(c.id); // deleted in another tab
+          written.current.delete(c.id);
+          if (state.current.current === c.id) setCurrent(newId("c"));
+        } else {
+          next.push(c); // not written yet (a first question on its way): still this tab's
+        }
+      }
+      setConversations(next);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  const turns = useMemo(() => conversations.find((c) => c.id === current)?.turns ?? [], [conversations, current]);
+
+  /** A new turn at the foot of the open conversation. A refused turn above it has done its work. */
+  const add = useCallback((turn: Turn) => {
+    setConversations((prev) => {
+      const open = prev.find((c) => c.id === current);
+      if (!open) return [...prev, { id: current, started: turn.at, turns: [turn] }];
+      return prev.map((c) => (c.id === current ? { ...c, turns: [...c.turns.filter((t) => !t.error), turn] } : c));
+    });
+  }, [current]);
+  /** A change to a turn, wherever it is: an answer lands in its own conversation even after another was opened. */
   const patch = useCallback((turnId: string, change: Partial<Turn>) =>
-    setTurns((prev) => prev.map((t) => (t.id === turnId ? { ...t, ...change } : t))), []);
-  const clear = useCallback(() => setTurns([]), []);
-  return { turns, loaded, add, patch, clear };
+    setConversations((prev) => prev.map((c) =>
+      c.turns.some((t) => t.id === turnId) ? { ...c, turns: c.turns.map((t) => (t.id === turnId ? { ...t, ...change } : t)) } : c)), []);
+  const open = useCallback((id: string) => setCurrent(id), []);
+  const start = useCallback(() => setCurrent(newId("c")), []);
+  /** Delete by id: from this tab, and from the store only these ids. */
+  const forget = useCallback((ids: string[]) => {
+    const next = ids.includes(state.current.current) ? newId("c") : state.current.current;
+    for (const id of ids) {
+      written.current.delete(id);
+      known.current.delete(id);
+    }
+    setConversations((prev) => prev.filter((c) => !ids.includes(c.id)));
+    setCurrent(next);
+    setKeeping(removeConversations(ids, next));
+  }, []);
+  const remove = useCallback((id: string) => forget([id]), [forget]);
+
+  // newest first; when the browser keeps nothing, only the open one
+  const list = useMemo(() => conversations
+    .filter((c) => c.turns.length > 0 && (keeping !== "blocked" || c.id === current))
+    .sort((a, b) => lastAt(b).localeCompare(lastAt(a))), [conversations, current, keeping]);
+  /** "Delete all": the conversations this tab lists, which the question counted; nothing added elsewhere unseen. */
+  const removeAll = useCallback(() => forget(list.map((c) => c.id)), [forget, list]);
+
+  return { list, current, turns, keeping, loaded, add, patch, open, start, remove, removeAll };
 }
 
 // ---------------------------------------------------------------- the service

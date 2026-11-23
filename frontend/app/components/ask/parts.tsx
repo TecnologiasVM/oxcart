@@ -3,7 +3,8 @@
 /*
  * Small pieces of the question page, shared by the first screen, the thread and Evidence.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import type { KeyboardEvent } from "react";
 import type { WrittenAnswer } from "@/lib/ask";
 import type { Turn } from "@/lib/conversation";
 import type { Labels } from "@/lib/i18n";
@@ -109,5 +110,70 @@ export function PrivacyLine({ t }: { t: Labels }) {
       </summary>
       <p className="priv__full" data-testid="privacy-full">{t.privFull}</p>
     </details>
+  );
+}
+
+const FOCUSABLE = 'button:not([disabled]), [href], summary, input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** In a sheet, Tab and Shift+Tab go round inside it. */
+export function keepFocusIn(e: KeyboardEvent<HTMLElement>, box: HTMLElement | null) {
+  if (e.key !== "Tab" || !box) return;
+  const items = [...box.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null || el === document.activeElement);
+  if (!items.length) return;
+  const first = items[0];
+  const last = items[items.length - 1];
+  if (e.shiftKey && (document.activeElement === first || !box.contains(document.activeElement))) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault();
+    first.focus();
+  }
+}
+
+/**
+ * A deletion asked in place, where its button was: the words say what is lost, the two
+ * buttons are named by what they do, no dialog and no timer. Focus lands on the one that
+ * keeps; Esc keeps too.
+ */
+export function Confirm({ text, yes, no, onYes, onNo, testId }: { text: string; yes: string; no: string; onYes: () => void; onNo: () => void; testId?: string }) {
+  const keep = useRef<HTMLButtonElement | null>(null);
+  const group = useRef<HTMLDivElement | null>(null);
+  const id = useId();
+  useEffect(() => {
+    // the whole question in view, clear of the pinned box (the page's scroll padding), then focus
+    group.current?.scrollIntoView({ block: "nearest" });
+    keep.current?.focus({ preventScroll: true });
+  }, []);
+  return (
+    <div
+      ref={group}
+      className="confirm"
+      role="group"
+      aria-labelledby={id}
+      data-testid={testId}
+      onKeyDown={(e) => {
+        if (e.key !== "Escape") return;
+        e.preventDefault();
+        e.stopPropagation(); // Esc answers the question; it does not also close a sheet around it
+        onNo();
+      }}
+    >
+      <p id={id}>{text}</p>
+      <p className="confirm__btns">
+        <button type="button" className="ask-btn ask-btn--primary" onClick={onYes}>{yes}</button>
+        <button type="button" className="ask-btn" ref={keep} onClick={onNo}>{no}</button>
+      </p>
+    </div>
+  );
+}
+
+/** The browser is not keeping conversations, or has no room left: one line, with a sign. */
+export function KeepNote({ text }: { text: string }) {
+  return (
+    <p className="keepnote" role="status" data-testid="keep-note">
+      <span className="warn__sign" aria-hidden="true">!</span>
+      <span>{text}</span>
+    </p>
   );
 }

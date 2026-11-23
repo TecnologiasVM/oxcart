@@ -3442,3 +3442,397 @@ html:has(main.ask) {
   scroll-padding-top: calc(var(--pinned-top, 0px) + 12px);
   scroll-padding-bottom: calc(var(--pinned-foot, 0px) + 12px);
 }
+
+/* ---------------------------------------------------------------------------
+   The kept conversations: the rail from 1100 px, the bar and the sheet below that.
+   --------------------------------------------------------------------------- */
+.ask {
+  --rail-w: 264px;
+}
+.rail {
+  display: none;
+  flex-direction: column;
+  background: var(--color-paper);
+}
+@media (min-width: 1100px) {
+  .ask--rail {
+    display: grid;
+    grid-template-columns: var(--rail-w) minmax(0, 1fr);
+    align-items: start;
+  }
+  /* fixed under the header in its own column, as docked Evidence is: sticky, it was pushed up
+     under the header whenever the footer came into view */
+  .ask--rail > .rail {
+    display: flex;
+    position: fixed;
+    top: var(--masthead-h, 0px);
+    bottom: 0;
+    left: 0;
+    width: var(--rail-w);
+    padding: 20px 16px 16px 24px;
+    border-right: 1px solid var(--color-hairline-strong);
+  }
+  html:has(.ask--rail) footer.site-foot {
+    margin-left: 264px; /* --rail-w: the footer stays clear of the rail */
+  }
+  .ask--rail > .conv {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+@media (min-width: 1280px) {
+  .ask--rail.ask--ev {
+    grid-template-columns: var(--rail-w) minmax(0, 1fr) var(--evp-w);
+  }
+}
+@media (min-width: 1280px) and (max-width: 1599px) {
+  /* Evidence docked and the answer's column would get narrow: the rail steps aside, and the
+     bar takes its place. What the visitor chose (hidden or not) does not change */
+  .ask--rail.ask--ev {
+    grid-template-columns: minmax(0, 1fr) var(--evp-w);
+  }
+  .ask--rail.ask--ev > .rail {
+    display: none;
+  }
+  html:has(.ask--rail.ask--ev) footer.site-foot {
+    margin-left: 0;
+  }
+  .ask--rail.ask--ev > .conv {
+    grid-column: 1;
+  }
+}
+@media (max-width: 1099px) {
+  /* below the rail's width the same list is a sheet, opened from the bar */
+  .ask--convs > .rail {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    overflow: auto;
+    padding: 12px var(--gutter) 24px;
+  }
+}
+.rail__in {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+/* only the list gives up room when the rail is short: the head, the button and the foot stay whole */
+.rail__head,
+.newbtn,
+.rail .keepnote,
+.rail__foot,
+.rail__links {
+  flex-shrink: 0;
+}
+.rail__hide-sign {
+  margin-right: 6px;
+}
+.rail__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-height: 44px;
+}
+.rail__hide,
+.rail__close {
+  display: none;
+}
+.ask--convs .rail__close {
+  display: block;
+}
+@media (min-width: 1100px) {
+  /* "Hide" stands first, in the corner where "Conversations" appears once the rail is hidden */
+  .rail__hide {
+    display: inline-flex;
+    align-items: center;
+    order: -1;
+    min-height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--color-hairline-strong);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .rail__hide:hover {
+    background: var(--color-paper-3);
+    border-color: var(--color-ink);
+  }
+  .rail__head h2 {
+    flex-basis: 100%;
+  }
+}
+.newbtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 14px;
+  margin: 8px 0 16px;
+  border: 1.5px solid var(--color-ink);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-size: 18px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.newbtn:hover {
+  background: var(--color-paper-3);
+}
+.rail .keepnote {
+  margin: 0 0 16px;
+}
+/* the list scrolls between "New conversation" and the foot, which stay put */
+.rail__list,
+.rail__list ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rail__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  border-top: 1px solid var(--color-hairline-strong);
+}
+.rail__list:has(.rail__group) {
+  border-top: 0;
+}
+.rail__group {
+  padding-top: 18px;
+}
+.rail__group + .rail__group {
+  padding-top: 24px;
+}
+.rail__group h3 {
+  margin: 0 0 6px;
+}
+.rail__group ol {
+  border-top: 1px solid var(--color-hairline-strong);
+}
+.rail__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px 8px 12px 12px;
+  border: 0;
+  border-left: 4px solid transparent;
+  border-bottom: 1px solid var(--color-hairline-strong);
+  background: none;
+  color: var(--color-ink);
+  font-size: 18px;
+  line-height: 1.35;
+  cursor: pointer;
+}
+.rail__item:hover {
+  background: var(--color-paper-2);
+}
+/* the open one: a bar, a heavier weight and a tint, so never by colour alone */
+.rail__item[aria-current] {
+  border-left-color: var(--color-amber);
+  background: var(--color-paper-3);
+  font-weight: 600;
+}
+.rail__t {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.rail__foot {
+  padding-top: 16px;
+  font-size: 18px;
+  line-height: 1.4;
+  color: var(--color-ink-muted);
+}
+.rail__foot p {
+  margin: 0;
+}
+.rail__links {
+  display: none;
+}
+.ask--convs .rail__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 24px;
+  margin: 20px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-hairline-strong);
+}
+.rail__links a {
+  padding: 10px 0;
+}
+
+/* the bar above a thread where there is no rail, and the storage line under it */
+.convbar {
+  display: contents;
+}
+.threadbar,
+.strip {
+  display: none;
+}
+.threadbar {
+  order: -2;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px var(--gutter);
+  background: var(--color-paper);
+  border-bottom: 1px solid var(--color-hairline-strong);
+}
+.strip {
+  order: -1;
+  width: 100%;
+  max-width: calc(var(--read) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: 12px var(--gutter) 0;
+}
+.ask--thread .threadbar {
+  display: flex;
+}
+.ask--thread .strip {
+  display: block;
+}
+@media (min-width: 1100px) {
+  .threadbar {
+    top: var(--masthead-h, 0px);
+  }
+  .ask--thread .threadbar,
+  .ask--thread .strip {
+    display: none;
+  }
+  .ask--norail .threadbar {
+    display: flex;
+  }
+  .ask--norail .strip {
+    display: block;
+  }
+}
+@media (min-width: 1280px) and (max-width: 1599px) {
+  .ask--rail.ask--ev .threadbar {
+    display: flex;
+  }
+  .ask--rail.ask--ev .strip {
+    display: block;
+  }
+}
+.tb {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1.5px solid var(--color-ink);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-size: 18px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.tb:hover {
+  background: var(--color-paper-3);
+}
+.tb__glyph {
+  width: 16px;
+  height: 12px;
+  border-top: 2px solid var(--color-ink);
+  border-bottom: 2px solid var(--color-ink);
+  position: relative;
+}
+.tb__glyph::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 3px;
+  border-top: 2px solid var(--color-ink);
+}
+
+/* the browser keeps nothing, or has no room: one line, with a sign */
+.keepnote {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1.5px solid var(--color-ink);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+/* a deletion, asked in place where its button was */
+.confirm {
+  border: 1.5px solid var(--color-ink);
+  padding: 14px 16px;
+  text-align: left;
+  background: var(--color-paper);
+}
+.confirm p {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.45;
+  color: var(--color-ink);
+}
+.confirm .confirm__btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.confirm .ask-btn {
+  min-height: 48px;
+  padding: 0 18px;
+}
+.rail .confirm {
+  padding: 12px;
+}
+
+/* the kept conversations under the box, where there is no rail */
+.mine {
+  margin-top: 36px;
+}
+.mine ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--color-hairline-strong);
+}
+.mine li {
+  border-bottom: 1px solid var(--color-hairline-strong);
+}
+.mine li button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 14px 0;
+  border: 0;
+  background: none;
+  color: var(--color-ink);
+  font-family: var(--font-serif);
+  font-size: 21px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.mine li button:hover {
+  background: var(--color-paper-2);
+}
+.mine__all {
+  margin: 4px 0 0;
+}
+@media (min-width: 1100px) {
+  .mine {
+    display: none;
+  }
+}
