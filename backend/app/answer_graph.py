@@ -255,6 +255,12 @@ _ABBREVIATIONS = frozenset("""
     dr dra sr sra srta sres st sta sto co cia inc ltd mr mrs ms jr prof gen gral av approx aprox vs
 """.split())
 _WORD_BEFORE_THE_STOP = re.compile(r"([^\W\d_]+)\.[\"'”’»)\]]*$")
+# Before a lower-case letter a full stop is not a sentence's end only after one of these, a single letter
+# ("5 c. on the first day") or letters with full stops between them ("the U.P.U. or another body"). After a
+# longer word or a number it is: a model at times starts a sentence with a lower-case letter, and joined to the
+# sentence before it, that sentence would be shown on a citation that is not its own.
+_ONLY_BEFORE_LOWER_CASE = frozenset("etc cts ctvs ct".split())
+_CLOSING = "\"'”’»)]"
 
 
 def _plain_letters(word: str) -> str:
@@ -262,9 +268,26 @@ def _plain_letters(word: str) -> str:
 
 
 def _stops_an_abbreviation(before: str) -> bool:
-    """Does ``before`` end with the full stop of an abbreviation?"""
+    """Does ``before`` end with the full stop of an abbreviation of the list, or of an initial (one capital
+    letter: "Dr. Nobody M. Madeup", "the U. S. mail")?"""
     word = _WORD_BEFORE_THE_STOP.search(before)
-    return bool(word) and _plain_letters(word.group(1)) in _ABBREVIATIONS
+    if not word:
+        return False
+    letters = word.group(1)
+    return (len(letters) == 1 and letters.isupper()) or _plain_letters(letters) in _ABBREVIATIONS
+
+
+def _goes_on_before_lower_case(before: str) -> bool:
+    """``before`` ends with an end mark and a lower-case letter follows: does the sentence go on? After "…",
+    "!" or "?" it does. After a full stop only when what stands before it reads as an abbreviation."""
+    before = before.rstrip(_CLOSING)
+    if not before.endswith("."):
+        return True
+    token = (before[:-1].split() or [""])[-1].lstrip("\"'“‘«([")
+    letters = token.replace(".", "")
+    if not letters.isalpha():
+        return False                                   # a number, or anything that is not letters
+    return len(token) == 1 or "." in token or _plain_letters(token) in _ONLY_BEFORE_LOWER_CASE
 
 
 def ends_a_sentence(before: str) -> bool:
@@ -276,15 +299,18 @@ def sentence_spans(text: str) -> list:
     """(start, end) of each sentence of ``text``, without the space around it.
 
     A sentence ends at a line break, or at an end mark followed by space when what follows can start a
-    sentence. It does not end at an abbreviation's full stop, nor before a number or a lower-case letter: "a
-    copy of Guanacaste No. 7 with double overprints" is one sentence. Two sentences can be taken for one that
-    way ("... in 1889. 500 were printed."); one is never cut in two inside a number or a name, which is the
-    worse error here, because each piece then needs a citation of its own to be shown."""
+    sentence. It does not end at the full stop of an abbreviation of the list or of an initial, nor before a
+    number, nor before a lower-case letter when what stands before the stop reads as an abbreviation: "a copy
+    of Guanacaste No. 7 with double overprints" is one sentence. Two sentences can be taken for one that way
+    ("... in 1889. 500 were printed.", "... by Madeup & Co. It was ...", "... of type A. The ..."); the rules
+    are kept narrow because the second is then shown on the first one's citation."""
     spans, start = [], 0
     for match in _SENTENCE_END.finditer(text):
         if "\n" not in match.group(0):
             following = text[match.end():match.end() + 1]
-            if _stops_an_abbreviation(text[:match.start()]) or following.isdigit() or following.islower():
+            before = text[:match.start()]
+            if (_stops_an_abbreviation(before) or following.isdigit()
+                    or (following.islower() and _goes_on_before_lower_case(before))):
                 continue
         spans.append((start, match.start() + len(match.group(0).rstrip())))
         start = match.end()

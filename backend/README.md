@@ -200,11 +200,15 @@ the same evidence followed by a short answer whose sentences cite it. The steps 
   standing between two sentences, counts as the citation of the sentence before it and is not printed. The part
   of a kept sentence outside its cited text is not removed.
 - **Where a sentence ends.** At a line break, or at an end mark followed by space when what follows can start a
-  sentence. Not at an abbreviation's full stop ("No.", "núm.", "pp.", "Sc.", "Co." and the like), and not
-  before a number or a lower-case letter: "a copy of Guanacaste No. 7 with double overprints" is one sentence.
-  The cost is that two sentences are sometimes taken for one ("… in 1889. 500 were printed."), and then one
-  citation keeps both; a sentence cut in two inside a number or a name was the worse error, because each piece
-  needed a citation of its own and a source mark stood in the middle of it.
+  sentence. Not at the full stop of an abbreviation of a list ("No.", "núm.", "pp.", "Sc.", "Co." and the
+  like) or of an initial ("Dr. N. M. Somebody", "U. S."); not before a number; and not before a lower-case
+  letter when what stands before the stop reads as an abbreviation (a single letter, letters with full stops
+  between them, "etc.", "cts."): "a copy of Guanacaste No. 7 with double overprints" is one sentence. After a
+  word or a number, a full stop before a lower-case letter does end the sentence: a model at times starts one
+  that way. The cost is that two sentences are sometimes taken for one ("… in 1889. 500 were printed.",
+  "… & Co. It was …", "… of type A. The …"), and then one citation keeps both; a sentence cut in two inside a
+  number or a name was the worse error, because each piece needed a citation of its own and a source mark stood
+  in the middle of it.
 - **The evidence is untrusted text.** It enters a request as document content only, never in the instructions;
   the instructions say that text inside a document is not to be followed; the model has no tools. The earlier
   turns are treated the same way.

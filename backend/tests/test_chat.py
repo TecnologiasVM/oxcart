@@ -444,6 +444,32 @@ def test_a_sentence_does_not_end_at_an_abbreviations_full_stop_nor_before_a_numb
     assert cut("It was sold in 1889. 500 were printed.") == ["It was sold in 1889. 500 were printed."]
 
 
+def test_before_a_lower_case_letter_a_full_stop_ends_a_sentence_unless_an_abbreviation_stands_before_it():
+    cut = lambda text: [text[a:b] for a, b in answer_graph.sentence_spans(text)]
+    # a model at times starts a sentence with a lower-case letter: after a word or a number it is a new sentence
+    assert cut("The made-up club was started in 1987. this club has members.") == [
+        "The made-up club was started in 1987.", "this club has members."]
+    assert cut("El precio inventado subió a 9 céntimos. ese sobre inventado circuló poco.") == [
+        "El precio inventado subió a 9 céntimos.", "ese sobre inventado circuló poco."]
+    # what reads as an abbreviation goes on: a single letter, letters with full stops between them, a short list
+    for one in ("The price was 5 c. on the first day.", "No complaint came from the U.P.U. or another made-up body.",
+                "El sobre inventado valía 3 cts. en aquel pueblo inventado.", "It shows stamps, covers, etc. and nothing else.",
+                "It was flown at 9 a.m. by a made-up pilot.", 'He wrote "stop…" and then stopped.', "Was it sold? yes, in a made-up year."):
+        assert cut(one) == [one], one
+
+
+def test_an_initial_does_not_end_a_sentence():
+    cut = lambda text: [text[a:b] for a, b in answer_graph.sentence_spans(text)]
+    for one in ("The made-up catalogue is by Dr. Nobody M. Madeup of a made-up town.", "It was flown by three U. S. made-up aircraft.",
+                'The boxed "S. Madeup" postmark is the earliest.'):
+        assert cut(one) == [one], one
+    assert cut("The catalogue is by Nobody M. Madeup. Its pages are made up.") == [
+        "The catalogue is by Nobody M. Madeup.", "Its pages are made up."]
+    assert not answer_graph.ends_a_sentence("The catalogue is by Nobody M.")
+    # the cost: a sentence that ends with one capital letter takes the next one with it
+    assert cut("The stamp is of type A. The other is not.") == ["The stamp is of type A. The other is not."]
+
+
 def test_a_citation_after_an_abbreviation_stays_inside_its_sentence(chat_client, model):
     """Seen on the served page: a source mark stood in the middle of a sentence, after "No."."""
     client = chat_client()
