@@ -2108,7 +2108,8 @@ button {
    One spacing scale: 4 8 12 16 24 32 48 64.
    --------------------------------------------------------------------------- */
 /* today's muted ink is 4.13:1 on paper-3, under AA; this one holds 4.5:1 or more on all three papers */
-html:has(main.ask) {
+html:has(main.ask),
+html:has(main.how) {
   --color-ink-muted: #55524b;
 }
 .ask {
@@ -2184,19 +2185,22 @@ html:has(main.ask) {
 .lang-btn:hover {
   background: var(--color-paper-3);
 }
-html:has(main.ask) .masthead__bar {
+html:has(main.ask) .masthead__bar,
+html:has(main.how) .masthead__bar {
   flex-wrap: wrap;
 }
 @media (max-width: 599px) {
   /* the two links stand in the footer as well; the header keeps the language */
   .page-nav__link,
-  html:has(main.ask) .brand__sub {
+  html:has(main.ask) .brand__sub,
+  html:has(main.how) .brand__sub {
     display: none;
   }
 }
 @media (max-width: 1099px) {
   /* on a small screen the header scrolls away: the box at the foot needs the room */
-  html:has(main.ask) .masthead {
+  html:has(main.ask) .masthead,
+  html:has(main.how) .masthead {
     position: static;
   }
 }
@@ -4250,4 +4254,519 @@ button.wmark:hover {
 }
 .web--old[open] > summary {
   margin-bottom: 2px;
+}
+
+
+/* ---------------------------------------------------------------------------
+   "How it works" (app/how-it-works, app/components/how/). One reading column; from 1100 px the first
+   paragraph and the diagram share the first screen, and each section's heading hangs left of it.
+   The diagram is 320 px wide at every size. The same spacing scale as the question page.
+   --------------------------------------------------------------------------- */
+.how {
+  --gutter: 20px;
+  font-size: 18px;
+  line-height: 1.55;
+}
+@media (min-width: 720px) {
+  .how { --gutter: 32px; }
+}
+@media (min-width: 1100px) {
+  .how { --gutter: 40px; }
+}
+.how :focus-visible,
+html:has(main.how) .page-nav :focus-visible,
+html:has(main.how) .site-foot :focus-visible {
+  outline: 3px solid var(--color-cobalt);
+  outline-offset: 3px;
+}
+.how a {
+  color: var(--color-cobalt);
+  text-underline-offset: 3px;
+}
+.page-nav__link[aria-current="page"] {
+  text-decoration-thickness: 2px;
+}
+.how__in {
+  max-width: calc(760px + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: 40px var(--gutter) 64px;
+}
+.how h1 {
+  font-family: var(--font-serif);
+  font-weight: 300;
+  font-size: clamp(2.2rem, 1.4rem + 3.4vw, 3.5rem);
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  margin: 8px 0 20px;
+}
+.how__lead {
+  font-size: 21px;
+  line-height: 1.5;
+  margin: 0;
+}
+.how h2 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 30px;
+  line-height: 1.2;
+  margin: 56px 0 16px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-ink);
+}
+.how h3 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.how__h3 {
+  margin: 28px 0 8px !important;
+}
+.how p {
+  margin: 0 0 16px;
+}
+.how b {
+  font-weight: 600;
+}
+/* a source mark here points nowhere: it is the trace's, shown as it was */
+.how .mark--static {
+  cursor: default;
+}
+
+/* ---- the diagram and the numbered list ---- */
+.pipe__fig {
+  margin: 8px 0 28px;
+}
+.pipe__svg {
+  display: block;
+  width: 320px;
+  max-width: 100%;
+  height: auto;
+  font-family: var(--font-sans);
+}
+.pipe__fig figcaption {
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--color-ink-muted);
+  margin-top: 12px;
+  max-width: 320px;
+}
+.p-node rect {
+  fill: var(--color-paper);
+  stroke: var(--color-ink);
+  stroke-width: 1.25;
+}
+.p-node text {
+  fill: var(--color-ink);
+}
+.p-node--some > rect:first-child {
+  stroke-dasharray: 5 4;
+}
+.p-node--page rect {
+  fill: var(--color-paper-3);
+}
+.p-name {
+  font-size: 16px;
+  font-weight: 500;
+}
+.p-sub {
+  font-size: 14px;
+}
+.p-node .p-mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  fill: var(--color-ink-muted);
+}
+.p-numtext {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+}
+.p-edge {
+  fill: none;
+  stroke: var(--color-ink);
+  stroke-width: 1.25;
+}
+.p-head {
+  fill: var(--color-ink);
+}
+.pipe__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 20px;
+}
+.pipe__list p {
+  margin: 0;
+}
+.pipe__n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-right: 10px;
+  border: 1.25px solid var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  vertical-align: 2px;
+}
+.pipe__note {
+  margin: 20px 0 0 !important;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-hairline);
+}
+@media (min-width: 720px) and (max-width: 1099px) {
+  .how__pipe {
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    column-gap: 40px;
+    align-items: start;
+  }
+  .how__pipe > h2 {
+    grid-column: 1 / -1;
+  }
+  .pipe__fig {
+    margin-bottom: 0;
+  }
+}
+
+/* ---- the traced question ---- */
+.trace {
+  margin: 24px 0;
+  padding: 20px;
+  border: 1px solid var(--color-hairline-strong);
+  background: var(--color-paper-2);
+}
+@media (min-width: 720px) {
+  .trace { padding: 24px 28px; }
+}
+.trace__label {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+.trace__q {
+  margin: 12px 0 0;
+}
+.trace__q dt {
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--color-ink-muted);
+  margin-top: 12px;
+}
+.trace__q dd {
+  margin: 2px 0 0;
+  font-family: var(--font-serif);
+  font-size: 21px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.trace__t {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0 4px;
+  font-size: 17px;
+}
+.trace__t caption {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  padding-bottom: 8px;
+}
+.trace__t th,
+.trace__t td {
+  text-align: left;
+  font-weight: 400;
+  padding: 8px 12px 8px 0;
+  border-bottom: 1px solid var(--color-hairline);
+  vertical-align: baseline;
+}
+.trace__t thead th {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  border-bottom: 1px solid var(--color-ink);
+}
+.trace__t .r {
+  text-align: right;
+  padding-right: 16px;
+}
+.trace__t td.r {
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.trace__t th .mark {
+  margin: 0 8px 0 0;
+}
+.trace__q--a .mark {
+  margin: 0 0 0 2px;
+}
+/* on a phone each issue is a block, and each value carries its column's name */
+@media (max-width: 599px) {
+  .trace__t thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .trace__t,
+  .trace__t tbody {
+    display: block;
+  }
+  .trace__t caption {
+    display: block;
+  }
+  .trace__t tbody {
+    border-top: 1px solid var(--color-ink);
+  }
+  .trace__t tr {
+    display: block;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--color-hairline);
+  }
+  .trace__t tbody th,
+  .trace__t td,
+  .trace__t td.r {
+    display: block;
+    border: 0;
+    padding: 0;
+    text-align: left;
+  }
+  .trace__t td::before {
+    content: attr(data-label) "\00a0\00a0";
+    font-family: var(--font-sans);
+    font-size: 15px;
+    color: var(--color-ink-muted);
+  }
+}
+
+/* ---- results, what was tried, cost ---- */
+.ledger {
+  list-style: none;
+  margin: 20px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--color-hairline-strong);
+}
+.ledger li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--color-hairline);
+}
+.ledger p {
+  margin: 0;
+}
+.ledger__n {
+  font-family: var(--font-serif);
+  font-weight: 300;
+  font-size: 38px;
+  line-height: 1.05;
+  color: var(--color-cobalt);
+  white-space: nowrap;
+}
+.ledger--small {
+  margin-top: 0;
+}
+.ledger--small .ledger__n {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.55;
+  color: var(--color-ink);
+}
+@media (min-width: 720px) {
+  .ledger li {
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 24px;
+    align-items: baseline;
+  }
+  .ledger--small li {
+    grid-template-columns: 136px minmax(0, 1fr);
+    padding: 12px 0;
+  }
+}
+.limits {
+  margin: 20px 0 0 !important;
+  border-left: 3px solid var(--color-ink);
+  padding-left: 12px;
+}
+.costs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 20px;
+}
+.costs li {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  line-height: 1.45;
+}
+.costs__n {
+  font-family: var(--font-serif);
+  font-weight: 300 !important;
+  font-size: 40px;
+  line-height: 1;
+  color: var(--color-cobalt);
+}
+.costs__unit {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: var(--color-ink);
+}
+@media (min-width: 720px) {
+  .costs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 32px;
+  }
+  /* a run with no waits has the cost alone: it takes the row */
+  .costs li:only-child {
+    grid-column: 1 / -1;
+    max-width: 42em;
+  }
+}
+.costs__note {
+  margin-top: 24px !important;
+}
+
+/* ---- safe, links, the fold ---- */
+.safe {
+  margin: 0;
+  padding-left: 22px;
+}
+.safe li {
+  margin-bottom: 10px;
+}
+.how__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+}
+.how__links a {
+  display: inline-block;
+  padding: 8px 0;
+  font-weight: 500;
+}
+.how__fold {
+  margin-top: 16px;
+  border-top: 1px solid var(--color-hairline);
+}
+.how__fold summary {
+  cursor: pointer;
+  padding: 12px 0;
+  font-weight: 500;
+  list-style: none;
+}
+.how__fold summary::-webkit-details-marker {
+  display: none;
+}
+.how__fold summary::before {
+  content: "+";
+  display: inline-block;
+  width: 1.2em;
+  font-family: var(--font-mono);
+}
+.how__fold[open] summary::before {
+  content: "−";
+}
+.how__stack {
+  margin: 4px 0 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  border-top: 1px solid var(--color-hairline-strong);
+}
+.how__stack dt {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  padding-top: 10px;
+  line-height: 1.5;
+}
+.how__stack dd {
+  margin: 0;
+  padding: 2px 0 10px;
+  border-bottom: 1px solid var(--color-hairline);
+}
+@media (min-width: 720px) {
+  .how__stack {
+    grid-template-columns: 216px minmax(0, 1fr);
+  }
+  .how__stack dt {
+    padding: 12px 16px 10px 0;
+    border-bottom: 1px solid var(--color-hairline);
+  }
+  .how__stack dd {
+    padding: 8px 0 10px;
+  }
+}
+
+/* ---- from 1100 px: the first screen in two columns, and each heading left of its section ---- */
+@media (min-width: 1100px) {
+  .how__in {
+    max-width: calc(1080px + 2 * var(--gutter));
+  }
+  .how__top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-rows: auto auto 1fr;
+    column-gap: 72px;
+  }
+  .how__intro {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .how__pipe {
+    display: contents;
+  }
+  .how__pipe > h2 {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .how__pipe > .pipe__text {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .how__pipe > .pipe__fig {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    margin: 20px 0 0;
+  }
+  .how__sec {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    column-gap: 40px;
+    align-items: start;
+    margin-top: 56px;
+    padding-top: 20px;
+    border-top: 1px solid var(--color-ink);
+  }
+  .how__sec > h2 {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-size: 26px;
+  }
+  .how__body {
+    padding-top: 4px;
+    min-width: 0;
+  }
+  .how__body > p {
+    max-width: 42em;
+  }
 }

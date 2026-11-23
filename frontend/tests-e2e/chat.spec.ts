@@ -49,8 +49,8 @@ test("the site opens directly on the question box", async ({ page }) => {
   await expect(page.locator("header.masthead")).toContainText("Oxcart");
   await expect(page.getByTestId("demo-tag")).toBeVisible();
   await expect(page.getByRole("button", { name: "A live example question?" })).toBeVisible();
-  // the evaluation is one link away; no figure is written on the page
-  await expect(page.locator("main").getByRole("link", { name: "How it works and how it was evaluated" })).toHaveAttribute("href", /\/oxcart\/blob\/main\/EVALUATION\.md$/);
+  // "How it works" is one link away; no figure is written on the page
+  await expect(page.locator("main").getByRole("link", { name: "How it works and how it was evaluated" })).toHaveAttribute("href", "/how-it-works");
   await expect(page.locator("main")).not.toContainText(/For engineers| of 41| of 32| of 357/);
 });
 
@@ -79,11 +79,12 @@ test("the privacy line stands by the box, and Details unfolds the full paragraph
   // what the server holds of a question: the vectors of the last 256, in memory, with no text (backend: Embedder)
   await expect(full).toContainText("last 256 questions");
   await expect(full).toContainText("writes nothing to disk");
-  // the footer is one line, with no company name, and both links lead to the repository
+  // the footer is one line, with no company name; "How it works" is the site's own page, the source the repository
   const footer = page.locator("footer.site-foot");
   await expect(footer).not.toContainText(/OpenAI|Anthropic|Cloudflare/);
-  await expect(footer.getByRole("link", { name: "How it works" })).toHaveAttribute("href", /\/oxcart\/blob\/main\/EVALUATION\.md$/);
-  await expect(page.locator("header.masthead").getByRole("link", { name: /How it works|Cómo funciona/ })).toHaveAttribute("href", /EVALUATION\.md$/);
+  await expect(footer.getByRole("link", { name: "How it works" })).toHaveAttribute("href", "/how-it-works");
+  await expect(footer.getByRole("link", { name: "Source · MIT" })).toHaveAttribute("href", "https://github.com/TecnologiasVM/oxcart");
+  await expect(page.locator("header.masthead").getByRole("link", { name: /How it works|Cómo funciona/ })).toHaveAttribute("href", "/how-it-works");
   // in a conversation it stands under the box
   await ask(page, "A question?");
   await expect(newest(page).getByTestId("evidence-button")).toBeVisible();
