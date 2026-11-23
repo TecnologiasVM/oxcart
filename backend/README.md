@@ -287,8 +287,9 @@ made). The states:
 
 **How many searches.** Before a ticket is made and again before a search, the backend reads the account's
 credits used this month from `GET https://api.tavily.com/usage` (`account.plan_usage`, with `account.plan_limit`
-present as an integer; 4 s), at most once in five minutes, and adds the searches it made since that read. A
-search is allowed while
+present as an integer; 4 s), at most once in five minutes, and adds the searches it made itself in the last day of
+the current month: the usage route runs behind the searches made (`WEB_USAGE_LAG_SECONDS`). A search is allowed
+while
 
     used < 30 + 920 x (the share of the current month gone by, in UTC)
 

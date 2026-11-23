@@ -218,9 +218,8 @@ def test_a_search_is_allowed_while_the_credits_used_are_under_the_months_share(w
         assert searches.rule == "usage"
 
 
-def test_the_usage_is_read_at_most_once_in_five_minutes_and_the_searches_made_since_are_added():
+def test_the_usage_is_read_at_most_once_in_five_minutes_and_the_searches_made_here_are_added_while_they_are_recent():
     clock, reads, used = Clock(at(2026, 11, 15, 12)), [], [465]      # 474.7 allowed, 474.8 five minutes later
-
     def read():
         reads.append(clock.t)
         return used[0]
@@ -234,8 +233,28 @@ def test_the_usage_is_read_at_most_once_in_five_minutes_and_the_searches_made_si
     searches.counted()
     assert not searches.allowed() and len(reads) == 1                # 465 + 10
     clock.t += 1
-    used[0] = 466                                                    # the account counted only one of the ten
-    assert searches.allowed() and len(reads) == 2                    # read again: 466, and nothing added since
+    used[0] = 466                                                    # the route runs behind: it holds one of the ten
+    assert not searches.allowed() and len(reads) == 2                # read again: 466 + the ten made here
+    # a day later the route holds all ten, and the ten made here are too old to be added again
+    clock.t = at(2026, 11, 16, 12) + 600
+    used[0] = 475
+    assert searches.allowed() and len(reads) == 3                    # 475 of the 504 allowed by then
+
+
+def test_a_new_month_starts_from_what_the_route_says_and_the_old_months_searches_are_not_added():
+    clock, used = Clock(at(2026, 11, 30, 23, 50)), [100]
+    searches = web_step.Searches(lambda: used[0], now=clock)
+    assert searches.allowed()
+    for _ in range(40):
+        searches.counted()                                           # made in November, minutes before the month ends
+    used[0] = 0                                                      # the route starts again with the month
+    clock.t = at(2026, 12, 1, 0, 10)
+    assert searches.allowed()                                        # 0 of December's 30: November's 40 do not count
+    for _ in range(30):
+        searches.counted()
+    assert searches.allowed()                                        # 30 of 30.2
+    searches.counted()
+    assert not searches.allowed()                                    # the route still says 0; the 31 made here count
 
 
 def test_when_the_usage_cannot_be_read_thirty_searches_a_day_in_memory_starting_again_each_day():

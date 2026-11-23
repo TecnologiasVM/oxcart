@@ -17,8 +17,9 @@ the process starts and is held in memory only: no secret is configured for it, a
 tickets of the last two minutes invalid. A ticket is good once: its id is kept until it expires.
 
 **How many searches.** The account's credits used this month are read from the search service's usage
-route, at most once in five minutes; between two reads the searches this process made are added. A search
-is allowed while that is under a share of the month (settings.py, ``WEB_SEARCHES_*``). When the usage cannot
+route, at most once in five minutes. That route runs behind the searches made, so the searches this process
+made in the last day are added to what it says. A search is allowed while that is under a share of the month
+(settings.py, ``WEB_SEARCHES_*``, ``WEB_USAGE_LAG_SECONDS``). When the usage cannot
 be read, a fixed number a day, counted in memory. Nothing is remembered across restarts: the next read gives
 the true number.
 
@@ -131,8 +132,11 @@ class Searches:
     """Whether a web search is allowed now, by one of two rules:
 
     "usage"    the account's credits used, read at most once in WEB_USAGE_EVERY_SECONDS, plus the
-               searches made since that read, under WEB_SEARCHES_AT_MONTH_START +
-               WEB_SEARCHES_OVER_THE_MONTH x month_share(now)
+               searches this process made in the last WEB_USAGE_LAG_SECONDS of the current month (the
+               usage route runs behind, so a search just made is not in it yet), under
+               WEB_SEARCHES_AT_MONTH_START + WEB_SEARCHES_OVER_THE_MONTH x month_share(now).
+               After a restart the count is what the route says, which can miss the searches made
+               shortly before it.
     "per_day"  when the usage could not be read: WEB_SEARCHES_PER_DAY_FALLBACK a day (UTC), in memory
 
     ``read_usage`` gives the credits used, or None when they could not be read. One log line each time the
@@ -143,7 +147,7 @@ class Searches:
         self._lock = threading.Lock()
         self._read_at: Optional[float] = None
         self._used = 0               # at the last read
-        self._since = 0              # searches made since the last read
+        self._made: list = []        # when each search of this process was made, oldest first
         self._day = (0, 0)           # (day, searches made that day): every search, whatever the rule
         self.rule: Optional[str] = None
 
@@ -161,19 +165,24 @@ class Searches:
                 if used is None:
                     self._set_rule("per_day")
                 else:
-                    self._used, self._since = used, 0
+                    self._used = used
                     self._set_rule("usage")
             if self.rule == "usage":
-                return self._used + self._since < (settings.WEB_SEARCHES_AT_MONTH_START
-                                                    + settings.WEB_SEARCHES_OVER_THE_MONTH * month_share(t))
+                # searches too recent to be in what the route says, and of this month (a new month starts from zero)
+                now = datetime.fromtimestamp(t, tz=timezone.utc)
+                since = max(t - settings.WEB_USAGE_LAG_SECONDS, datetime(now.year, now.month, 1, tzinfo=timezone.utc).timestamp())
+                self._made = [made for made in self._made if made >= since]
+                return self._used + len(self._made) < (settings.WEB_SEARCHES_AT_MONTH_START
+                                                       + settings.WEB_SEARCHES_OVER_THE_MONTH * month_share(t))
             day, count = self._day
             return (count if day == int(t // 86400) else 0) < settings.WEB_SEARCHES_PER_DAY_FALLBACK
 
     def counted(self) -> None:
         """One search was made."""
         with self._lock:
-            day = int(self.now() // 86400)
-            self._since += 1
+            t = self.now()
+            day = int(t // 86400)
+            self._made = self._made[-5000:] + [t]
             self._day = (day, (self._day[1] if self._day[0] == day else 0) + 1)
 
 

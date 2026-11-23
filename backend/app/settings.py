@@ -205,11 +205,16 @@ WEB_TEXT_CHARS: int = 1500
 WEB_TICKET_SECONDS: int = 120
 WEB_MAX_BODY_BYTES: int = 4096
 # How many searches are allowed. The account's credits used this month are read from the search service's
-# usage route at most once in WEB_USAGE_EVERY_SECONDS, plus the searches this process made since; a search is
-# allowed while that is under WEB_SEARCHES_AT_MONTH_START + WEB_SEARCHES_OVER_THE_MONTH x the share of the
-# current month gone by (UTC). When the usage cannot be read: WEB_SEARCHES_PER_DAY_FALLBACK a day (UTC),
+# usage route at most once in WEB_USAGE_EVERY_SECONDS, plus the searches this process made lately (below); a
+# search is allowed while that is under WEB_SEARCHES_AT_MONTH_START + WEB_SEARCHES_OVER_THE_MONTH x the share
+# of the current month gone by (UTC). When the usage cannot be read: WEB_SEARCHES_PER_DAY_FALLBACK a day (UTC),
 # counted in memory.
 WEB_USAGE_EVERY_SECONDS: int = 300
 WEB_SEARCHES_AT_MONTH_START: int = 30
 WEB_SEARCHES_OVER_THE_MONTH: int = 920
 WEB_SEARCHES_PER_DAY_FALLBACK: int = 30
+# The usage route runs behind the searches made: on 2026-11-23, 26 searches were still not in it nine minutes
+# after the first. So the searches this process made in the last WEB_USAGE_LAG_SECONDS (of the current month)
+# are added to what the route says. Longer than the real delay only makes the count cautious: a search the
+# route already holds is counted twice until it is older than this.
+WEB_USAGE_LAG_SECONDS: int = 24 * 3600
