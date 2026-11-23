@@ -145,7 +145,7 @@ shown text). With `FIGURES_BASE` set, a shown passage carries `figures`: for eac
 order, `{"id", "width", "height", "class"}`. `id` is the crop's public name, the first 20 hex characters of the
 SHA-256 of its own name normalised to NFC (the figures host serves `<id>.png`); `width` and `height` are the
 file's pixels; `class` is `A` (a stamp) or `B` (a cover or a postal marking). A crop is named only when its id is
-in the list the backend ships with, `app/data/figures.tsv` (8,216 lines: id, width, height, class; no name), and
+in the list the backend ships with, `app/data/figures.tsv` (8,082 lines: id, width, height, class; no name), and
 not in `FIGURES_REMOVED`. A crop's own name is never in a response, and a passage with no listed figure has no
 `figures` key. The model is not given the figures. The page builds each picture's address from its own build
 setting `NEXT_PUBLIC_FIGURES_BASE` and the id (`frontend/lib/figures.ts`): the response holds no address.

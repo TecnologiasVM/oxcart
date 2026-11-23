@@ -101,9 +101,9 @@ def test_the_figures_base_accepts_https_and_this_machine_only():
 def test_the_shipped_list_loads():
     figures.shipped.cache_clear()
     known = figures.shipped()
-    assert len(known) == 8216
+    assert len(known) == 8082
     lines = figures.SHIPPED.read_text(encoding="utf-8").splitlines()
-    assert len(lines) == 8216            # no line was skipped on reading
+    assert len(lines) == 8082            # no line was skipped on reading
     for d, (width, height, kind) in known.items():
         assert re.fullmatch(r"[0-9a-f]{20}", d)
         assert width > 0 and height > 0
