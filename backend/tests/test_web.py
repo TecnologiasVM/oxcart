@@ -308,7 +308,7 @@ def test_one_search_is_the_request_asked_for(monkeypatch):
     assert request.headers["authorization"] == "Bearer made-up-key"
     assert json.loads(request.content) == {"query": "A question Costa Rica philately", "search_depth": "basic", "max_results": 5,
                                            "include_answer": False, "include_raw_content": False, "include_images": False,
-                                           "topic": "general"}
+                                           "topic": "general", "exclude_domains": list(settings.WEB_DOMAINS_LEFT_OUT)}
     assert request.extensions["timeout"]["read"] == 6.0
 
 
@@ -345,6 +345,18 @@ def test_the_usage_is_read_from_its_route_and_anything_else_is_none():
 
 
 # ---------------------------------------------------------------- the results kept
+def test_video_social_marketplace_and_the_search_services_own_pages_are_left_out_and_so_is_a_host_of_numbers():
+    ok = {"title": "A made-up title", "content": "Made-up text."}
+    out = ["www.youtube.com", "youtu.be", "m.facebook.com", "www.instagram.com", "www.tiktok.com", "pinterest.es", "x.com",
+           "mobile.twitter.com", "www.ebay.com", "sv.ebay.com", "www.ebay.co.uk", "tavily.com", "docs.tavily.com",
+           "203.0.113.7", "198.51.100.4"]
+    kept = ["stamps.example", "www.max.example", "ebayish.example", "box.example", "x.example", "notx.com"]
+    results = web_step.keep_results([{**ok, "url": f"https://{host}/page"} for host in out + kept])
+    assert [r["host"] for r in results] == kept[: settings.WEB_MAX_RESULTS]
+    assert all(web_step.left_out(host) for host in out[:13]) and not any(web_step.left_out(host) for host in kept)
+    assert web_step.host_of("https://203.0.113.7/page") is None and web_step.host_of("https://198.51.100.4/") is None
+
+
 def test_only_https_addresses_with_no_user_name_and_a_host_are_kept_and_text_is_cut():
     ok = {"title": "A made-up title", "content": "Made-up text."}
     raw = [

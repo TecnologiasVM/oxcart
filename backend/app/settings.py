@@ -194,6 +194,14 @@ TAVILY_SEARCH_URL: str = "https://api.tavily.com/search"
 TAVILY_USAGE_URL: str = "https://api.tavily.com/usage"
 # Fixed words put after the question in the search query; empty means none. Nothing a model wrote is in it.
 WEB_QUERY_SUFFIX: str = os.getenv("WEB_QUERY_SUFFIX", "Costa Rica philately").strip()
+# Sites whose pages are never used for a web part: video and social sites, a marketplace, and the search
+# service's own site. A trial of 26 searches (2026-11-23) returned them often and cited them almost never.
+# A result is left out when its host has one of these names as a label (so m.facebook.com, pinterest.es and
+# every country's ebay), or is one of the domains below or under one. The domains are also sent with the search
+# request, so the service does not spend a result on them.
+WEB_HOST_LABELS_LEFT_OUT: tuple = ("youtube", "facebook", "instagram", "tiktok", "pinterest", "twitter", "ebay", "tavily")
+WEB_DOMAINS_LEFT_OUT: tuple = ("youtube.com", "youtu.be", "facebook.com", "instagram.com", "tiktok.com", "pinterest.com",
+                               "x.com", "twitter.com", "ebay.com", "tavily.com")
 WEB_SEARCH_TIMEOUT_SECONDS: float = 6.0
 WEB_USAGE_TIMEOUT_SECONDS: float = 4.0
 WEB_MAX_RESULTS: int = 5

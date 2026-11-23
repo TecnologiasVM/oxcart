@@ -225,7 +225,8 @@ class Tavily:
         import httpx
 
         body = {"query": query, "search_depth": "basic", "max_results": settings.WEB_MAX_RESULTS,
-                "include_answer": False, "include_raw_content": False, "include_images": False, "topic": "general"}
+                "include_answer": False, "include_raw_content": False, "include_images": False, "topic": "general",
+                "exclude_domains": list(settings.WEB_DOMAINS_LEFT_OUT)}
         try:
             response = self._request("POST", settings.TAVILY_SEARCH_URL, settings.WEB_SEARCH_TIMEOUT_SECONDS, body)
             if response.status_code == 432:
@@ -248,7 +249,8 @@ _HOST = re.compile(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a
 
 def host_of(url: Any) -> Optional[str]:
     """The host of an address that may be shown and linked: https, at most WEB_URL_CHARS characters, no user
-    name or password, no space, control character or backslash, and a host name that parses. None otherwise."""
+    name or password, no space, control character or backslash, and a host name that parses and is a name
+    (not numbers and dots). None otherwise."""
     if not isinstance(url, str) or not url or len(url) > settings.WEB_URL_CHARS:
         return None
     if any(c.isspace() or ord(c) < 32 or ord(c) == 127 or c == "\\" for c in url) or not url.lower().startswith("https://"):
@@ -261,7 +263,16 @@ def host_of(url: Any) -> Optional[str]:
     if parts.scheme != "https" or "@" in parts.netloc or parts.username is not None or parts.password is not None:
         return None
     host = parts.hostname or ""
-    return host if _HOST.fullmatch(host) else None
+    if not _HOST.fullmatch(host) or not any(c.isalpha() for c in host):     # a host of numbers and dots is an address, not a name
+        return None
+    return host
+
+
+def left_out(host: str) -> bool:
+    """Is this host one of the sites whose pages are never used (settings.WEB_HOST_LABELS_LEFT_OUT, WEB_DOMAINS_LEFT_OUT)?"""
+    labels = host.split(".")
+    return (any(label in settings.WEB_HOST_LABELS_LEFT_OUT for label in labels)
+            or any(host == domain or host.endswith("." + domain) for domain in settings.WEB_DOMAINS_LEFT_OUT))
 
 
 def keep_results(raw: Any) -> list:
@@ -275,7 +286,7 @@ def keep_results(raw: Any) -> list:
         host = host_of(result.get("url"))
         text = result.get("content")
         text = text.strip()[: settings.WEB_TEXT_CHARS] if isinstance(text, str) else ""
-        if host is None or not text:
+        if host is None or not text or left_out(host):
             continue
         title = " ".join(result["title"].split()) if isinstance(result.get("title"), str) else ""
         kept.append({"title": (title or host)[: settings.WEB_TITLE_CHARS], "host": host, "url": result["url"], "text": text})
