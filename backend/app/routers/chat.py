@@ -9,8 +9,9 @@ With ASK_WEB on, a second route (``web_router``, mounted only then; app/web_step
                           reply's answer carried -> a short part written from a web search
 
 It stands behind the same guard as ``POST /api/ask``: the session token of the human
-check, the limits per visitor and per token, the service's daily limit, a body limit, and
-the eval's way in. A question here counts as a question there.
+check, the limits per visitor and per token, the service's daily limit, a body limit (held
+before the route reads the body: app/body_limit.py), and the eval's way in. A question here
+counts as a question there.
 
 The answer comes as lines of JSON (``application/x-ndjson``), sent as they are ready:
 
@@ -40,7 +41,7 @@ import queue
 import threading
 from typing import Iterator
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
@@ -64,12 +65,6 @@ class ChatRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     question: str = Field(..., min_length=1, max_length=settings.ASK_MAX_QUESTION_CHARS)
     thread: list[Turn] = Field(default_factory=list, max_length=settings.CHAT_THREAD_TURNS)
-
-
-async def body_limit(request: Request) -> None:
-    length = request.headers.get("content-length", "")
-    if not length.isdigit() or int(length) > settings.CHAT_MAX_BODY_BYTES:
-        raise ApiError(413, "request_too_large", "The request is too large.")
 
 
 def _line(value: dict) -> bytes:
@@ -109,7 +104,7 @@ def _until_retrieved(out: "queue.Queue", seen: dict) -> None:
             return
 
 
-@router.post("/chat", dependencies=[Depends(body_limit)])
+@router.post("/chat")
 async def chat(payload: ChatRequest, request: Request) -> StreamingResponse:
     question = " ".join(payload.question.split())
     if not question:
@@ -174,13 +169,7 @@ class WebRequest(BaseModel):
     ticket: str = Field(..., min_length=1, max_length=300)
 
 
-async def web_body_limit(request: Request) -> None:
-    length = request.headers.get("content-length", "")
-    if not length.isdigit() or int(length) > settings.WEB_MAX_BODY_BYTES:
-        raise ApiError(413, "request_too_large", "The request is too large.")
-
-
-@web_router.post("/chat/web", dependencies=[Depends(web_body_limit)])
+@web_router.post("/chat/web")
 async def chat_web(payload: WebRequest, request: Request) -> dict:
     """One web part, for the answer a ticket was made for. The same guard as the chat route: the session in
     hosted mode, both visitor counts (it counts as a question), the service's daily limit, the eval's way in.

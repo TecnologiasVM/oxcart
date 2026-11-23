@@ -80,6 +80,15 @@ if os.getenv("CORS_ORIGINS"):
 # Bounds fixed by the server. Nothing a client sends changes them.
 ASK_MAX_QUESTION_CHARS: int = _int("ASK_MAX_QUESTION_CHARS", 300)
 ASK_MAX_BODY_BYTES: int = _int("ASK_MAX_BODY_BYTES", 2048)
+# The whole body of a POST under /api/ must arrive inside this many seconds, or the answer is 408 (app/body_limit.py).
+BODY_READ_SECONDS: float = float(_int("BODY_READ_SECONDS", 10))
+# POST /api/session carries one token of the human check, which Cloudflare says is at most 2048 characters.
+# Its body ({"token": "..."}) gets that and room for the JSON around it.
+SESSION_TOKEN_CHARS: int = 2048
+SESSION_MAX_BODY_BYTES: int = SESSION_TOKEN_CHARS + 64
+# The local explorer's POST /api/query and /api/query/export (not mounted in hosted mode): a question of up to
+# 2,000 characters, each of which JSON can write as six bytes (\u00e9), and the other fields.
+QUERY_MAX_BODY_BYTES: int = 16384
 ASK_PASSAGES: int = _int("ASK_PASSAGES", 5)
 ASK_ISSUES: int = _int("ASK_ISSUES", 3)
 ASK_TEXT_LIMIT: int = _int("ASK_TEXT_LIMIT", 700)

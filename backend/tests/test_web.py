@@ -133,8 +133,11 @@ def test_with_the_setting_off_the_route_does_not_exist_and_answers_as_any_unknow
     r = client.post("/api/chat/web", json={"question": "q", "answer": "", "ticket": "t"}, headers=session_of(client))
     unknown = client.post("/api/chat/nothing-here", json={"question": "q"})
     assert r.status_code == unknown.status_code == 404 and r.json() == unknown.json()
-    # a body far too large is not even read: the route is not there
-    assert client.post("/api/chat/web", content="x" * 20000, headers={"content-type": "application/json"}).status_code == 404
+    # a body far too large is not even read, and is refused as on any unknown path: the route is not there, so
+    # its limit is not either
+    large = [client.post(path, content="x" * 20000, headers={"content-type": "application/json"})
+             for path in ("/api/chat/web", "/api/chat/nothing-here")]
+    assert large[0].status_code == large[1].status_code == 413 and large[0].json() == large[1].json()
 
 
 def test_with_the_setting_off_the_chat_reply_carries_no_ticket_and_its_log_line_is_as_before(make_client, model, tavily):

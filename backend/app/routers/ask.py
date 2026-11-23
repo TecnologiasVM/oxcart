@@ -6,6 +6,9 @@
     POST /api/session         a passed human check -> a short-lived signed token
     POST /api/ask             one question -> catalogue issues, literature passages, and the mode that answered
 
+The size of a POST's body, and the time it may take to arrive, are held before the route reads it
+(app/body_limit.py, added in main.py).
+
 Every refusal is a small JSON object ``{"error": <code>, "message": <text a visitor can read>}``.
 The request's question is never echoed in an error and never logged.
 """
@@ -17,7 +20,7 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Request
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -43,18 +46,12 @@ MESSAGES = {
 
 class SessionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    token: str = Field(..., min_length=1, max_length=2048)
+    token: str = Field(..., min_length=1, max_length=settings.SESSION_TOKEN_CHARS)
 
 
 class AskRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     question: str = Field(..., min_length=1, max_length=settings.ASK_MAX_QUESTION_CHARS)
-
-
-async def body_limit(request: Request) -> None:
-    length = request.headers.get("content-length", "")
-    if not length.isdigit() or int(length) > settings.ASK_MAX_BODY_BYTES:
-        raise ApiError(413, "request_too_large", "The request is too large.")
 
 
 def _visitor(request: Request) -> str:
@@ -94,7 +91,7 @@ async def examples() -> dict:
     return {"examples": ask_service.EXAMPLES, "max_question_chars": settings.ASK_MAX_QUESTION_CHARS}
 
 
-@router.post("/session", dependencies=[Depends(body_limit)])
+@router.post("/session")
 async def session(payload: SessionRequest, request: Request) -> dict:
     allowed, reason, wait = request.app.state.session_limiter.check(_visitor(request))
     if not allowed:
@@ -113,7 +110,7 @@ async def session(payload: SessionRequest, request: Request) -> dict:
     raise unavailable
 
 
-@router.post("/ask", dependencies=[Depends(body_limit)])
+@router.post("/ask")
 async def ask(payload: AskRequest, request: Request) -> dict:
     question = " ".join(payload.question.split())
     if not question:
