@@ -1,5 +1,7 @@
 """The question path, with fakes in place of the three stores. No network, no database, no key."""
 
+import json
+import logging
 import string
 import threading
 import time
@@ -248,6 +250,106 @@ def test_one_store_down_leaves_the_other_block_and_says_so(client, fakes):
     fakes.lookup_error = ask_service.Unavailable("SessionExpired")
     r = client.post("/api/ask", json={"question": "q"}, headers=headers)
     assert r.status_code == 503 and r.json()["error"] == "stores_unavailable" and "address" not in r.text
+
+
+class Hanging:
+    """A store's step that blocks until ``release`` is set, then returns ``value``. ``returned`` is set as it ends."""
+
+    def __init__(self, value):
+        self.value, self.release, self.returned, self.calls = value, threading.Event(), threading.Event(), []
+
+    def __call__(self, question, vector):
+        self.calls.append((question, vector))
+        self.release.wait(10)
+        self.returned.set()
+        return self.value
+
+
+def logged_warnings(run):
+    records = []
+    handler = logging.Handler()
+    handler.emit = lambda record: records.append(record.getMessage())
+    log = logging.getLogger("oxcart.ask")
+    log.addHandler(handler)
+    try:
+        return run(), records
+    finally:
+        log.removeHandler(handler)
+
+
+@pytest.mark.parametrize("hung", ["catalogue", "literature"])
+def test_a_store_that_does_not_answer_in_time_does_not_hold_back_the_other(client, fakes, monkeypatch, hung):
+    monkeypatch.setattr(settings, "ASK_STORE_SECONDS", 0.3)
+    stuck = Hanging([{"issue_id": "CR-LATE"}] if hung == "catalogue" else [{"doc_id": "LATE", "text": "late"}])
+    deps = fakes.deps()
+    if hung == "catalogue":
+        deps.lookup = stuck
+    else:
+        deps.search = stuck
+    client.app.state.ask = deps
+    try:
+        t0 = time.time()
+        r, records = logged_warnings(lambda: client.post("/api/ask", json={"question": "a made-up question"},
+                                                         headers=session_of(client)))
+        elapsed = time.time() - t0
+        body = r.json()
+        assert r.status_code == 200 and elapsed < 3
+        assert body["mode"][hung] == "unavailable" and body["timings"][f"{hung}_ms"] >= 300
+        if hung == "catalogue":
+            assert body["issues"] == [] and len(body["passages"]) == 5 and body["mode"]["literature"] == "vector"
+        else:
+            assert body["passages"] == [] and len(body["issues"]) == 1 and body["mode"]["catalogue"] == "vector index"
+        assert f"{hung} deadline" in records and not any("made-up" in line for line in records)
+        # the embedding step is as it was: made once from the question, its vector given to both stores
+        assert fakes.seen["embed"] == "a made-up question" and stuck.calls == [("a made-up question", fakes.vector)]
+    finally:
+        stuck.release.set()
+
+
+def test_when_both_stores_are_late_neither_answered(fakes, monkeypatch):
+    monkeypatch.setattr(settings, "ASK_STORE_SECONDS", 0.2)
+    lookup, search = Hanging([]), Hanging([])
+    deps = ask_service.AskDeps(embed=fakes.embed, lookup=lookup, search=search, verify_human=fakes.verify)
+    try:
+        with pytest.raises(ask_service.Unavailable, match="both stores"):
+            ask_service.answer("q", deps)
+    finally:
+        lookup.release.set()
+        search.release.set()
+
+
+def test_a_late_stores_result_is_dropped_and_does_not_reach_the_next_question(fakes, monkeypatch):
+    monkeypatch.setattr(settings, "ASK_STORE_SECONDS", 0.2)
+    late = Hanging([{"issue_id": "CR-LATE", "title": "Late"}])
+    deps = ask_service.AskDeps(embed=fakes.embed, lookup=late, search=fakes.search, verify_human=fakes.verify)
+    try:
+        first = ask_service.answer("q", deps)
+        kept = json.dumps(first, sort_keys=True)
+    finally:
+        late.release.set()
+    assert late.returned.wait(5)
+    time.sleep(0.05)                                   # the late thread has ended
+    assert json.dumps(first, sort_keys=True) == kept    # nothing it did changed the answer already given
+    assert first["issues"] == [] and first["mode"]["catalogue"] == "unavailable"
+    deps.lookup = fakes.lookup
+    second = ask_service.answer("q", deps)
+    assert [issue["issue_id"] for issue in second["issues"]] == ["CR-1"]          # its own, not the late one's
+
+
+def test_a_failing_store_thread_raises_into_no_request(fakes, monkeypatch):
+    monkeypatch.setattr(settings, "ASK_STORE_SECONDS", 0.2)
+    release = threading.Event()
+
+    def late_then_fails(question, vector):
+        release.wait(10)
+        raise RuntimeError("made-up failure")
+
+    deps = ask_service.AskDeps(embed=fakes.embed, lookup=late_then_fails, search=fakes.search, verify_human=fakes.verify)
+    assert ask_service.answer("q", deps)["mode"]["catalogue"] == "unavailable"
+    release.set()
+    time.sleep(0.05)
+    deps.lookup = fakes.lookup
+    assert ask_service.answer("q", deps)["mode"]["catalogue"] == "vector index"
 
 
 def test_an_unexpected_error_is_a_short_json_without_a_trace(make_client, monkeypatch):

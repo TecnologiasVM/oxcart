@@ -6,7 +6,9 @@
 
 Steps 2 and 3 run side by side. Each can fail on its own; the answer says which mode
 produced each block (`mode`), and a block that could not be produced says "unavailable"
-instead of failing the whole question. How each mode scored is in EVALUATION.md.
+instead of failing the whole question. A store that has not answered by its deadline
+(ASK_STORE_SECONDS) counts as unavailable too: the other's evidence is not held back by it.
+How each mode scored is in EVALUATION.md.
 
 The first question after a start used to pay for opening the literature client and the
 first connection to the embedding service. Both are now opened as the process starts, in
@@ -27,6 +29,7 @@ import re
 import threading
 import time
 import unicodedata
+import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
@@ -345,8 +348,29 @@ def _without_vectors(value: Any) -> Any:
     return value
 
 
+# The searches run on two pools that live as long as the process, one per store, so a store that hangs fills
+# only its own pool and the other store still answers. Four threads each: a question uses one of each, the
+# demo's limits let a handful of questions run at once, and a store that hangs holds at most four threads
+# (a question that finds its store's pool full waits for a free thread and meets its deadline).
+_CATALOGUE = ThreadPoolExecutor(max_workers=4, thread_name_prefix="catalogue")
+_LITERATURE = ThreadPoolExecutor(max_workers=4, thread_name_prefix="literature")
+
+
+def _timed(name: str, fn: Callable[[], list]) -> tuple[Optional[list], int]:
+    """(what the store returned, or None when it failed; its milliseconds). Never raises: a late or failing
+    thread has nobody to raise to."""
+    t = time.time()
+    try:
+        return fn(), int((time.time() - t) * 1000)
+    except Unavailable:
+        return None, int((time.time() - t) * 1000)
+    except Exception as exc:
+        log.warning("%s failed: %s", name, type(exc).__name__)
+        return None, int((time.time() - t) * 1000)
+
+
 def answer(question: str, deps: AskDeps) -> dict:
-    """Run the three steps. Raises Unavailable only when neither store answered."""
+    """Run the three steps. Raises Unavailable only when neither store answered in time."""
     started = time.time()
     timings: dict[str, int] = {}
 
@@ -362,23 +386,23 @@ def answer(question: str, deps: AskDeps) -> dict:
     else:
         embedding_mode = "failed" if config.OPENAI_API_KEY else "not configured"
 
-    def timed(name: str, fn: Callable[[], list]) -> tuple[Optional[list], Optional[str]]:
-        t = time.time()
-        try:
-            return fn(), None
-        except Unavailable as exc:
-            return None, str(exc)
-        except Exception as exc:
-            log.warning("%s failed: %s", name, type(exc).__name__)
-            return None, type(exc).__name__
-        finally:
-            timings[f"{name}_ms"] = int((time.time() - t) * 1000)
-
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        catalogue_future = pool.submit(timed, "catalogue", lambda: deps.lookup(question, vector))
-        literature_future = pool.submit(timed, "literature", lambda: deps.search(question, vector))
-        issues, catalogue_error = catalogue_future.result()
-        passages, literature_error = literature_future.result()
+    # Both stores at once, each on the process's pool for that store, each with a deadline. A store that has
+    # not answered by it is unavailable for this question; its thread is not waited for, and what it returns
+    # later is dropped.
+    futures = {"catalogue": _CATALOGUE.submit(_timed, "catalogue", lambda: deps.lookup(question, vector)),
+               "literature": _LITERATURE.submit(_timed, "literature", lambda: deps.search(question, vector))}
+    submitted = time.time()
+    concurrent.futures.wait(futures.values(), timeout=settings.ASK_STORE_SECONDS)
+    found: dict = {}
+    for name, future in futures.items():
+        if future.done():
+            found[name], timings[f"{name}_ms"] = future.result()
+        else:
+            future.cancel()                     # not started yet (the pool is busy): it never will be
+            found[name] = None
+            timings[f"{name}_ms"] = int((time.time() - submitted) * 1000)
+            log.warning("%s deadline", name)
+    issues, passages = found["catalogue"], found["literature"]
 
     if issues is None and passages is None:
         raise Unavailable("both stores")

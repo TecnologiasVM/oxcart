@@ -104,6 +104,10 @@ ASK_SHORT_VECTOR: bool = _flag("ASK_SHORT_VECTOR")
 # Off, the instructions, the reply's reading and every route are the ones served before this setting existed.
 ASK_WEB: bool = _flag("ASK_WEB")
 ASK_TIMEOUT_SECONDS: int = _int("ASK_TIMEOUT_SECONDS", 25)
+# Each store's deadline for one question: a store that has not answered by it is "unavailable" and the other's
+# evidence is returned (ask_service.answer). Over the graph's question budget (8 s) and the literature's query
+# timeout (10 s), under the route's ASK_TIMEOUT_SECONDS.
+ASK_STORE_SECONDS: float = float(_int("ASK_STORE_SECONDS", 12))
 EMBED_TIMEOUT_SECONDS: int = _int("EMBED_TIMEOUT_SECONDS", 5)
 
 # Limits per visitor and for the whole service (kept in this process's memory).
