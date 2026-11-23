@@ -137,6 +137,8 @@ Not built. No order and no date.
 - **A photo of a stamp as the question.**
 - **Reading the source PDFs again.** Not measured: the literature's text was extracted once.
 - **A picture of the stamp on a catalogue answer.** No catalogue card has one today.
+- **Spanish answers that keep English words.** A Spanish answer at times keeps a date or a name in the English
+  of the passage it cites; the catalogue's cards are given to the writer in the language of the question.
 - **The explorer beyond the First Issue.** The question page takes any Costa Rican stamp question; the explorer's
   graph views cover the 1863 First Issue only.
 
