@@ -326,6 +326,19 @@ def check(state: Written) -> dict:
     if whole.strip().startswith(NOT_COVERED):
         return {"answer": {"state": "not_covered"}}
 
+    sentences, used, counts = cited_sentences(blocks, sources, (NOT_COVERED, OUT_OF_SCOPE))
+    if not sentences:
+        return {"answer": {"state": "uncited", "counts": counts}}
+    return {"answer": {"state": "ok", "sentences": sentences, "sources": used, "counts": counts,
+                       **({"covers": covers} if covers else {})}}
+
+
+def cited_sentences(blocks: list, sources: list, markers: tuple = ()) -> tuple[list, list, dict]:
+    """The rule for text without a citation (the module's note), for any list of sources: a source is a card
+    (``kind`` "issue", with ``lines``) or anything else with a ``text``, and has a ``kind``, an ``index`` and a
+    ``title``. Returns the sentences kept, each with the numbers of the sources it cites; the sources cited,
+    numbered in the order they are first cited, each with the text it was cited for; and the counts. A
+    sentence that holds one of ``markers`` is never kept."""
     # The text that is printed, and where each citation that holds is attached to it.
     text, pieces, quotes, given, held = "", [], [], 0, 0        # pieces: (start, end, citations); quotes: (at, citations)
     for block in blocks:
@@ -364,17 +377,13 @@ def check(state: Written) -> dict:
                 entry["quotes"].append(quote)
             if numbers[key] not in cites:
                 cites.append(numbers[key])
-        if cites and NOT_COVERED not in text[a:b] and OUT_OF_SCOPE not in text[a:b]:
+        if cites and not any(marker in text[a:b] for marker in markers):
             sentences.append({"text": text[a:b], "cites": cites})
 
     counts = {"sentences": len(spans), "sentences_without_citation": len(spans) - len(sentences),
               "citations": given, "citations_that_do_not_hold": given - held}
-    if not sentences:
-        return {"answer": {"state": "uncited", "counts": counts}}
     cited_numbers = {n for sentence in sentences for n in sentence["cites"]}
-    return {"answer": {"state": "ok", "sentences": sentences,
-                       "sources": [source for source in used if source["n"] in cited_numbers], "counts": counts,
-                       **({"covers": covers} if covers else {})}}
+    return sentences, [source for source in used if source["n"] in cited_numbers], counts
 
 
 # --------------------------------------------------------------------------- the graph
