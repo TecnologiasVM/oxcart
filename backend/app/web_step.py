@@ -26,8 +26,8 @@ the true number. The usage is read by one request at a time and outside the lock
 value read. A search is reserved, checked and counted in one step, so two requests at the limit cannot both
 search; a reservation is released when the model call cannot be taken.
 
-**What goes where.** The query is the question as it was searched and fixed words (``WEB_QUERY_SUFFIX``):
-nothing a model wrote. The model is given the kept results as documents and, in the part case, the answer
+**What goes where.** The query is the question as it was searched (for a follow-up, as the rewrite step wrote
+it) and fixed words (``WEB_QUERY_SUFFIX``): nothing of an answer a model wrote. The model is given the kept results as documents and, in the part case, the answer
 already given, as text to read. The page gets the sentences and, for each cited result only, its title, host
 and address; no cited text and no uncited result.
 

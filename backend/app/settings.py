@@ -205,7 +205,8 @@ CHAT_THREAD_ANSWER_CHARS: int = 1200
 TAVILY_API_KEY: str = os.getenv("TAVILY_API_KEY", "").strip()
 TAVILY_SEARCH_URL: str = "https://api.tavily.com/search"
 TAVILY_USAGE_URL: str = "https://api.tavily.com/usage"
-# Fixed words put after the question in the search query; empty means none. Nothing a model wrote is in it.
+# Fixed words put after the question in the search query; empty means none. The query is the question as it was
+# searched (for a follow-up, as the rewrite step wrote it) and these words: nothing of an answer a model wrote.
 WEB_QUERY_SUFFIX: str = os.getenv("WEB_QUERY_SUFFIX", "Costa Rica philately").strip()
 # Sites whose pages are never used for a web part: video and social sites, marketplaces and their price
 # guides, and the search service's own site. A trial of 26 searches (2026-11-23) returned them often and cited them almost never.
