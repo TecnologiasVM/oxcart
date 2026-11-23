@@ -161,6 +161,9 @@ const POLL_EVERY_MS = 2000;
 // answering. A time, not a number of tries: a try takes 2 s when the call fails at once and 10 s when the
 // service does not answer at all, so 60 tries stood between two and ten minutes over "about half a minute".
 const NOT_ANSWERING_AFTER_MS = 90_000;
+// And the notice ends 180 seconds after the page started looking, whatever was heard: a service that keeps
+// answering "connecting" is not coming up either, and the page must not look for it without end.
+const STOP_LOOKING_AFTER_MS = 180_000;
 export const WAIT_LINES_AFTER_SECONDS = 3; // a question answered sooner shows "Searching…" and nothing else
 const fromState = (state: ServiceState): Service => (state === "ready" ? "ready" : state === "connecting" ? "connecting" : "waking");
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -175,8 +178,9 @@ export function useService(busy: boolean) {
   useEffect(() => {
     let stop = false;
     (async () => {
-      let heard = Date.now(); // when the service last answered anything (or when the page started looking)
-      const left = () => NOT_ANSWERING_AFTER_MS - (Date.now() - heard);
+      const started = Date.now();
+      let heard = started; // when the service last answered anything (or when the page started looking)
+      const left = () => Math.min(NOT_ANSWERING_AFTER_MS - (Date.now() - heard), STOP_LOOKING_AFTER_MS - (Date.now() - started));
       let state = await serviceState(4000);
       while (!stop) {
         setService(fromState(state));

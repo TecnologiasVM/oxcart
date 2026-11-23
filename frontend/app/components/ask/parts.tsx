@@ -7,6 +7,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import type { WrittenAnswer } from "@/lib/ask";
 import type { Turn } from "@/lib/conversation";
+import { FIGURES_BASE } from "@/lib/figures";
 import type { Labels } from "@/lib/i18n";
 import type { Service } from "./hooks";
 
@@ -110,7 +111,8 @@ export function PrivacyLine({ t }: { t: Labels }) {
       <summary>
         <span>{t.privLine}</span> <span className="priv__more">{t.privMore}</span>
       </summary>
-      <p className="priv__full" data-testid="privacy-full">{t.privFull}</p>
+      {/* pictures come from a host of their own: said only in a build that draws them */}
+      <p className="priv__full" data-testid="privacy-full">{t.privFull}{FIGURES_BASE ? ` ${t.privPictures}` : ""}</p>
     </details>
   );
 }

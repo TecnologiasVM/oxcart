@@ -70,7 +70,7 @@ test("figures under the newest answer: one group per cited page, none taller tha
   const button = (await newest(page).getByTestId("evidence-button").boundingBox())!;
   expect((await figures(page).boundingBox())!.y).toBeGreaterThan(button.y + button.height);
   await expect(figures(page)).toContainText("Figures on the cited pages");
-  await expect(figures(page)).toContainText("2 of the 3 cited pages carry figures.");
+  await expect(figures(page)).toContainText("2 of the 3 cited pages have figures.");
   const groups = figures(page).getByTestId("figure-group");
   await expect(groups).toHaveCount(2);
   await expect(groups.nth(0)).toContainText("A TEST DOCUMENT");
@@ -101,6 +101,37 @@ test("figures under the newest answer: one group per cited page, none taller tha
     "Figure 1 of 1 on this page: a stamp",
   ]);
   await noOverflow(page, "figures, 1440");
+});
+
+test("a picture whose file fails is taken out, and its group when none is left; the counts follow", async ({ page }) => {
+  // WIDE and SMALL have no file on the host: the first group keeps one picture, the second group goes
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mock(page);
+  await serveFigures(page, { [BIG]: SIZES[BIG], [UNCITED]: SIZES[UNCITED] });
+  await page.route("**/api/chat", (route) => route.fulfill({ contentType: "application/x-ndjson", body: lines(CITES, EVIDENCE) }));
+  await page.goto("/");
+  await ask(page, "A question whose pictures are partly gone?");
+  await figures(page).scrollIntoViewIfNeeded();
+  await expect(figures(page).getByTestId("figure-group")).toHaveCount(1);
+  await expect(figures(page).getByTestId("figure")).toHaveCount(1);
+  await expect(figures(page)).toContainText("1 of the 3 cited pages has figures.");
+  expect((await pictures(page, '[data-testid="figures"]')).map((p) => p.alt)).toEqual(["Figure 1 of 1 on this page: a cover or a postal marking"]);
+  // inside Evidence: the first passage keeps one, the second passage's block is gone with its count
+  await figures(page).getByTestId("figure-group").click();
+  await expect(panel(page).getByTestId("passage-figures")).toHaveCount(2);            // the first cited page and the uncited one
+  await expect(panel(page).getByTestId("passage-figures-count")).toHaveText(["1 figure", "1 figure"]);
+});
+
+test("when every picture of the cited pages fails, the figures leave the turn", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mock(page);                                           // the figures host answers 404 for every file
+  await page.route("**/api/chat", (route) => route.fulfill({ contentType: "application/x-ndjson", body: lines(CITES, EVIDENCE) }));
+  await page.goto("/");
+  await ask(page, "A question whose pictures are all gone?");
+  await newest(page).getByTestId("evidence-button").scrollIntoViewIfNeeded();
+  await page.mouse.wheel(0, 2000);
+  await expect(figures(page)).toHaveCount(0);
+  await expect(newest(page).locator("img")).toHaveCount(0);
 });
 
 test("a picture's box is held on its tint before its file arrives, and nothing moves when it does", async ({ page }) => {
@@ -338,6 +369,21 @@ test("the first screen's plate, from the list on the figures host", async ({ pag
   expect(await shownCells(page)).toBe(12);
   const examples = (await page.locator(".examples").boundingBox())!;
   expect((await plate(page).boundingBox())!.y).toBeGreaterThan(examples.y + examples.height - 1);
+});
+
+test("a picture of the plate whose file fails leaves its cell; with none left the first screen is today's", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mock(page);
+  const kept = Object.fromEntries(Object.entries(PLATE_SIZES).slice(0, 18));
+  await serveFigures(page, kept);
+  await page.route(`${FIGURES_HOST}/first-screen.json`, (route) => route.fulfill({ json: PLATE, headers: { "Access-Control-Allow-Origin": "*" } }));
+  await page.goto("/");
+  await expect(plate(page).locator("img")).toHaveCount(18);
+  // none left: no plate, and the first screen in one column
+  await page.unroute(`${FIGURES_HOST}/*.png`);
+  await page.reload();
+  await expect(page.getByLabel("Your question")).toBeVisible();
+  await expect(plate(page)).toHaveCount(0);
 });
 
 test("the plate beside the box with the rail of kept conversations (page 02)", async ({ page }) => {

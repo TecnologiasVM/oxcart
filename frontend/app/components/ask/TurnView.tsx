@@ -17,7 +17,7 @@ import type { AnswerSentence } from "@/lib/ask";
 import type { Turn } from "@/lib/conversation";
 import { sourceTitle } from "@/lib/evidence-text";
 import type { FigureGroup } from "@/lib/figures";
-import { citedFigures, figureSrc, fit, ratio } from "@/lib/figures";
+import { citedFigures, figureFailed, figureSrc, fit, ratio, useFigureFailures } from "@/lib/figures";
 import type { Labels } from "@/lib/i18n";
 import type { Service } from "./hooks";
 import { WAIT_LINES_AFTER_SECONDS } from "./hooks";
@@ -68,6 +68,7 @@ function Answered({ turn, t, newest, open, storedNote, busy, onEvidence, onAskNo
   const evidence = turn.answer!;
   const written = turn.written;
   const ok = !turn.writing && answered(written);
+  useFigureFailures(); // a picture whose file fails leaves the groups and the count
   // the figures of the cited pages: drawn under the newest answer, counted beside an older one's button
   const figs = ok ? citedFigures(written?.sources ?? [], evidence.passages) : { groups: [], pages: 0, count: 0 };
   const counts = ok && !newest
@@ -236,7 +237,7 @@ function Figures({ turnId, groups, pages, t, onEvidence }: { turnId: string; gro
                   const size = fit(f.width, f.height, FIGURE_CAP);
                   const src = figureSrc(f.id);
                   return src ? (
-                    <img key={f.id} src={src} width={size.width} height={size.height} style={ratio(f)} loading="lazy" decoding="async" alt={t.figAlt(i + 1, g.figures.length, t.figKind[f.class])} data-testid="figure" />
+                    <img key={f.id} src={src} width={size.width} height={size.height} style={ratio(f)} loading="lazy" decoding="async" alt={t.figAlt(i + 1, g.figures.length, t.figKind[f.class])} onError={() => figureFailed(f.id)} data-testid="figure" />
                   ) : null;
                 })}
               </span>
