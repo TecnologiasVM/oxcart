@@ -1,0 +1,239 @@
+{
+ "_": "The catalogue lookup on the 32 held-out catalogue questions, as served: the question's vector on the issue vector index and the short vector index (ASK_SHORT_VECTOR on), no full-text index, the first three issues. Lookup only: no language model. Ranks of the right issue (null when it is not among the three); ids, ranks and booleans only. Made by: python -m eval.catalogue_arm --split heldout --mode vector --short, against the hosted graph.",
+ "measured": "2026-11-23",
+ "code": "33df63b",
+ "lookup": "vector + short vector",
+ "k": 3,
+ "embedding_tokens": 716,
+ "latency_seconds": {
+  "median": 0.99,
+  "p95": 1.56,
+  "how": "eval.measures.latency_summary, one driver reused"
+ },
+ "questions": {
+  "cat-001-en": {
+   "lang": "en",
+   "fact": "date_on_sale",
+   "rank": 2,
+   "fact_found_top1": false,
+   "fact_found_top3": true
+  },
+  "cat-001-es": {
+   "lang": "es",
+   "fact": "date_on_sale",
+   "rank": 2,
+   "fact_found_top1": false,
+   "fact_found_top3": true
+  },
+  "cat-005-en": {
+   "lang": "en",
+   "fact": "date_on_sale",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-005-es": {
+   "lang": "es",
+   "fact": "date_on_sale",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-006-en": {
+   "lang": "en",
+   "fact": "date_on_sale",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-006-es": {
+   "lang": "es",
+   "fact": "date_on_sale",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-011-en": {
+   "lang": "en",
+   "fact": "stamp_colour",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-011-es": {
+   "lang": "es",
+   "fact": "stamp_colour",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-012-en": {
+   "lang": "en",
+   "fact": "stamp_colour",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-012-es": {
+   "lang": "es",
+   "fact": "stamp_colour",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-014-en": {
+   "lang": "en",
+   "fact": "stamp_colour",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-014-es": {
+   "lang": "es",
+   "fact": "stamp_colour",
+   "rank": 2,
+   "fact_found_top1": false,
+   "fact_found_top3": true
+  },
+  "cat-015-en": {
+   "lang": "en",
+   "fact": "stamp_quantity",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-015-es": {
+   "lang": "es",
+   "fact": "stamp_quantity",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-017-en": {
+   "lang": "en",
+   "fact": "stamp_quantity",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-017-es": {
+   "lang": "es",
+   "fact": "stamp_quantity",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-020-en": {
+   "lang": "en",
+   "fact": "stamp_quantity",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-020-es": {
+   "lang": "es",
+   "fact": "stamp_quantity",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-023-en": {
+   "lang": "en",
+   "fact": "printer",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-023-es": {
+   "lang": "es",
+   "fact": "printer",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-027-en": {
+   "lang": "en",
+   "fact": "printer",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-027-es": {
+   "lang": "es",
+   "fact": "printer",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-029-en": {
+   "lang": "en",
+   "fact": "legal_act",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-029-es": {
+   "lang": "es",
+   "fact": "legal_act",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-030-en": {
+   "lang": "en",
+   "fact": "legal_act",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-030-es": {
+   "lang": "es",
+   "fact": "legal_act",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-034-en": {
+   "lang": "en",
+   "fact": "varieties",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-034-es": {
+   "lang": "es",
+   "fact": "varieties",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-037-en": {
+   "lang": "en",
+   "fact": "varieties",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-037-es": {
+   "lang": "es",
+   "fact": "varieties",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-039-en": {
+   "lang": "en",
+   "fact": "scott_equivalent",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  },
+  "cat-039-es": {
+   "lang": "es",
+   "fact": "scott_equivalent",
+   "rank": 1,
+   "fact_found_top1": true,
+   "fact_found_top3": true
+  }
+ }
+}

@@ -11,14 +11,22 @@ test.describe("finding 19: the generated figures say only what their sources hol
   test("'in the first three' counts ranks 1 to 3 only", () => {
     const box = sandbox();
     try {
+      // stage 2's vector index alone (the page's comparison with the full-text index)
       const s2 = box.json("eval/outcomes/stage2.json");
-      const before = box.run().figures.issue_found.three;
+      const before = box.run().figures.vector_only.three;
       const q = s2.catalogue.lookup_vector_index.questions;
       const held = Object.keys(s2.catalogue.split).filter((id) => s2.catalogue.split[id] === "heldout");
       const id = held.find((x) => q[x]?.rank === 1)!;
       q[id] = { rank: 99, fact_found: false };
       box.write("eval/outcomes/stage2.json", s2);
-      expect(box.run().figures.issue_found.three).toBe(before - 1);
+      expect(box.run().figures.vector_only.three).toBe(before - 1);
+      // the lookup as served (the page's "Issue found")
+      const served = box.json("eval/outcomes/catalogue_heldout_served.json");
+      const was = box.run().figures.issue_found.three;
+      const first = Object.keys(served.questions).find((x) => served.questions[x].rank === 1)!;
+      served.questions[first].rank = 99;
+      box.write("eval/outcomes/catalogue_heldout_served.json", served);
+      expect(box.run().figures.issue_found.three).toBe(was - 1);
     } finally {
       box.done();
     }

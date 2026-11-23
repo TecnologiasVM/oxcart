@@ -24,7 +24,8 @@ export type HowFigures = {
     page_found: { found: number; k: number; drafts: number } & Of | null;
     waits: { evidence: number; answer: number; answer_p95: number } | null;
   };
-  issue_found: { first: number; three: number; es_first: number; es_of: number } & Of;
+  issue_found: { first: number; three: number; es_first: number; es_of: number; median_s: number; p95_s: number } & Of;
+  vector_only: { first: number; three: number; es_first: number; es_of: number } & Of;
   full_text: { first: number; three: number; es_first: number; es_of: number } & Of;
   tried: {
     whole: { passages: number; answered: number } & Of;

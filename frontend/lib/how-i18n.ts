@@ -169,11 +169,11 @@ export const HOW: Record<Lang, HowWords> = {
     traceAnswer: "Answer shown",
     source: "source",
     whyAlone: (fullText: S, vector: S, spanish: S) =>
-      `On the graph's full-text index alone, the right issue comes first for ${fullText} held-out questions, against ${vector} with the vector. Spanish questions get ${spanish}: the catalogue's titles are in English.`,
+      `On the graph's full-text index alone, the right issue comes first for ${fullText} held-out questions, against ${vector} with the vector index. Spanish questions get ${spanish}: the catalogue's titles are in English.`,
     // 4. results
     resH: "Results",
     resSet: (all: S, cat: S, lit: S, oos: S) => `${all} questions in Spanish and English: ${cat} on the catalogue, ${lit} on the literature, ${oos} out of scope.`,
-    issueFound: { lead: "Issue found.", text: (three: S) => `Held-out catalogue questions where the right issue comes first. In the first three: ${three}.` },
+    issueFound: { lead: "Issue found.", text: (three: S) => `Held-out catalogue questions where the right issue comes first, as served. In the first three: ${three}.` },
     pageFound: { lead: "Page found.", text: (k: S, drafts: S, withDrafts: S) =>
       `Literature questions with a page that answers among the ${k} passages. Counting the ${drafts} drafts left out: ${withDrafts}.` },
     catAnswers: { lead: "Catalogue answers", text: (supported: S) => `that state the value the catalogue holds. Every sentence stated by its sources: ${supported}.` },
@@ -303,10 +303,10 @@ export const HOW: Record<Lang, HowWords> = {
     traceAnswer: "Respuesta mostrada",
     source: "fuente",
     whyAlone: (fullText: S, vector: S, spanish: S) =>
-      `Solo con el índice de texto completo del grafo, la emisión correcta queda primera en ${fullText} preguntas reservadas, frente a ${vector} con el vector. Las preguntas en español aciertan ${spanish}: los títulos del catálogo están en inglés.`,
+      `Solo con el índice de texto completo del grafo, la emisión correcta queda primera en ${fullText} preguntas reservadas, frente a ${vector} con el índice vectorial. Las preguntas en español aciertan ${spanish}: los títulos del catálogo están en inglés.`,
     resH: "Resultados",
     resSet: (all: S, cat: S, lit: S, oos: S) => `${all} preguntas en español y en inglés: ${cat} sobre el catálogo, ${lit} sobre la literatura, ${oos} fuera de alcance.`,
-    issueFound: { lead: "Emisión encontrada.", text: (three: S) => `Preguntas reservadas del catálogo en las que la emisión correcta queda primera. Entre las tres primeras: ${three}.` },
+    issueFound: { lead: "Emisión encontrada.", text: (three: S) => `Preguntas reservadas del catálogo en las que la emisión correcta queda primera, tal como se sirve. Entre las tres primeras: ${three}.` },
     pageFound: { lead: "Página encontrada.", text: (k: S, drafts: S, withDrafts: S) =>
       `Preguntas de la literatura con una página que responde entre los ${k} pasajes. Contando los ${drafts} borradores que quedaron fuera: ${withDrafts}.` },
     catAnswers: { lead: "Respuestas del catálogo", text: (supported: S) => `que dan el valor que guarda el catálogo. Con todas sus frases respaldadas por sus fuentes: ${supported}.` },

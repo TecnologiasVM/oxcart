@@ -82,7 +82,7 @@
   "usd": 9,
   "month": "2026-11",
   "run": "the monthly spend limit of the model key's workspace, set at the provider",
-  "stated": "README.md, \"What the limits are, and what they are not\" (not in EVALUATION.md)"
+  "stated": "docs/OPERATIONS.md, \"What the limits are, and what they are not\" (not in EVALUATION.md)"
  },
  "trace": {
   "stated": "The traced question as the served system returned it on 2026-11-23, through the eval's way in to the public service: asked after a first question about the same issue; scores as returned. The opening question's answer, the passages and the timings are left out.",
