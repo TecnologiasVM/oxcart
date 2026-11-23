@@ -199,6 +199,12 @@ the same evidence followed by a short answer whose sentences cite it. The steps 
   text is in it. A sentence with no citation that holds is not shown; a piece that is only the cited text,
   standing between two sentences, counts as the citation of the sentence before it and is not printed. The part
   of a kept sentence outside its cited text is not removed.
+- **Where a sentence ends.** At a line break, or at an end mark followed by space when what follows can start a
+  sentence. Not at an abbreviation's full stop ("No.", "núm.", "pp.", "Sc.", "Co." and the like), and not
+  before a number or a lower-case letter: "a copy of Guanacaste No. 7 with double overprints" is one sentence.
+  The cost is that two sentences are sometimes taken for one ("… in 1889. 500 were printed."), and then one
+  citation keeps both; a sentence cut in two inside a number or a name was the worse error, because each piece
+  needed a citation of its own and a source mark stood in the middle of it.
 - **The evidence is untrusted text.** It enters a request as document content only, never in the instructions;
   the instructions say that text inside a document is not to be followed; the model has no tools. The earlier
   turns are treated the same way.
@@ -262,8 +268,8 @@ search; one search is made and counted.
 - **What is kept of a result:** an `https` address of at most 300 characters, with no user name or password,
   no space, control character or backslash, and a host name that parses; its title cut to 200 characters (the
   host when it has none) and its text to 1,500. At most five. A host that is only numbers and dots is not a
-  name and is refused. **Sites left out:** video and social sites, a marketplace and the search service's own
-  site (`WEB_HOST_LABELS_LEFT_OUT`, `WEB_DOMAINS_LEFT_OUT` in `settings.py`): a result is dropped when its host
+  name and is refused. **Sites left out:** video and social sites, marketplaces and their price guides, and the
+  search service's own site (`WEB_HOST_LABELS_LEFT_OUT`, `WEB_DOMAINS_LEFT_OUT` in `settings.py`): a result is dropped when its host
   has one of those names as a label or is under one of those domains, and the domains go with the search
   request as `exclude_domains`.
 - **The web call** (`answer_model.ClaudeModel.write_web`, purpose `web`): the same model and call settings as
@@ -291,7 +297,7 @@ made). The states:
 
 **How many searches.** Before a ticket is made and again before a search, the backend reads the account's
 credits used this month from `GET https://api.tavily.com/usage` (`account.plan_usage`, with `account.plan_limit`
-present as an integer; 4 s), at most once in five minutes, and adds the searches it made itself in the last day of
+present as an integer; 4 s), at most once in five minutes, and adds the searches it made itself in the last two hours of
 the current month: the usage route runs behind the searches made (`WEB_USAGE_LAG_SECONDS`). A search is allowed
 while
 

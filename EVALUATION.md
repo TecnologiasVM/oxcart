@@ -654,13 +654,13 @@ questions, so the columns are not one question asked two ways.
   is not in the sources: 4 web parts, 3 nothing, 2 out of scope. Several of those 9 ask about something that
   does not exist; a web part written for one cannot be checked here.
 - **Sites left out after the trial:** video and social sites, a marketplace and the search service's own site
-  were returned often and cited almost never. The code now drops them and asks the search not to return them.
-  The counts above are from before that.
+  were returned often and cited almost never. The code now drops them, and other marketplaces and their price
+  guides, and asks the search not to return them. The counts above are from before that.
 - The web call took 3,554 input and 526 output tokens on average, about 0.0006 USD, and 2.8 s on average (5.1
   at most), after the search.
 - **The search service's count of credits runs behind.** After the 26 searches its usage route still gave the
   earlier count eleven minutes after the first. The rule that allows a search reads that route, so the backend
-  also adds the searches it made itself in the last day (README, "What the limits are").
+  also adds the searches it made itself in the last two hours (README, "What the limits are").
 
 Per-question outcomes: `eval/outcomes/answers_web-mk-a.json`, `-b`, `-c` and `answers_web-mk-cat.json` (as the
 other runs, with whether an answer covers all or part), and `eval/outcomes/web_trial.json` (for each question

@@ -224,14 +224,15 @@ subject named in an earlier turn. The question, the pages the search returned an
 answer already given go to Anthropic for one more model call, which counts toward the day's 200; a web request
 also counts as one of the visitor's questions. Settings: `ASK_WEB` and `TAVILY_API_KEY` on the backend,
 `NEXT_PUBLIC_WEB` in the page's build, `WEB_QUERY_SUFFIX` for the fixed words. Pages of video and social sites,
-of a marketplace and of the search service itself are never used.
+of marketplaces and their price guides, and of the search service itself are never used.
 
 **How many searches.** The search plan is a free one of 1,000 credits a month with no card, so a month that
 uses them up shows no web part and costs nothing. Before that, a search is allowed while the credits used this
 month are under `30 + 920 x the share of the month gone by`: a quiet day leaves its share for a busier one.
 The count comes from the search service's usage route, read at most once in five minutes. **That route runs
-behind** (measured: 26 searches were still not in it eleven minutes after the first), so the backend adds the
-searches it made itself in the last day. After a restart it knows only what the route says, and can allow a
+behind** (measured: 26 searches were not in it eleven minutes after the first, and were fifty minutes after the
+last), so the backend adds the
+searches it made itself in the last two hours. After a restart it knows only what the route says, and can allow a
 few more than the rule until the route catches up. If the route cannot be read: 30 searches a day, counted in
 memory.
 
