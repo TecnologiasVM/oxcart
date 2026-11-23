@@ -227,6 +227,10 @@ was cited for), `not_covered` (the evidence does not answer the question), or th
 `no_key`, `daily_cap`, `no_evidence`, `timeout`, `key_refused`, `rate_limited`, `request_refused`,
 `model_unavailable`, `declined`, `cut` (the answer hit its length limit), `uncited` (no sentence carried a
 citation that holds), `empty`, `stopped`, `failed`. In every one of those the evidence has already been sent.
+A shown sentence that took a citation from a quote standing after it carries `quoted`: `all` when every citation
+it has came from quotes (without that rule it would not be shown), `some` when it has one of its own too; `counts`
+says how many shown sentences are of each kind (`sentences_cited_by_a_quote_only`, `sentences_cited_by_a_quote_too`).
+A web part's sentences carry the same field and counts.
 
 The route stands behind the same guard as `/api/ask`: the session token, both visitor counts (a question here
 counts as a question there), the service's daily limit, and the eval's way in. On top of that, the whole service

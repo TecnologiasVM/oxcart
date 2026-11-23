@@ -417,7 +417,11 @@ def cited_sentences(blocks: list, sources: list, markers: tuple = ()) -> tuple[l
     (``kind`` "issue", with ``lines``) or anything else with a ``text``, and has a ``kind``, an ``index`` and a
     ``title``. Returns the sentences kept, each with the numbers of the sources it cites; the sources cited,
     numbered in the order they are first cited, each with the text it was cited for; and the counts. A
-    sentence that holds one of ``markers`` is never kept."""
+    sentence that holds one of ``markers`` is never kept.
+
+    A kept sentence that took a citation from a quote standing after it says so: ``"quoted": "all"`` when every
+    citation it has came from quotes (without that rule it would not be shown), ``"some"`` when it also has one
+    of its own; without a quote it has no such field. The counts say how many shown sentences are of each kind."""
     # The text that is printed, and where each citation that holds is attached to it.
     text, pieces, quotes, given, held = "", [], [], 0, 0        # pieces: (start, end, citations); quotes: (at, citations)
     for block in blocks:
@@ -440,8 +444,9 @@ def cited_sentences(blocks: list, sources: list, markers: tuple = ()) -> tuple[l
     spans = [(a, b) for a, b in sentence_spans(text) if _HAS_A_WORD.search(text[a:b])]
     for position, (a, b) in enumerate(spans):
         after = spans[position + 1][0] if position + 1 < len(spans) else len(text) + 1
-        attached = [c for start, end, holding in pieces if text[max(a, start):min(b, end)].strip() for c in holding]
-        attached += [c for at, holding in quotes if (a < at < after) or (at == 0 and position == 0) for c in holding]
+        own = [c for start, end, holding in pieces if text[max(a, start):min(b, end)].strip() for c in holding]
+        quoted = [c for at, holding in quotes if (a < at < after) or (at == 0 and position == 0) for c in holding]
+        attached = own + quoted
         cites = []
         for citation in attached:
             source = sources[citation["document"]]
@@ -457,10 +462,15 @@ def cited_sentences(blocks: list, sources: list, markers: tuple = ()) -> tuple[l
             if numbers[key] not in cites:
                 cites.append(numbers[key])
         if cites and not any(marker in text[a:b] for marker in markers):
-            sentences.append({"text": text[a:b], "cites": cites})
+            sentence = {"text": text[a:b], "cites": cites}
+            if quoted:                  # shown thanks to the quote rule ("all"), or also with a citation of its own
+                sentence["quoted"] = "some" if own else "all"
+            sentences.append(sentence)
 
     counts = {"sentences": len(spans), "sentences_without_citation": len(spans) - len(sentences),
-              "citations": given, "citations_that_do_not_hold": given - held}
+              "citations": given, "citations_that_do_not_hold": given - held,
+              "sentences_cited_by_a_quote_only": sum(s.get("quoted") == "all" for s in sentences),
+              "sentences_cited_by_a_quote_too": sum(s.get("quoted") == "some" for s in sentences)}
     cited_numbers = {n for sentence in sentences for n in sentence["cites"]}
     return sentences, [source for source in used if source["n"] in cited_numbers], counts
 

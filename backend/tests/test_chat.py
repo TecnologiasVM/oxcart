@@ -90,7 +90,9 @@ def test_a_question_gives_the_evidence_then_an_answer_whose_sentences_cite_it(ch
     assert [s["text"] for s in answer["answer"]["sentences"]] == ["The made-up issue has one stamp.",
                                                                  "The page is full of the letter x."]
     assert answer["answer"]["counts"] == {"sentences": 3, "sentences_without_citation": 1,
-                                          "citations": 2, "citations_that_do_not_hold": 0}
+                                          "citations": 2, "citations_that_do_not_hold": 0,
+                                          "sentences_cited_by_a_quote_only": 0, "sentences_cited_by_a_quote_too": 0}
+    assert all("quoted" not in s for s in answer["answer"]["sentences"])      # citations of their own, no quote
     # each kept sentence points at a shown card or passage, with the text it cites
     first, second = answer["answer"]["sources"]
     assert (first["n"], first["kind"], first["index"], first["quotes"]) == (1, "issue", 0, ["stamp 1"])
@@ -194,12 +196,27 @@ def test_a_quote_standing_between_two_sentences_cites_the_one_before_it_and_is_n
         {"text": "Issue: An issue (CR-1)", "citations": [listed]},   # the same words inside a sentence stay in it
         {"text": ".", "citations": []}])
     _, answer = lines_of(ask(client))
-    assert answer["answer"]["sentences"] == [{"text": "The made-up issue has one stamp.", "cites": [1, 2]},
+    assert answer["answer"]["sentences"] == [{"text": "The made-up issue has one stamp.", "cites": [1, 2], "quoted": "all"},
                                              {"text": "It is listed as Issue: An issue (CR-1).", "cites": [1]}]
     assert answer["answer"]["sources"][0]["quotes"] == ["stamp 1", "Issue: An issue (CR-1)"]
     # the stray full stop left between the quotes is not counted as a sentence
     assert answer["answer"]["counts"] == {"sentences": 3, "sentences_without_citation": 1,
-                                          "citations": 3, "citations_that_do_not_hold": 0}
+                                          "citations": 3, "citations_that_do_not_hold": 0,
+                                          "sentences_cited_by_a_quote_only": 1, "sentences_cited_by_a_quote_too": 0}
+
+
+def test_a_sentence_with_a_citation_of_its_own_and_a_quote_after_it_says_some():
+    evidence = {"issues": [], "passages": [{"doc_id": "D", "page": 1, "text": "Some made-up words. Other made-up words."}]}
+    own, quote = {"document": 0, "cited_text": "Some made-up words."}, {"document": 0, "cited_text": "Other made-up words."}
+    draft = {"state": "ok", "blocks": [
+        {"text": "The page holds made-up words.", "citations": [own]},
+        {"text": " ", "citations": []},
+        {"text": "Other made-up words.", "citations": [quote]},             # a quote after it
+        {"text": " A second made-up sentence.", "citations": [own]}]}
+    answer = answer_graph.check({"evidence": evidence, "draft": draft})["answer"]
+    assert answer["sentences"] == [{"text": "The page holds made-up words.", "cites": [1], "quoted": "some"},
+                                   {"text": "A second made-up sentence.", "cites": [1]}]
+    assert (answer["counts"]["sentences_cited_by_a_quote_only"], answer["counts"]["sentences_cited_by_a_quote_too"]) == (0, 1)
 
 
 def test_a_quote_before_any_sentence_cites_the_first_one():
@@ -207,7 +224,8 @@ def test_a_quote_before_any_sentence_cites_the_first_one():
     draft = {"state": "ok", "blocks": [{"text": "Some made-up words.", "citations": [{"document": 0, "cited_text": "Some made-up words."}]},
                                        {"text": " The page holds made-up words.", "citations": []}]}
     answer = answer_graph.check({"evidence": evidence, "draft": draft})["answer"]
-    assert answer["sentences"] == [{"text": "The page holds made-up words.", "cites": [1]}]
+    assert answer["sentences"] == [{"text": "The page holds made-up words.", "cites": [1], "quoted": "all"}]
+    assert answer["counts"]["sentences_cited_by_a_quote_only"] == 1
 
 
 def test_when_the_evidence_does_not_cover_the_question_the_answer_says_so(chat_client, model):
@@ -226,7 +244,8 @@ def test_an_answer_with_no_citation_that_holds_is_not_shown(chat_client, model):
     _, answer = lines_of(ask(client))
     assert answer["answer"]["state"] == "uncited" and "sentences" not in answer["answer"]
     assert answer["answer"]["counts"] == {"sentences": 3, "sentences_without_citation": 3,
-                                          "citations": 2, "citations_that_do_not_hold": 2}
+                                          "citations": 2, "citations_that_do_not_hold": 2,
+                                          "sentences_cited_by_a_quote_only": 0, "sentences_cited_by_a_quote_too": 0}
 
 
 @pytest.mark.parametrize("state", ["timeout", "key_refused", "rate_limited", "request_refused", "model_unavailable",

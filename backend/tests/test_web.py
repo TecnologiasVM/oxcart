@@ -504,7 +504,8 @@ def test_the_check_keeps_cited_sentences_and_names_the_cited_results_only():
     assert part["sentences"] == [{"text": "Two made-up pages agree.", "cites": [1]}, {"text": "It cost 25 centavos.", "cites": [2]}]
     assert part["results"] == [{"n": 1, "title": "Another made-up page", "host": "other.example", "url": "https://other.example/a"},
                                {"n": 2, "title": "A made-up page about rates", "host": "stamps.example", "url": "https://stamps.example/rates.pdf"}]
-    assert part["counts"] == {"sentences": 5, "sentences_without_citation": 3, "citations": 4, "citations_that_do_not_hold": 2}
+    assert part["counts"] == {"sentences": 5, "sentences_without_citation": 3, "citations": 4, "citations_that_do_not_hold": 2,
+                              "sentences_cited_by_a_quote_only": 0, "sentences_cited_by_a_quote_too": 0}
     assert "25 centavos" not in json.dumps(part["results"]) and "quotes" not in json.dumps(part)      # no cited text
 
 
@@ -518,6 +519,12 @@ def test_the_check_reads_the_two_replies_and_a_reply_with_no_citation_is_nothing
     tail = web_step.check_web([{"text": "It cost 25 centavos.", "citations": [{"document": 0, "cited_text": "25 centavos"}]},
                                {"text": f"\n{answer_model.NOTHING_TO_ADD}", "citations": []}], KEPT)
     assert [s["text"] for s in tail["sentences"]] == ["It cost 25 centavos."]
+    # a web part's sentences carry the quote field the same way: the rule is the one an answer has
+    quoted = web_step.check_web([{"text": "A letter cost a made-up rate.", "citations": []},
+                                 {"text": "25 centavos", "citations": [{"document": 0, "cited_text": "25 centavos"}]},
+                                 {"text": " Nothing backs this.", "citations": []}], KEPT)
+    assert quoted["sentences"] == [{"text": "A letter cost a made-up rate.", "cites": [1], "quoted": "all"}]
+    assert quoted["counts"]["sentences_cited_by_a_quote_only"] == 1
 
 
 def test_an_answers_check_is_unchanged_by_the_shared_rule():
@@ -527,7 +534,8 @@ def test_an_answers_check_is_unchanged_by_the_shared_rule():
     answer = answer_graph.check({"evidence": evidence, "draft": draft})["answer"]
     assert answer == {"state": "ok", "sentences": [{"text": "The page holds words.", "cites": [1]}],
                       "sources": [{"n": 1, "kind": "passage", "index": 0, "title": "D, page 1", "quotes": ["made-up words"]}],
-                      "counts": {"sentences": 2, "sentences_without_citation": 1, "citations": 1, "citations_that_do_not_hold": 0}}
+                      "counts": {"sentences": 2, "sentences_without_citation": 1, "citations": 1, "citations_that_do_not_hold": 0,
+                                 "sentences_cited_by_a_quote_only": 0, "sentences_cited_by_a_quote_too": 0}}
 
 
 # ---------------------------------------------------------------- the chat reply's ticket
@@ -574,7 +582,8 @@ def test_the_web_part_for_an_answer_in_part(web_client, model, tavily):
     assert part["sentences"] == [{"text": "A letter to the made-up place cost 25 centavos.", "cites": [1]}]
     assert part["results"] == [{"n": 1, "title": "A made-up page about rates", "host": "stamps.example", "url": "https://stamps.example/rates.pdf"}]
     assert part["counts"] == {"results_returned": 2, "results_kept": 2, "sentences": 2, "sentences_without_citation": 1,
-                              "citations": 1, "citations_that_do_not_hold": 0}
+                              "citations": 1, "citations_that_do_not_hold": 0,
+                              "sentences_cited_by_a_quote_only": 0, "sentences_cited_by_a_quote_too": 0}
     assert part["calls"] == [{"purpose": "web", "state": "ok", "input_tokens": 700, "output_tokens": 40, "seconds": 0.0}]
     # the query is the question as it was searched (the follow-up rewritten) and the fixed words, nothing else
     assert question == model.standalone and tavily.queries == [f"{question} Costa Rica philately"]
