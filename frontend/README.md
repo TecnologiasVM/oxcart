@@ -67,6 +67,22 @@ becomes an address.
 The browser tests route the host `https://figures.invalid`: build with
 `NEXT_PUBLIC_FIGURES_BASE=https://figures.invalid` before `npx playwright test` against a built site.
 
+## The web part
+
+With the build setting `NEXT_PUBLIC_WEB` on (`1`, `true`, `yes`, `on`), an answer whose sources cover part of the
+question, or none of it, can get a part written from a web search (`lib/web.ts`; backend: `backend/README.md`,
+"The web step"). The chat reply then carries a ticket; once the answer is on screen the page sends the question as
+it was searched, the answer's text and the ticket to `POST /api/chat/web`, once, and draws what comes back last in
+the turn: the block, the line "A web search found nothing to add." under "not covered", or nothing. Titles, hosts
+and sentences are text; an address becomes a link only after the page checks it again (https, no user name), with
+`rel="noopener noreferrer"`, in a new tab. The web part is kept with its turn; its ticket is not, so a turn read
+back from storage never asks again. A follow-up never sends it. The privacy paragraph under "Details" names Tavily
+only in such a build.
+
+Off (the default) a ticket is ignored, no request is made, and the page is what it was. The browser tests are built
+with `NEXT_PUBLIC_WEB=1` (CI, `playwright.config.ts`); build and run them with `NEXT_PUBLIC_WEB=` (empty) to test
+the off build: `tests-e2e/web.spec.ts` then runs its off tests and skips the others.
+
 ## Tests
 
 ```bash

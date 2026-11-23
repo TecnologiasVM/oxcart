@@ -4,6 +4,8 @@
 //   NEXT_PUBLIC_TURNSTILE_SITE_KEY  the human check's public site key (without it the page asks without a check)
 //   EXAMPLES_EVAL_KEY               optional: lets the build store the example questions' evidence (store-examples.mjs)
 //   NEXT_PUBLIC_FIGURES_BASE        optional: the figures host (https); without it the page draws no picture
+//   NEXT_PUBLIC_WEB                 optional (1, true, yes, on): the page asks for the web part and its privacy
+//                                   paragraph names the search service; without it neither
 //
 // The hosted site ships the question page only. The explorer under /research is local
 // research tooling: its routes need a backend mode the hosted backend does not mount, so

@@ -13,7 +13,8 @@ The backend honours these contracts and they are enforced elsewhere:
 * One module calls a language model: ``app.answer_model`` (the written answer of
   ``POST /api/chat``). One module calls an embedding service: ``app.ask_service``
   (the question's vector). No other code calls a model, and the explorer's routes
-  call none.
+  call none. One module calls the web search service, ``app.web_step``, and only with
+  ``ASK_WEB`` on.
 * Weaviate is read-only.
 * Neo4j queries issued by the backend are read-only.
 * Embedding/vector properties are never exposed (stripped in ``app.deps``).
@@ -88,6 +89,11 @@ ASK_EXCERPT: str = "nearest" if os.getenv("ASK_EXCERPT", "").strip().lower() == 
 # The catalogue lookup also asks the second, short vector index of the issues (their title, years and
 # section). Off until the graph holds it: scripts/issue_short_vectors.py writes it and can take it away.
 ASK_SHORT_VECTOR: bool = _flag("ASK_SHORT_VECTOR")
+# The write call says which of three things happened when it does not answer a question in full: the
+# question is outside the scope, the documents do not answer it, or they answer part of it (answer_model.py).
+# For the last two the chat reply then carries a ticket for the web step (below, and app/web_step.py).
+# Off, the instructions, the reply's reading and every route are the ones served before this setting existed.
+ASK_WEB: bool = _flag("ASK_WEB")
 ASK_TIMEOUT_SECONDS: int = _int("ASK_TIMEOUT_SECONDS", 25)
 EMBED_TIMEOUT_SECONDS: int = _int("EMBED_TIMEOUT_SECONDS", 5)
 
@@ -175,3 +181,40 @@ ANSWER_LIMIT_PER_DAY: int = _int("ANSWER_LIMIT_PER_DAY", 200)
 CHAT_MAX_BODY_BYTES: int = _int("CHAT_MAX_BODY_BYTES", 8192)
 CHAT_THREAD_TURNS: int = 3
 CHAT_THREAD_ANSWER_CHARS: int = 1200
+
+
+# ---------------------------------------------------------------------------
+# The web step (POST /api/chat/web), only with ASK_WEB on (app/web_step.py)
+# ---------------------------------------------------------------------------
+# A web search for a question our sources do not cover, or cover in part, written up by a second call
+# of the same model from the pages the search returned. Without TAVILY_API_KEY no ticket is ever made,
+# so the page never asks for it.
+TAVILY_API_KEY: str = os.getenv("TAVILY_API_KEY", "").strip()
+TAVILY_SEARCH_URL: str = "https://api.tavily.com/search"
+TAVILY_USAGE_URL: str = "https://api.tavily.com/usage"
+# Fixed words put after the question in the search query; empty means none. Nothing a model wrote is in it.
+WEB_QUERY_SUFFIX: str = os.getenv("WEB_QUERY_SUFFIX", "Costa Rica philately").strip()
+WEB_SEARCH_TIMEOUT_SECONDS: float = 6.0
+WEB_USAGE_TIMEOUT_SECONDS: float = 4.0
+WEB_MAX_RESULTS: int = 5
+# What is kept of a result: an https address of at most this many characters, a title and a text cut to these.
+WEB_URL_CHARS: int = 300
+WEB_TITLE_CHARS: int = 200
+WEB_TEXT_CHARS: int = 1500
+# How long a ticket for the web step is good for, after the chat reply that carries it.
+WEB_TICKET_SECONDS: int = 120
+WEB_MAX_BODY_BYTES: int = 4096
+# How many searches are allowed. The account's credits used this month are read from the search service's
+# usage route at most once in WEB_USAGE_EVERY_SECONDS, plus the searches this process made lately (below); a
+# search is allowed while that is under WEB_SEARCHES_AT_MONTH_START + WEB_SEARCHES_OVER_THE_MONTH x the share
+# of the current month gone by (UTC). When the usage cannot be read: WEB_SEARCHES_PER_DAY_FALLBACK a day (UTC),
+# counted in memory.
+WEB_USAGE_EVERY_SECONDS: int = 300
+WEB_SEARCHES_AT_MONTH_START: int = 30
+WEB_SEARCHES_OVER_THE_MONTH: int = 920
+WEB_SEARCHES_PER_DAY_FALLBACK: int = 30
+# The usage route runs behind the searches made: on 2026-11-23, 26 searches were still not in it nine minutes
+# after the first. So the searches this process made in the last WEB_USAGE_LAG_SECONDS (of the current month)
+# are added to what the route says. Longer than the real delay only makes the count cautious: a search the
+# route already holds is counted twice until it is older than this.
+WEB_USAGE_LAG_SECONDS: int = 24 * 3600

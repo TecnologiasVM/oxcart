@@ -1,5 +1,6 @@
 import { test, expect, Page } from "@playwright/test";
 import { formatDate } from "../lib/evidence-text";
+import { webOn } from "../lib/web";
 import {
   ANSWER,
   ISSUE,
@@ -35,6 +36,9 @@ import {
  * A build with no site key (no human check) is not covered by these tests.
  */
 
+// the build the tests run against asks for the web part unless it was built with NEXT_PUBLIC_WEB empty
+const WEB_BUILD = webOn(process.env.NEXT_PUBLIC_WEB ?? "1");
+
 // ===================================================================== the first screen
 
 test("the site opens directly on the question box", async ({ page }) => {
@@ -69,7 +73,9 @@ test("the privacy line stands by the box, and Details unfolds the full paragraph
   for (const name of ["OpenAI", "Anthropic", "Cloudflare"]) await expect(full).toContainText(name);
   // this build draws pictures (the tests' figures host), so the paragraph says where they come from
   await expect(full).toContainText("Pictures are loaded by your browser from a separate host at Cloudflare, which sees your browser's address as any web server does.");
-  await expect(full).not.toContainText("Tavily");                     // the web branch is not served
+  // the web search service is named only in a build that asks for the web part (tests-e2e/web.spec.ts)
+  if (WEB_BUILD) await expect(full).toContainText("When our sources cover only part of a question, or none of it, the question is also sent to Tavily (to search the web).");
+  else await expect(full).not.toContainText("Tavily");
   // what the server holds of a question: the vectors of the last 256, in memory, with no text (backend: Embedder)
   await expect(full).toContainText("last 256 questions");
   await expect(full).toContainText("writes nothing to disk");
@@ -709,7 +715,7 @@ test("when no answer is written the turn says why in one line, and what was foun
   await page.goto("/");
   await ask(page, "What is the capital of a made-up country?");
   const turn = newest(page);
-  await expect(turn.getByTestId("not-covered")).toContainText(/does not answer this question|no responde esta pregunta/);
+  await expect(turn.getByTestId("not-covered")).toContainText(WEB_BUILD ? /do not answer this question/ : /does not answer this question|no responde esta pregunta/);
   await expect(turn.getByTestId("written-answer")).toHaveCount(0);
   await expect(turn.getByTestId("evidence-button")).toHaveText(/What was found/);
   await expect(turn.locator(".foundnames li")).toHaveCount(4);

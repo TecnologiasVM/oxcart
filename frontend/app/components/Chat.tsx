@@ -19,6 +19,9 @@
  * - A human check (Cloudflare Turnstile) runs once per session. It starts when the question box
  *   first takes focus and stays invisible unless it needs a click; only a question sent before
  *   it has passed shows its words, under that question.
+ * - In a build with NEXT_PUBLIC_WEB on, an answer whose sources cover part of the question, or none
+ *   of it, can get a web part: asked once, by this page, after the answer is on screen, and drawn
+ *   last in its turn (lib/web.ts). It is kept with the turn and never sent with a follow-up.
  * - The service sleeps when nobody uses it. While it wakes the page says so in short lines
  *   that follow one another, with a count of seconds.
  */
@@ -30,6 +33,7 @@ import {
 } from "@/lib/ask";
 import type { Example, StoredExample } from "@/lib/ask";
 import { newId } from "@/lib/conversation";
+import { askWeb, ticketOf, withoutTicket } from "@/lib/web";
 import type { Turn } from "@/lib/conversation";
 import { LABELS } from "@/lib/i18n";
 import type { Labels, Lang } from "@/lib/i18n";
@@ -129,8 +133,14 @@ export default function Chat() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+  const arrived = useRef("");
   useLayoutEffect(() => {
-    if (!pinned.current || !turns.length) return;
+    // what a turn has received so far. The web part is left out: it arrives under an answer already on
+    // screen, and nothing on screen moves for it, so the page does not scroll when it comes
+    const now = turns.map((x) => `${x.id}:${[x.pending, x.answer, x.writing, x.written, x.error, x.check].map((v) => (v ? 1 : 0)).join("")}`).join("|");
+    const changed = now !== arrived.current;
+    arrived.current = now;
+    if (!changed || !pinned.current || !turns.length) return;
     const last = document.querySelector<HTMLElement>(".thread > article:last-child");
     const header = document.querySelector<HTMLElement>("header.masthead");
     const covered = header && getComputedStyle(header).position === "sticky" ? header.offsetHeight : 0;
@@ -263,12 +273,22 @@ export default function Chat() {
       // the evidence comes first and is shown at once; the written answer follows
       const answerWith = async (session: string | null) => {
         try {
+          let searched = q;
           const { answer: written, calls } = await chat(q, thread, session, (answer, rewritten) => {
             setService("ready");
+            searched = answer.question || q;
             finish({ answer, rewritten, writing: true });
           });
-          finish({ written, calls, writing: false });
+          // the ticket is used here, once, and is not kept: a turn read back never asks for the web
+          const ticket = ticketOf(written);
+          finish({ written: withoutTicket(written), calls, writing: false, ...(ticket ? { web: { state: "searching" as const } } : {}) });
           setBusy(false); // with the answer on the page, so the box takes the next question at once
+          if (ticket) {
+            // after the answer is on screen: a frame for it to be drawn, then the request
+            void new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)))
+              .then(() => askWeb(searched, written.state === "ok" ? textOf(written) : "", ticket, session))
+              .then((web) => patch(id, { web }));
+          }
         } catch (e) {
           if (!(e instanceof AskError) || e.code !== "no_chat_route") throw e;
           finish({ answer: await ask(q, session) }); // a backend without the answer step: the evidence, as before

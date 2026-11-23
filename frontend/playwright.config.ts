@@ -12,6 +12,9 @@ const site = `http://localhost:${port}`;
 // The figures host the browser tests route (tests-e2e/helpers.ts). A dev server started here takes it
 // from this; a built site (CI) must be built with the same value.
 process.env.NEXT_PUBLIC_FIGURES_BASE ??= "https://figures.invalid";
+// The web part is asked for (lib/web.ts): the browser tests mock its route. A build with it off is tested by
+// building and running the tests with NEXT_PUBLIC_WEB set to an empty value (tests-e2e/web.spec.ts says which run).
+process.env.NEXT_PUBLIC_WEB ??= "1";
 
 export default defineConfig({
   testDir: "./tests-e2e",

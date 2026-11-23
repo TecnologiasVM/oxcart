@@ -618,3 +618,75 @@ def test_the_client_is_made_at_startup_without_a_request_and_only_with_a_key(mon
     assert model._client is not None
     model.close()
     assert model._client is None
+
+
+# ----------------------------------------------------------------- the three markers (ASK_WEB)
+
+EVIDENCE = {"issues": [], "passages": [{"doc_id": "D", "page": 1, "text": "Some made-up words about a made-up issue."}]}
+CITED = {"text": "The page holds made-up words.", "citations": [{"document": 0, "cited_text": "Some made-up words"}]}
+
+
+def checked(*blocks):
+    return answer_graph.check({"evidence": EVIDENCE, "draft": {"state": "ok", "blocks": list(blocks)}})["answer"]
+
+
+def test_with_the_setting_off_the_instructions_and_the_reading_are_the_ones_served_before():
+    assert not settings.ASK_WEB
+    model = claude(response(content=[text_block("x")]))
+    model.write("q", SOURCES)
+    system = model._client.messages.requests[0]["system"]
+    assert system == answer_model.WRITE_INSTRUCTIONS
+    assert answer_model.OUT_OF_SCOPE not in system and answer_model.PART_ONLY not in system
+    assert "covers" not in checked(CITED)
+    # a marker the model was never told about is not read as one
+    assert checked(CITED, {"text": f"\n{answer_model.PART_ONLY}", "citations": []})["counts"]["sentences"] == 2
+    assert checked({"text": answer_model.OUT_OF_SCOPE, "citations": []})["state"] == "uncited"
+
+
+def test_with_the_setting_on_two_sentences_of_the_instructions_change_and_nothing_else(monkeypatch):
+    monkeypatch.setattr(settings, "ASK_WEB", True)
+    model = claude(response(content=[text_block("x")]))
+    model.write("q", SOURCES)
+    system = model._client.messages.requests[0]["system"]
+    assert system == answer_model.WRITE_INSTRUCTIONS_MARKED
+    before, after = answer_model.WRITE_INSTRUCTIONS.split(". "), system.split(". ")
+    assert len(before) == len(after) and sum(a != b for a, b in zip(before, after)) == 3    # the second change spans two sentences
+    assert system.count(answer_model.OUT_OF_SCOPE) == 1 and system.count(answer_model.PART_ONLY) == 1
+    assert system.count(answer_model.NOT_COVERED) == 1
+
+
+def test_out_of_scope_and_not_covered_are_two_states(monkeypatch):
+    monkeypatch.setattr(settings, "ASK_WEB", True)
+    assert checked({"text": f" {answer_model.OUT_OF_SCOPE}\n", "citations": []}) == {"state": "out_of_scope"}
+    assert checked({"text": f" {answer_model.NOT_COVERED}\n", "citations": []}) == {"state": "not_covered"}
+
+
+def test_an_answer_says_whether_it_covers_all_of_the_question_or_part(monkeypatch):
+    monkeypatch.setattr(settings, "ASK_WEB", True)
+    whole = checked(CITED)
+    assert whole["state"] == "ok" and whole["covers"] == "all"
+    for last in ({"text": f"\n\n{answer_model.PART_ONLY}", "citations": []},
+                 {"text": f" The rest is not said.\n{answer_model.PART_ONLY}\n", "citations": []}):
+        part = checked(CITED, last)
+        assert part["state"] == "ok" and part["covers"] == "part"
+        assert part["sentences"] == whole["sentences"]                  # the marker is never printed
+    # the marker's own line is not counted as a sentence with no citation
+    assert checked(CITED, {"text": f"\n\n{answer_model.PART_ONLY}", "citations": []})["counts"] == whole["counts"]
+    # attached to a cited piece, it leaves that sentence as it was
+    joined = checked({**CITED, "text": CITED["text"] + f"\n{answer_model.PART_ONLY}"})
+    assert joined["covers"] == "part" and joined["sentences"] == whole["sentences"]
+
+
+def test_a_reply_that_is_only_the_part_marker_is_not_an_answer(monkeypatch):
+    monkeypatch.setattr(settings, "ASK_WEB", True)
+    assert checked({"text": f"{answer_model.PART_ONLY}\n", "citations": []}) == {"state": "not_covered"}
+
+
+def test_with_the_setting_on_the_model_is_told_whose_catalogue_a_card_is_from_and_the_response_is_not(monkeypatch):
+    evidence = {"question": "q", "issues": [{"issue_id": "CR-9", "title": "A made-up issue"}], "passages": []}
+    off = answer_graph.sources_of(evidence)[0]
+    assert "document_title" not in off and answer_model.document_of(off)["title"] == "Catalogue card: A made-up issue"
+    monkeypatch.setattr(settings, "ASK_WEB", True)
+    on = answer_graph.sources_of(evidence)[0]
+    assert on["title"] == off["title"] and on["lines"] == off["lines"]          # what the page is given does not change
+    assert answer_model.document_of(on)["title"] == "Card of the Mena catalogue: A made-up issue"
