@@ -194,14 +194,16 @@ TAVILY_SEARCH_URL: str = "https://api.tavily.com/search"
 TAVILY_USAGE_URL: str = "https://api.tavily.com/usage"
 # Fixed words put after the question in the search query; empty means none. Nothing a model wrote is in it.
 WEB_QUERY_SUFFIX: str = os.getenv("WEB_QUERY_SUFFIX", "Costa Rica philately").strip()
-# Sites whose pages are never used for a web part: video and social sites, a marketplace, and the search
-# service's own site. A trial of 26 searches (2026-11-23) returned them often and cited them almost never.
+# Sites whose pages are never used for a web part: video and social sites, marketplaces and their price
+# guides, and the search service's own site. A trial of 26 searches (2026-11-23) returned them often and cited them almost never.
 # A result is left out when its host has one of these names as a label (so m.facebook.com, pinterest.es and
 # every country's ebay), or is one of the domains below or under one. The domains are also sent with the search
 # request, so the service does not spend a result on them.
-WEB_HOST_LABELS_LEFT_OUT: tuple = ("youtube", "facebook", "instagram", "tiktok", "pinterest", "twitter", "ebay", "tavily")
+WEB_HOST_LABELS_LEFT_OUT: tuple = ("youtube", "facebook", "instagram", "tiktok", "pinterest", "twitter", "ebay", "tavily",
+                                   "worthpoint", "delcampe", "hipstamp", "etsy", "amazon", "mercadolibre", "catawiki")
 WEB_DOMAINS_LEFT_OUT: tuple = ("youtube.com", "youtu.be", "facebook.com", "instagram.com", "tiktok.com", "pinterest.com",
-                               "x.com", "twitter.com", "ebay.com", "tavily.com")
+                               "x.com", "twitter.com", "ebay.com", "tavily.com", "worthpoint.com", "delcampe.net",
+                               "hipstamp.com", "etsy.com", "amazon.com", "mercadolibre.com", "catawiki.com")
 WEB_SEARCH_TIMEOUT_SECONDS: float = 6.0
 WEB_USAGE_TIMEOUT_SECONDS: float = 4.0
 WEB_MAX_RESULTS: int = 5
@@ -222,7 +224,7 @@ WEB_SEARCHES_AT_MONTH_START: int = 30
 WEB_SEARCHES_OVER_THE_MONTH: int = 920
 WEB_SEARCHES_PER_DAY_FALLBACK: int = 30
 # The usage route runs behind the searches made: on 2026-11-23, 26 searches were still not in it nine minutes
-# after the first. So the searches this process made in the last WEB_USAGE_LAG_SECONDS (of the current month)
-# are added to what the route says. Longer than the real delay only makes the count cautious: a search the
-# route already holds is counted twice until it is older than this.
-WEB_USAGE_LAG_SECONDS: int = 24 * 3600
+# after the first, and were in it fifty minutes after the last. So the searches this process made in the last
+# WEB_USAGE_LAG_SECONDS (of the current month) are added to what the route says. Longer than the real delay
+# only makes the count cautious: a search the route already holds is counted twice until it is older than this.
+WEB_USAGE_LAG_SECONDS: int = 2 * 3600
