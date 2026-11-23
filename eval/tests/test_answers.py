@@ -166,3 +166,22 @@ def test_the_published_file_has_the_summary_and_no_text(tmp_path, monkeypatch):
     assert len(published["rows"]) == len(RUN)
     for made_up in ("A made-up passage.", "A made-up sentence.", "DOC A", "first_seconds"):
         assert made_up not in text
+
+
+def test_each_published_row_says_whether_its_answer_carried_a_web_ticket_and_never_the_ticket(tmp_path, monkeypatch):
+    label = "made-up-tickets"
+    rows = [dict(RUN[0], answer=dict(RUN[0]["answer"], web={"ticket": "a-made-up-ticket-value", "expires_in": 120})),
+            dict(RUN[1]),
+            {"id": "cat-3", "part": "catalogue", "lang": "en", "error": "HTTP 500"}]
+    (tmp_path / "chat" / label).mkdir(parents=True)
+    (tmp_path / "chat" / label / "answers.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
+    monkeypatch.setattr(chat_arm, "OUT", tmp_path / "chat")
+    monkeypatch.setattr(chat_arm, "OUTCOMES", tmp_path / "outcomes")
+    monkeypatch.setattr(chat_arm.ask_arm, "load", lambda name: {"questions_literature.jsonl": LIT_Q,
+                                                                 "questions_catalogue.jsonl": CAT_Q}.get(name, []))
+    monkeypatch.setattr(chat_arm.stores, "REPO", tmp_path)
+    chat_arm.table(type("Args", (), {"label": label, "grades": None, "asked": None, "judge": "", "publish": True})())
+    text = (tmp_path / "outcomes" / f"answers_{label}.json").read_text(encoding="utf-8")
+    published = json.loads(text)["rows"]
+    assert [r["web_ticket"] for r in published] == [True, False, False]
+    assert "a-made-up-ticket-value" not in text and "expires_in" not in text

@@ -46,25 +46,35 @@ const round = (value, digits) => Number(value.toFixed(digits));
 // ------------------------------------------------------------------ the results run
 /**
  * The questions outside the scope that were given a ticket for a web search: a row whose question is of type
- * "out_of_scope" (not "unanswerable") and that ended "not_covered", or "ok" with covers "part".
+ * "out_of_scope" (not "unanswerable") and whose answer carried a ticket, as the run published it (`web_ticket`,
+ * written by `eval.chat_arm table --publish`). A run published without it is refused: a ticket is not inferred from
+ * how an answer ended (the backend also needs a search key and searches left to give one).
  */
 export function ticketedOutOfScope(rows, types) {
+  const missing = rows.filter((r) => typeof r.web_ticket !== "boolean");
+  if (missing.length) fail(`the results run has no web_ticket on ${missing.length} rows: publish it again with eval.chat_arm table --publish`);
   const outside = rows.filter((r) => types.get(r.id) === "out_of_scope");
-  const ticket = (r) => r.state === "not_covered" || (r.state === "ok" && r.covers === "part");
-  return { ticketed: count(outside, ticket), of: outside.length };
+  return { ticketed: count(outside, (r) => r.web_ticket === true), of: outside.length };
 }
-// the rule, pinned on made-up rows: only the type "out_of_scope" counts, and only those two endings
+// the rule, pinned on made-up rows: only the type "out_of_scope" counts, and only a row whose answer carried a ticket
 {
   const types = new Map([["a", "out_of_scope"], ["b", "out_of_scope"], ["c", "out_of_scope"], ["d", "out_of_scope"], ["e", "unanswerable"]]);
   const rows = [
-    { id: "a", state: "not_covered" },
-    { id: "b", state: "ok", covers: "part" },
-    { id: "c", state: "ok", covers: "all" },
-    { id: "d", state: "out_of_scope" },
-    { id: "e", state: "not_covered" },
+    { id: "a", state: "not_covered", web_ticket: true },
+    { id: "b", state: "ok", covers: "part", web_ticket: true },
+    { id: "c", state: "ok", covers: "part", web_ticket: false },
+    { id: "d", state: "out_of_scope", web_ticket: false },
+    { id: "e", state: "not_covered", web_ticket: true },
   ];
   const got = ticketedOutOfScope(rows, types);
   if (got.ticketed !== 2 || got.of !== 4) fail(`the rule for a ticket outside the scope gives ${got.ticketed} of ${got.of}, not 2 of 4`);
+  let refused = false;
+  try {
+    ticketedOutOfScope([{ id: "a", state: "ok", covers: "part" }], types);
+  } catch {
+    refused = true;
+  }
+  if (!refused) fail("a run without web_ticket was not refused");
 }
 
 /** Of the questions outside the scope, only each one's id and type (eval/data/questions_out_of_scope.jsonl). */
@@ -115,7 +125,7 @@ function results(file) {
       of: lit.length,
     },
     out_of_scope: { no_answer: count(oos, (r) => r.state !== "ok"), of: oos.length },
-    // with the web on: the questions outside the scope that got a ticket for a web search
+    // with the web on: the questions outside the scope whose answer carried a ticket for a web search
     web_tickets_outside_scope: ticketedOutOfScope(oos, scopeTypes()),
     sentences: { removed: sum("sentences_without_citation"), written: sum("sentences") },
     citations: { not_hold: sum("citations_that_do_not_hold"), of: sum("citations") },
