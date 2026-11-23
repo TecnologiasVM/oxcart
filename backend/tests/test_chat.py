@@ -425,6 +425,42 @@ def test_sentences_are_cut_at_their_ends_and_at_line_breaks():
     assert answer_graph.sentence_spans("  \n ") == []
 
 
+def test_a_sentence_does_not_end_at_an_abbreviations_full_stop_nor_before_a_number_or_a_lower_case_letter():
+    cut = lambda text: [text[a:b] for a, b in answer_graph.sentence_spans(text)]
+    seen = "Doubled overprints are another sign: a copy of Madeup No. 7 with double black overprints was judged a forgery."
+    assert cut(seen) == [seen]
+    assert cut(seen + " The next sentence stands alone.") == [seen, "The next sentence stands alone."]
+    for one in ("See Nos. 12 and 13 of the made-up issue.", "Es el sello núm. 12 de la emisión inventada.",
+                "The card gives it on p. 3 and pp. 7 to 9.", "It is Sc. 25 in the other catalogue.", "Fig. 4 shows the made-up essay.",
+                "It is in vol. 2 of the made-up handbook.", "It was printed ca. 1889 by Made-up & Co. in a made-up town.",
+                "Dr. Nobody and Sra. Nadie signed the made-up decree.", "El Sr. Nadie y la Srta. Ninguna lo firmaron.",
+                "The price was 5 c. on the first day.", "It cost 0.50 col. 12 years later.", "He wrote it… and then stopped."):
+        assert cut(one) == [one], one
+    # what still ends a sentence: a capital, an opening mark, a line break
+    assert cut("It was sold in 1889. Then it was withdrawn.") == ["It was sold in 1889.", "Then it was withdrawn."]
+    assert cut("Se vendió en 1889. ¿Y después? ¡Se retiró!") == ["Se vendió en 1889.", "¿Y después?", "¡Se retiró!"]
+    assert cut("The sign is No.\n7 is another line.") == ["The sign is No.", "7 is another line."]
+    # the cost of the rule: two sentences taken for one when the second starts with a number
+    assert cut("It was sold in 1889. 500 were printed.") == ["It was sold in 1889. 500 were printed."]
+
+
+def test_a_citation_after_an_abbreviation_stays_inside_its_sentence(chat_client, model):
+    """Seen on the served page: a source mark stood in the middle of a sentence, after "No."."""
+    client = chat_client()
+    model.reply = Reply(state="ok", blocks=[
+        {"text": "A copy of Madeup No.", "citations": [{"document": 0, "cited_text": "stamp 1"}]},
+        {"text": " 7 with a double overprint was judged a forgery.", "citations": [{"document": 0, "cited_text": "stamp 1"}]},
+        {"text": " A second sentence stands on its own.", "citations": [{"document": 0, "cited_text": "stamp 1"}]}])
+    _, answer = lines_of(ask(client))
+    assert [s["text"] for s in answer["answer"]["sentences"]] == [
+        "A copy of Madeup No. 7 with a double overprint was judged a forgery.", "A second sentence stands on its own."]
+    assert answer["answer"]["counts"]["sentences"] == 2
+
+
+def test_a_quote_after_an_abbreviation_is_not_taken_for_one_between_two_sentences():
+    assert answer_graph.ends_a_sentence("It was sold in 1889.") and not answer_graph.ends_a_sentence("A copy of Madeup No.")
+
+
 def test_a_card_becomes_the_fact_lines_the_page_prints():
     issue = {"issue_id": "CR-9", "title": "A made-up issue", "card": {
         "dates": {"placed_on_sale": "1901-02-03", "withdrawn": None, "announced": "1901-01", "demonetized": "about 1905"},

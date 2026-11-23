@@ -248,12 +248,44 @@ def _holds(citation: dict, sources: list) -> bool:
 _ENDS_A_SENTENCE = re.compile(r"[.!?…][\"'”’»)\]]*$")
 _HAS_A_WORD = re.compile(r"\w")
 _SENTENCE_END = re.compile(r"(?<=[.!?…])[\"'”’»)\]]*\s+|\s*\n+\s*")
+# A full stop after one of these is the abbreviation's own, not a sentence's end ("Guanacaste No. 7", "núm. 12",
+# "pp. 3 and 4", "Sc. 25", "Waterlow & Co. printed it"). Compared without case and without accents.
+_ABBREVIATIONS = frozenset("""
+    no nos nr nro num nums n p pp pag pags pg sc fig figs vol vols ca cf ed eds cat pl ej art cap col cols
+    dr dra sr sra srta sres st sta sto co cia inc ltd mr mrs ms jr prof gen gral av approx aprox vs
+""".split())
+_WORD_BEFORE_THE_STOP = re.compile(r"([^\W\d_]+)\.[\"'”’»)\]]*$")
+
+
+def _plain_letters(word: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFD", word.lower()) if not unicodedata.combining(c))
+
+
+def _stops_an_abbreviation(before: str) -> bool:
+    """Does ``before`` end with the full stop of an abbreviation?"""
+    word = _WORD_BEFORE_THE_STOP.search(before)
+    return bool(word) and _plain_letters(word.group(1)) in _ABBREVIATIONS
+
+
+def ends_a_sentence(before: str) -> bool:
+    """Does ``before`` end where a sentence ends: at an end mark that is not an abbreviation's full stop?"""
+    return bool(_ENDS_A_SENTENCE.search(before)) and not _stops_an_abbreviation(before)
 
 
 def sentence_spans(text: str) -> list:
-    """(start, end) of each sentence of ``text``, without the space around it."""
+    """(start, end) of each sentence of ``text``, without the space around it.
+
+    A sentence ends at a line break, or at an end mark followed by space when what follows can start a
+    sentence. It does not end at an abbreviation's full stop, nor before a number or a lower-case letter: "a
+    copy of Guanacaste No. 7 with double overprints" is one sentence. Two sentences can be taken for one that
+    way ("... in 1889. 500 were printed."); one is never cut in two inside a number or a name, which is the
+    worse error here, because each piece then needs a citation of its own to be shown."""
     spans, start = [], 0
     for match in _SENTENCE_END.finditer(text):
+        if "\n" not in match.group(0):
+            following = text[match.end():match.end() + 1]
+            if _stops_an_abbreviation(text[:match.start()]) or following.isdigit() or following.islower():
+                continue
         spans.append((start, match.start() + len(match.group(0).rstrip())))
         start = match.end()
     spans.append((start, len(text)))
@@ -346,7 +378,7 @@ def cited_sentences(blocks: list, sources: list, markers: tuple = ()) -> tuple[l
         given += len(block.get("citations") or [])
         held += len(holding)
         before = text.rstrip()
-        between_sentences = not before or bool(_ENDS_A_SENTENCE.search(before))
+        between_sentences = not before or ends_a_sentence(before)
         if holding and between_sentences and any(_squeezed(block["text"]) == _squeezed(c["cited_text"]) for c in holding):
             quotes.append((len(before), holding))               # a quote: attached to the sentence before it
             continue
