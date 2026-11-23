@@ -6,7 +6,8 @@
  *   node scripts/how-figures.mjs --check   exits 1 when the committed file is not what the sources give
  *
  * The page holds no number of its own. Each figure is counted here from a file of the repository:
- *   - the results run (RUN, below: the one place it is named), its rows and its summary;
+ *   - the results run (RUN, below: the one place it is named), its rows and its summary, and of the questions
+ *     outside the scope only each one's id and type (eval/data/questions_out_of_scope.jsonl);
  *   - eval/outcomes/stage2.json (retrieval and the catalogue lookup), answers_thinking-off.json,
  *     answers_literature_settings.json, the two sealed runs;
  *   - eval/outcomes/how_it_works.json: the figures stated in EVALUATION.md and held in no other outcome file,
@@ -42,6 +43,40 @@ const mean = (values) => values.reduce((a, b) => a + b, 0) / values.length;
 const round = (value, digits) => Number(value.toFixed(digits));
 
 // ------------------------------------------------------------------ the results run
+/**
+ * The questions outside the scope that were given a ticket for a web search: a row whose question is of type
+ * "out_of_scope" (not "unanswerable") and that ended "not_covered", or "ok" with covers "part".
+ */
+export function ticketedOutOfScope(rows, types) {
+  const outside = rows.filter((r) => types.get(r.id) === "out_of_scope");
+  const ticket = (r) => r.state === "not_covered" || (r.state === "ok" && r.covers === "part");
+  return { ticketed: count(outside, ticket), of: outside.length };
+}
+// the rule, pinned on made-up rows: only the type "out_of_scope" counts, and only those two endings
+{
+  const types = new Map([["a", "out_of_scope"], ["b", "out_of_scope"], ["c", "out_of_scope"], ["d", "out_of_scope"], ["e", "unanswerable"]]);
+  const rows = [
+    { id: "a", state: "not_covered" },
+    { id: "b", state: "ok", covers: "part" },
+    { id: "c", state: "ok", covers: "all" },
+    { id: "d", state: "out_of_scope" },
+    { id: "e", state: "not_covered" },
+  ];
+  const got = ticketedOutOfScope(rows, types);
+  if (got.ticketed !== 2 || got.of !== 4) fail(`the rule for a ticket outside the scope gives ${got.ticketed} of ${got.of}, not 2 of 4`);
+}
+
+/** Of the questions outside the scope, only each one's id and type (eval/data/questions_out_of_scope.jsonl). */
+function scopeTypes() {
+  const types = new Map();
+  for (const line of read("eval", "data", "questions_out_of_scope.jsonl").split("\n")) {
+    if (!line.trim()) continue;
+    const { id, type } = JSON.parse(line);
+    types.set(id, type);
+  }
+  return types;
+}
+
 function results(file) {
   const run = outcome(file);
   const usd = run.usd_per_mtok;
@@ -79,6 +114,8 @@ function results(file) {
       of: lit.length,
     },
     out_of_scope: { no_answer: count(oos, (r) => r.state !== "ok"), of: oos.length },
+    // with the web on: the questions outside the scope that got a ticket for a web search
+    web_tickets_outside_scope: ticketedOutOfScope(oos, scopeTypes()),
     sentences: { removed: sum("sentences_without_citation"), written: sum("sentences") },
     citations: { not_hold: sum("citations_that_do_not_hold"), of: sum("citations") },
     cost: costs.length ? { mean: round(mean(costs), 5), max: round(Math.max(...costs), 5) } : null,

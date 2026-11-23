@@ -27,6 +27,10 @@
    "no_answer": 27,
    "of": 30
   },
+  "web_tickets_outside_scope": {
+   "ticketed": 1,
+   "of": 20
+  },
   "sentences": {
    "removed": 101,
    "written": 410

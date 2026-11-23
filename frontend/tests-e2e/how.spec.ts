@@ -256,13 +256,25 @@ test("the web step and Tavily are on the page only in a build that asks for the 
     await expect(page.getByTestId("steps").locator("li").nth(4)).toContainText("searched on the web (Tavily)");
     await expect(page.getByTestId("how-privacy")).toContainText("When our sources cover only part of a question, or none of it, the question is also sent to Tavily (to search the web).");
     await expect(page.getByTestId("limits")).toContainText("A web part changes from one asking to the next and has no gold");
+    // the questions outside the scope given a ticket for a web search in this run, from the generated file
+    const t = FIGURES.run.web_tickets_outside_scope;
+    await expect(page.getByTestId("limits")).toContainText(t.ticketed === 0
+      ? `In this run, none of the ${t.of} questions outside the scope was given a ticket for a web search.`
+      : `In this run, ${t.ticketed} of the ${t.of} questions outside the scope got a part answer, and with it a ticket for a web search.`);
     await expect(how).toContainText(`at most ${FIGURES.limits.web_searches_a_month} searches a month`);
     await expect(page.locator("h2#h-pipe")).toHaveText("A question, in five steps");
+    await page.getByTestId("lang-toggle").click();
+    await expect(page.getByTestId("limits")).toContainText(t.ticketed === 0
+      ? `En esta corrida, ninguna de las ${t.of} preguntas fuera de alcance recibió un pase para una búsqueda en la web.`
+      : `En esta corrida, ${t.ticketed} de las ${t.of} preguntas fuera de alcance ${t.ticketed === 1 ? "recibió" : "recibieron"} una respuesta parcial, y con ella un pase para una búsqueda en la web.`);
   } else {
     await expect(svg.locator('g[data-node="s5"]')).toHaveCount(0);
     await expect(how).not.toContainText("Tavily");
     await expect(how).not.toContainText("web part");
     await expect(page.locator("h2#h-pipe")).toHaveText("A question, in four steps");
+    await expect(page.getByTestId("limits")).not.toContainText("In this run");
+    await page.getByTestId("lang-toggle").click();
+    await expect(page.getByTestId("limits")).not.toContainText("En esta corrida");
   }
 });
 

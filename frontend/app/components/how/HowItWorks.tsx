@@ -253,7 +253,7 @@ export default function HowItWorks() {
                 ))}
               </ul>
               <p className="limits" data-testid="limits">
-                <b>{w.limitsLead}</b> {sealedText}{w.limitsRest(f.n(F.points_a_question[0]), f.n(F.points_a_question[1]))}{WEB ? w.limitsWeb : ""}
+                <b>{w.limitsLead}</b> {sealedText}{w.limitsRest(f.n(F.points_a_question[0]), f.n(F.points_a_question[1]))}{WEB ? w.limitsWeb + w.limitsTickets(run.web_tickets_outside_scope.ticketed, f.n(run.web_tickets_outside_scope.ticketed), f.n(run.web_tickets_outside_scope.of)) : ""}
               </p>
             </Section>
 

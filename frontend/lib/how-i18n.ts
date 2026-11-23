@@ -76,6 +76,7 @@ export type HowWords = {
   sealedSome: (n: S, of: S, fa: S, fb: S, a: S, b: S, ca: S, cb: S) => S;
   limitsRest: (low: S, high: S) => S;
   limitsWeb: S;
+  limitsTickets: (n: number, nS: S, of: S) => S;
   judH: S;
   judges: (first: S, second: S, sample: S, grade: S, answers: S) => S;
   judgesAnswers: (judge: S, answers: S, same: S, kappa: S) => S;
@@ -186,6 +187,10 @@ export const HOW: Record<Lang, HowWords> = {
     limitsRest: (low: S, high: S) =>
       ` The grades are a model's and no person has checked them; the sets are small, so one question is ${low} to ${high} points.`,
     limitsWeb: " A web part changes from one asking to the next and has no gold: no reference answer exists for a web sentence, and the judge only says whether the cited page states it.",
+    limitsTickets: (n: number, nS: S, of: S) =>
+      n === 0
+        ? ` In this run, none of the ${of} questions outside the scope was given a ticket for a web search.`
+        : ` In this run, ${nS} of the ${of} questions outside the scope got a part answer, and with it a ticket for a web search.`,
     // 5. two judges
     judH: "Two judges",
     judges: (first: S, second: S, sample: S, grade: S, answers: S) =>
@@ -316,6 +321,10 @@ export const HOW: Record<Lang, HowWords> = {
     limitsRest: (low: S, high: S) =>
       ` Las notas las puso un modelo y ninguna persona las ha revisado; los conjuntos son pequeños, así que una pregunta vale de ${low} a ${high} puntos.`,
     limitsWeb: " Una parte de la web cambia de una vez que se pregunta a la siguiente y no tiene referencia: no existe una respuesta de referencia para una frase de la web, y el juez solo dice si la página citada la afirma.",
+    limitsTickets: (n: number, nS: S, of: S) =>
+      n === 0
+        ? ` En esta corrida, ninguna de las ${of} preguntas fuera de alcance recibió un pase para una búsqueda en la web.`
+        : ` En esta corrida, ${nS} de las ${of} preguntas fuera de alcance ${n === 1 ? "recibió" : "recibieron"} una respuesta parcial, y con ella un pase para una búsqueda en la web.`,
     judH: "Dos jueces",
     judges: (first: S, second: S, sample: S, grade: S, answers: S) =>
       `Las páginas de la literatura las calificó un modelo, ${first}. Un segundo modelo, ${second}, leyó a ciegas una muestra de ${sample} páginas: la misma nota en ${grade}, y el mismo «responde la pregunta o no» en ${answers}. Los dos son modelos de OpenAI con una misma rúbrica: la calificación es estable, lo que no muestra que sea correcta.`,

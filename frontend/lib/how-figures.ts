@@ -17,6 +17,7 @@ export type HowFigures = {
     catalogue: { correct: number; supported: number } & Of;
     literature: { in_full: number; in_part: number; not: number; not_written: number; asks: number | null } & Of;
     out_of_scope: { no_answer: number } & Of;
+    web_tickets_outside_scope: { ticketed: number } & Of;
     sentences: { removed: number; written: number };
     citations: { not_hold: number } & Of;
     cost: { mean: number; max: number } | null;
