@@ -517,7 +517,7 @@ test("a question gets a written answer with its sources under it, each sentence 
   expect(listBottom).toBeLessThan((await turn.getByTestId("evidence-button").boundingBox())!.y);
   // the AI note stands once, at the foot of the thread
   await expect(page.getByTestId("ai-note")).toHaveCount(1);
-  await expect(page.getByTestId("ai-note")).toContainText(/written by an AI model|la redacta un modelo de IA/);
+  await expect(page.getByTestId("ai-note")).toContainText(/Everything here is written by an AI model \(Claude\) from the sources shown with it|Todo lo que aparece aquí lo redacta un modelo de IA/);
   // a mark opens Evidence on Sources, at that source, with the text it was cited for
   await answer.getByTestId("answer-sentence").nth(1).getByRole("button", { name: /2/ }).click();
   await expect(page.getByTestId("tab-sources")).toHaveAttribute("aria-selected", "true");
