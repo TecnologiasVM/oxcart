@@ -14,6 +14,7 @@
  * The first screen's plate is a list read at run time from the same host (first-screen.json), so
  * the set can be changed there without a build and nothing of it is in the repository.
  */
+import { useSyncExternalStore } from "react";
 import type { AnswerSource, Passage } from "./ask";
 
 export type FigureClass = "A" | "B";
@@ -41,7 +42,36 @@ export function figureSrc(id: string): string | null {
 
 const side = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v > 0 && v <= MAX_SIDE;
 
-/** The figures of a passage that can be drawn: well formed, each once. Anything else is left out. */
+// ---------------------------------------------------------------- a picture whose file did not load
+//
+// It is taken out: of the conversation, of Evidence and of the counts, and its group with it when none
+// is left. A file can be gone because it was removed from the host after a conversation was kept. The
+// page knows only once it has asked for the file, so a picture not yet in view is still counted.
+const failed = new Set<string>();
+const watchers = new Set<() => void>();
+let failures = 0;
+
+/** A picture's file did not load: every part of the page that draws or counts it is told. */
+export function figureFailed(id: string): void {
+  if (failed.has(id)) return;
+  failed.add(id);
+  failures += 1;
+  watchers.forEach((tell) => tell());
+}
+
+/** Read in a component that draws or counts pictures, so it is drawn again when one fails. */
+export function useFigureFailures(): number {
+  return useSyncExternalStore(
+    (tell) => {
+      watchers.add(tell);
+      return () => watchers.delete(tell);
+    },
+    () => failures,
+    () => 0,
+  );
+}
+
+/** The figures of a passage that can be drawn: well formed, each once, its file not known to be missing. Anything else is left out. */
 export function figuresOf(passage: Passage | undefined): Figure[] {
   const list = (passage as { figures?: unknown } | undefined)?.figures;
   if (!FIGURES_BASE || !Array.isArray(list)) return [];
@@ -49,7 +79,7 @@ export function figuresOf(passage: Passage | undefined): Figure[] {
   for (const f of list as Partial<Figure>[]) {
     if (!f || typeof f.id !== "string" || !ID_RULE.test(f.id) || !side(f.width) || !side(f.height)) continue;
     if (f.class !== "A" && f.class !== "B") continue;
-    if (out.some((o) => o.id === f.id)) continue;
+    if (out.some((o) => o.id === f.id) || failed.has(f.id)) continue;
     out.push({ id: f.id, width: f.width, height: f.height, class: f.class });
   }
   return out;
@@ -103,6 +133,9 @@ export function citedFigures(sources: AnswerSource[], passages: Passage[]): { gr
 }
 
 // ---------------------------------------------------------------- the first screen's plate
+
+/** The plate's pictures whose files are not known to be missing. */
+export const plateShown = (items: PlateItem[]) => items.filter((item) => !failed.has(item.digest));
 
 export const PLATE_MAX = 28; // the most cells the plate shows, on the widest screen
 export const PLATE_WAIT_MS = 2000; // a list that has not arrived by then is not drawn: the first screen does not change late

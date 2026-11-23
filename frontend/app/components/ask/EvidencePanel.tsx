@@ -17,7 +17,7 @@ import type { AnswerGraph, GNode, TreeIssue } from "@/lib/answer-graph";
 import type { AskAnswer, IssueCard, ModelCall } from "@/lib/ask";
 import type { Turn } from "@/lib/conversation";
 import { actLine, dateLabel, formatDate, sourceTitle } from "@/lib/evidence-text";
-import { figureSrc, figuresOf, ratio } from "@/lib/figures";
+import { figureFailed, figureSrc, figuresOf, ratio, useFigureFailures } from "@/lib/figures";
 import type { Labels, Lang } from "@/lib/i18n";
 import { answered, figuresId, PANEL_ID, sourceId, Warn } from "./parts";
 
@@ -378,6 +378,7 @@ function CardFacts({ card, t, lang }: { card: IssueCard; t: Labels; lang: Lang }
 }
 
 function FoundTab({ turn, t, lang, storedNote }: { turn: Turn; t: Labels; lang: Lang; storedNote: string | null }) {
+  useFigureFailures(); // a picture whose file fails leaves its passage's figures, and their block when none is left
   const evidence = turn.answer!;
   const sources = !turn.writing && answered(turn.written) ? turn.written?.sources ?? [] : [];
   const cited = (kind: string, index: number) => sources.find((s) => s.kind === kind && s.index === index)?.n;
@@ -443,7 +444,7 @@ function FoundTab({ turn, t, lang, storedNote }: { turn: Turn; t: Labels; lang: 
                       const src = figureSrc(f.id);
                       return src ? (
                         <li key={f.id}>
-                          <img src={src} width={f.width} height={f.height} style={ratio(f)} loading="lazy" decoding="async" alt={t.figAlt(k + 1, figs.length, t.figKind[f.class])} data-testid="figure" />
+                          <img src={src} width={f.width} height={f.height} style={ratio(f)} loading="lazy" decoding="async" alt={t.figAlt(k + 1, figs.length, t.figKind[f.class])} onError={() => figureFailed(f.id)} data-testid="figure" />
                         </li>
                       ) : null;
                     })}

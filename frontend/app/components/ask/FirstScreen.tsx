@@ -14,7 +14,7 @@ import type { Example, StoredExample } from "@/lib/ask";
 import { MAX_QUESTION_CHARS } from "@/lib/ask";
 import type { Conversation } from "@/lib/conversation";
 import type { PlateItem } from "@/lib/figures";
-import { figureSrc, plateList } from "@/lib/figures";
+import { figureFailed, figureSrc, plateList, plateShown, useFigureFailures } from "@/lib/figures";
 import type { Labels } from "@/lib/i18n";
 import { HOW_URL, PrivacyLine } from "./parts";
 
@@ -129,7 +129,10 @@ export default function FirstScreen({ t, draft, setDraft, submit, busy, closed, 
  * pixels. Decoration beside the title: the pictures have empty alt text and the caption says what
  * they are. The cells are square, so their room is held before any file arrives.
  */
-function Plate({ items, caption }: { items: PlateItem[]; caption: string }) {
+function Plate({ items: all, caption }: { items: PlateItem[]; caption: string }) {
+  useFigureFailures(); // a picture whose file fails leaves the plate, and the plate goes when none is left
+  const items = plateShown(all);
+  if (items.length === 0) return null;
   return (
     <figure className="first__part plate" data-testid="plate">
       <ul className="plate__grid" aria-hidden="true">
@@ -137,7 +140,7 @@ function Plate({ items, caption }: { items: PlateItem[]; caption: string }) {
           const src = figureSrc(item.digest);
           return src ? (
             <li key={`${i}-${item.digest}`}>
-              <img src={src} width={item.width} height={item.height} style={{ maxWidth: item.width, maxHeight: item.height }} loading="lazy" decoding="async" alt="" />
+              <img src={src} width={item.width} height={item.height} style={{ maxWidth: item.width, maxHeight: item.height }} loading="lazy" decoding="async" alt="" onError={() => figureFailed(item.digest)} />
             </li>
           ) : null;
         })}
