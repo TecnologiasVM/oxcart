@@ -41,9 +41,11 @@ from __future__ import annotations
 
 import operator
 import re
+import threading
+import time
 import unicodedata
-from dataclasses import dataclass
-from typing import Annotated, Any, Callable, Literal
+from dataclasses import dataclass, field
+from typing import Annotated, Any, Callable, Literal, Optional
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.runtime import Runtime
@@ -101,6 +103,23 @@ class Deps:
     retrieve: Callable[[str], dict]     # ask_service.answer for this process's stores
     model: Any                          # answer_model.ClaudeModel, or a fake with the same three members
     take: Callable[[], bool]            # one model call from the day's allowance; False when it is spent
+    # Set by the route when nobody waits for the answer any more (it gave up, refused, or the visitor left):
+    # no step then takes a call from the allowance or calls the model.
+    gone: threading.Event = field(default_factory=threading.Event)
+    # Set by the route once the evidence line is sent and the visitor is still there. ``write`` waits for it (or
+    # for ``gone``) before it takes a call. None: no route stands in front, nothing is waited for.
+    evidence_sent: Optional[threading.Event] = None
+
+
+def _somebody_waits(deps: Deps) -> bool:
+    """Is the answer still wanted? Waits, when the route said it would tell, until the evidence was sent or
+    nobody waits any more; at most ASK_TIMEOUT_SECONDS (a route that never said either: nobody waits)."""
+    if deps.evidence_sent is not None:
+        deadline = time.monotonic() + settings.ASK_TIMEOUT_SECONDS
+        while not deps.evidence_sent.wait(0.02):
+            if deps.gone.is_set() or time.monotonic() > deadline:
+                return False
+    return not deps.gone.is_set()
 
 
 def _call(purpose: str, reply: Reply) -> dict:
@@ -328,7 +347,7 @@ def sentence_spans(text: str) -> list:
 def contextualize(state: FollowUp, runtime: Runtime[Deps]) -> dict:
     deps = runtime.context
     question = state["question"]
-    if not deps.model.configured or not deps.take():
+    if deps.gone.is_set() or not deps.model.configured or not deps.take():
         return {"search_question": question, "rewritten": False}
     reply = deps.model.rewrite(question, state["thread"])
     rewritten = " ".join(reply.text.split())
@@ -356,6 +375,8 @@ def write(state: Found, runtime: Runtime[Deps]) -> dict:
         return {"draft": {"state": "no_evidence"}}
     if not deps.model.configured:
         return {"draft": {"state": "no_key"}}
+    if not _somebody_waits(deps):
+        return {"draft": {"state": "nobody_waiting"}}
     if not deps.take():
         return {"draft": {"state": "daily_cap"}}
     reply = deps.model.write(state["search_question"], sources)

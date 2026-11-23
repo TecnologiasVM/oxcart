@@ -265,6 +265,142 @@ def test_when_no_store_answers_it_is_a_refusal_not_a_stream(chat_client, model, 
     assert model.writes == []
 
 
+# ---------------------------------------------------------------- nobody waiting: no model call
+class CountingAllowance:
+    """Stands where the day's allowance does: counts the calls taken."""
+
+    def __init__(self):
+        self.taken = 0
+
+    def take(self):
+        self.taken += 1
+        return True
+
+    def give_back(self):
+        self.taken -= 1
+
+
+def graphs_ended(timeout=5.0):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if not any(t.name == "chat-graph" and t.is_alive() for t in threading.enumerate()):
+            return True
+        time.sleep(0.02)
+    return False
+
+
+def recorded_deps(monkeypatch):
+    made = []
+
+    class Recorded(answer_graph.Deps):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            made.append(self)
+
+    monkeypatch.setattr(answer_graph, "Deps", Recorded)
+    return made
+
+
+def test_a_chat_that_timed_out_at_retrieval_takes_no_call_and_calls_no_model(chat_client, model, fakes, monkeypatch):
+    monkeypatch.setattr(settings, "ASK_TIMEOUT_SECONDS", 0.4)
+    release = threading.Event()
+
+    def late(question, vector):                     # both stores answer, after the route gave up
+        release.wait(10)
+        return [{"doc_id": "DOC 1", "page": 1, "chunk_type": "text", "text": "made-up text", "score": 0.9}]
+
+    fakes.lookup = fakes.search = late
+    client = chat_client()
+    client.app.state.ask = fakes.deps()
+    allowance = client.app.state.answer_allowance = CountingAllowance()
+    made = recorded_deps(monkeypatch)
+    r = ask(client)
+    assert r.status_code == 504 and made[0].gone.is_set()
+    release.set()
+    assert graphs_ended()
+    assert model.writes == [] and allowance.taken == 0
+
+
+def test_a_visitor_who_leaves_after_the_evidence_gets_no_model_call(chat_client, model, monkeypatch):
+    import asyncio
+
+    monkeypatch.setattr(settings, "EVAL_ACCESS_KEY", "s" * 32)
+    client = chat_client()
+    allowance = client.app.state.answer_allowance = CountingAllowance()
+    made = recorded_deps(monkeypatch)
+    body = json.dumps({"question": "q"}).encode()
+    sent = []
+
+    async def visit():
+        closed, given = asyncio.Event(), [False]
+
+        async def receive():
+            if not given[0]:
+                given[0] = True
+                return {"type": "http.request", "body": body, "more_body": False}
+            await closed.wait()
+            return {"type": "http.disconnect"}
+
+        async def send(message):
+            sent.append(message)
+            if message["type"] == "http.response.body" and b'"type":"evidence"' in message.get("body", b""):
+                closed.set()                        # the visitor read the evidence line and closed the page
+
+        scope = {"type": "http", "asgi": {"version": "3.0", "spec_version": "2.3"}, "http_version": "1.1",
+                 "method": "POST", "scheme": "http", "path": "/api/chat", "raw_path": b"/api/chat", "query_string": b"",
+                 "root_path": "", "client": ("192.0.2.7", 50000), "server": ("testserver", 80),
+                 "headers": [(b"content-type", b"application/json"), (b"content-length", str(len(body)).encode()),
+                             (b"x-oxcart-eval", b"s" * 32)]}
+        await client.app(scope, receive, send)
+
+    asyncio.run(visit())
+    bodies = b"".join(m.get("body", b"") for m in sent if m["type"] == "http.response.body")
+    assert b'"type":"evidence"' in bodies and b'"type":"answer"' not in bodies
+    assert graphs_ended()
+    assert made[0].gone.is_set() and not made[0].evidence_sent.is_set()
+    assert model.writes == [] and allowance.taken == 0
+
+
+def test_a_normal_chat_is_unchanged_and_its_graph_is_told_the_visitor_is_there(chat_client, model, monkeypatch):
+    client = chat_client()
+    made = recorded_deps(monkeypatch)
+    records = []
+    handler = logging.Handler()
+    handler.emit = lambda record: records.append(record.getMessage())
+    logging.getLogger("oxcart.ask").addHandler(handler)
+    try:
+        evidence, answer = lines_of(ask(client))
+    finally:
+        logging.getLogger("oxcart.ask").removeHandler(handler)
+    assert evidence["type"] == "evidence" and answer["answer"]["state"] == "ok" and len(model.writes) == 1
+    assert sum('"event": "chat"' in r for r in records) == 1
+    assert made[0].evidence_sent.is_set() and not made[0].gone.is_set()
+
+
+def test_an_answer_that_does_not_come_in_time_is_failed(chat_client, model, monkeypatch):
+    from app.routers import chat
+
+    monkeypatch.setattr(settings, "ANSWER_TIMEOUT_SECONDS", 0)
+    monkeypatch.setattr(chat, "ANSWER_WAIT_MARGIN_SECONDS", 0.3)
+    release = threading.Event()
+    model.before_writing = lambda: release.wait(10)
+    client = chat_client()
+    try:
+        t0 = time.time()
+        evidence, answer = lines_of(ask(client))
+        assert answer["answer"] == {"state": "failed"} and time.time() - t0 < 3
+    finally:
+        release.set()
+    assert graphs_ended()
+
+
+def test_the_answer_is_waited_for_as_long_as_the_one_call_left_can_take():
+    from app.routers import chat
+
+    assert answer_model.MAX_RETRIES == 0
+    assert chat.answer_wait_seconds() == settings.ANSWER_TIMEOUT_SECONDS + chat.ANSWER_WAIT_MARGIN_SECONDS
+
+
 # ---------------------------------------------------------------- the guard
 def test_chat_needs_a_session_in_hosted_mode(chat_client, model):
     client = chat_client()
@@ -412,6 +548,46 @@ def test_the_evidence_reaches_the_client_before_the_model_has_answered(monkeypat
             assert writing.wait(5) and not written.is_set()         # the model is still writing; the evidence is here
             release.set()
             assert json.loads(next(received))["answer"]["state"] == "ok"
+    finally:
+        release.set()
+        server.should_exit = True
+        thread.join(10)
+
+
+def test_a_visitor_who_left_while_the_stores_were_searching_gets_no_model_call(monkeypatch, fakes, model):
+    import uvicorn
+
+    monkeypatch.setattr(settings, "EVAL_ACCESS_KEY", "s" * 32)
+    monkeypatch.setattr(settings, "GRAPH_WARM_ON_START", False)
+    monkeypatch.setattr(settings, "ASK_WARM_ON_START", False)
+    release = threading.Event()
+    answer_in_time = fakes.lookup
+    fakes.lookup = lambda question, vector: (release.wait(5), answer_in_time(question, vector))[1]
+    app = main.create_app(public=True)
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="error"))
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    try:
+        deadline = time.time() + 10
+        while not server.started and time.time() < deadline:
+            time.sleep(0.05)
+        assert server.started
+        app.state.ask, app.state.answer_model = fakes.deps(), model
+        allowance = app.state.answer_allowance = CountingAllowance()
+        body = b'{"question":"q"}'
+        visitor = socket.create_connection(("127.0.0.1", port))
+        visitor.sendall(b"POST /api/chat HTTP/1.1\r\nHost: demo.example\r\nContent-Type: application/json\r\n"
+                        b"x-oxcart-eval: " + b"s" * 32 + b"\r\nContent-Length: " + str(len(body)).encode() + b"\r\n\r\n" + body)
+        time.sleep(0.3)
+        visitor.close()                             # the page was closed while the catalogue was searched
+        time.sleep(0.2)
+        release.set()                               # then the catalogue answers
+        time.sleep(0.5)
+        assert graphs_ended()
+        assert model.writes == [] and allowance.taken == 0
     finally:
         release.set()
         server.should_exit = True
