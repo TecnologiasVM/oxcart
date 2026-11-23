@@ -53,20 +53,33 @@ export function useConversations() {
     if (state.current.current === id) setCurrent(newId("c"));
   }, []);
 
-  // write what this tab changed, one conversation at a time
+  // write what this tab changed, one conversation at a time. Only a write that was kept counts as done: one that
+  // failed stays to do, and is tried again at the next change (another conversation, opening one, a new one)
+  const unsaved = useRef(new Set<string>());
   useEffect(() => {
     if (!loaded) return;
+    let failed: Keeping | null = null;
+    let tried = false;
     for (const c of conversations) {
       if (written.current.get(c.id) === c) continue;
-      written.current.set(c.id, c);
+      tried = true;
       const result = writeConversation(c, current, known.current.has(c.id));
       if (result === "deleted") {
+        unsaved.current.delete(c.id);
         dropped(c.id);
         continue;
       }
-      setKeeping(result);
-      if (result === "kept" && c.turns.some((t) => t.answer && !t.pending)) known.current.add(c.id);
+      if (result === "kept") {
+        written.current.set(c.id, c);
+        unsaved.current.delete(c.id);
+        if (c.turns.some((t) => t.answer && !t.pending)) known.current.add(c.id);
+      } else {
+        unsaved.current.add(c.id);
+        failed = result;
+      }
     }
+    if (failed) setKeeping(failed);
+    else if (tried) setKeeping("kept");
   }, [conversations, current, loaded, dropped]);
   // which conversation a new tab opens with
   const firstCurrent = useRef(true);
@@ -76,7 +89,9 @@ export function useConversations() {
       firstCurrent.current = false;
       return;
     }
-    setKeeping(writeCurrent(current));
+    const result = writeCurrent(current);
+    // a conversation still unsaved keeps the note up, whatever this write did
+    if (result !== "kept" || unsaved.current.size === 0) setKeeping(result);
   }, [current, loaded]);
 
   // follow another tab: its new and changed conversations come in, its deletions go
@@ -130,16 +145,27 @@ export function useConversations() {
       c.turns.some((t) => t.id === turnId) ? { ...c, turns: c.turns.map((t) => (t.id === turnId ? { ...t, ...change } : t)) } : c)), []);
   const open = useCallback((id: string) => setCurrent(id), []);
   const start = useCallback(() => setCurrent(newId("c")), []);
-  /** Delete by id: from this tab, and from the store only these ids. */
+  /**
+   * Delete by id: from this tab, and from the store only these ids. When the store refuses the deletion and still
+   * holds them, nothing is deleted here either (they would come back with the next page), and the page says the
+   * browser is not keeping what it is asked to.
+   */
   const forget = useCallback((ids: string[]) => {
     const next = ids.includes(state.current.current) ? newId("c") : state.current.current;
+    const result = removeConversations(ids, next);
+    if (result !== "kept" && (readStore()?.conversations ?? []).some((c) => ids.includes(c.id))) {
+      setKeeping(result);
+      return false;
+    }
     for (const id of ids) {
+      unsaved.current.delete(id);
       written.current.delete(id);
       known.current.delete(id);
     }
     setConversations((prev) => prev.filter((c) => !ids.includes(c.id)));
     setCurrent(next);
-    setKeeping(removeConversations(ids, next));
+    setKeeping(result);
+    return true;
   }, []);
   const remove = useCallback((id: string) => forget([id]), [forget]);
 
