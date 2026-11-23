@@ -27,15 +27,27 @@ free hosting tiers and sleeps when nobody uses it; waking it takes about half a 
 on the page work meanwhile.
 
 <p align="center">
-  <img src="docs/pictures/oxcart-answer.png" width="49%" alt="The question page: a question about a catalogue issue, a short answer of two sentences, each with the mark of its source, and under it the two sources: a catalogue card and a page of a publication">
-  <img src="docs/pictures/oxcart-evidence-graph.png" width="49%" alt="The same answer with Evidence open on the graph: the answer joined to the catalogue card it cites, with the card's printer, authorizing decree and stamps, and to the page it cites">
-</p>
-<p align="center">
-  <a href="https://oxcart.chat/how-it-works"><img src="docs/pictures/oxcart-how-it-works.png" width="70%" alt="The page How it works: its first paragraph, the five steps, and the path of a question as a diagram"></a>
+  <img src="https://figures.oxcart.chat/readme/oxcart-first-screen.png" width="100%" alt="The first screen: the title, the question box, six stored example questions, and a plate of twenty stamps cropped from the scanned literature">
+  <br><em>The first screen: the question box, stored examples, and a plate of stamps from the literature the demo searches.</em>
 </p>
 
-Pictures of the page built from this repository, running against the hosted stores. The served page also shows
-figures from cited pages; none is in these pictures.
+<p align="center">
+  <img src="docs/pictures/oxcart-catalogue-answer.png" width="100%" alt="A catalogue question answered in two sentences, each with the mark of its source, and under it the two sources: a catalogue card and a page of a publication">
+  <br><em>A catalogue question: a short answer, each sentence with the card or page it cites.</em>
+</p>
+
+<p align="center">
+  <img src="docs/pictures/oxcart-evidence-graph.png" width="100%" alt="The same answer with Evidence open on the graph: the answer joined to the catalogue card it cites, with the card's printer, authorizing decree and stamps, and to the page it cites; under them the cards that were found and not cited, drawn dashed">
+  <br><em>Evidence on the graph: what the answer cites, and what was found but not cited.</em>
+</p>
+
+<p align="center">
+  <img src="https://figures.oxcart.chat/readme/oxcart-literature-answer-es.png" width="100%" alt="A literature question in Spanish, the page in Spanish: an answer of four sentences with three sources, and under it the figure of a cited page, a pair of stamps">
+  <br><em>A literature question in Spanish: the answer, its sources, and the figure of a cited page.</em>
+</p>
+
+Pictures of the page built from this repository, running against the hosted stores. The first and the last hold
+crops of the scanned literature and are served, as the page's figures are, from the figures host.
 
 ## A question, step by step
 
@@ -152,7 +164,8 @@ Not built. No order and no date.
 - **Reading the source PDFs again.** Not measured: the literature's text was extracted once.
 - **A picture of the stamp on a catalogue answer.** No catalogue card has one today.
 - **Spanish answers that keep English words.** A Spanish answer at times keeps a date or a name in the English
-  of the passage it cites; the catalogue's cards are given to the writer in the language of the question.
+  of the passage it cites; the catalogue's cards are given to the writer in the language of the question, but for
+  the name of a body or a date that some acts hold in English inside their number.
 - **The explorer beyond the First Issue.** The question page takes any Costa Rican stamp question; the explorer's
   graph views cover the 1863 First Issue only.
 
@@ -395,13 +408,6 @@ administrative context (`LegalAct`, `Person`, `Printer`, `ProductionOrder`). Typ
 (:Chunk)-[:MENTIONS {score, signals}]->(:Issue)        (:Chunk)-[:MENTIONS_STAMP]->(:Stamp)
 ```
 
-<div align="center">
-  <img src="./neo4j_utils/img/Stamp View Sample.png" width="45%" alt="Stamp view">
-  <img src="./neo4j_utils/img/Issue View Sample.png" width="45%" alt="Issue view">
-  <br>
-  <i>Left: a stamp with its varieties and plates. Right: an issue with its related entities.</i>
-</div>
-
 Queries and the full schema: [neo4j_utils/neo4j_technical_guide_cypher_cookbook.md](neo4j_utils/neo4j_technical_guide_cypher_cookbook.md)
 and [pipeline/first_issue_graph/cypher_queries.md](pipeline/first_issue_graph/cypher_queries.md).
 
@@ -432,15 +438,6 @@ affiliates). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the files 
 - [Dolphin](https://github.com/bytedance/Dolphin) for PDF structure extraction
 - [Neo4j](https://neo4j.com/) and [Weaviate](https://weaviate.io/)
 - The authors and editors of the philatelic literature this work indexes
-
-## Earlier prototype
-
-Before the explorer, the project had a Gradio question-answering prototype over the same index. Its notebook is
-kept in `notebooks/gradio_app.ipynb`; this is what it looked like:
-
-<p align="center">
-  <img src="assets/preview_full.png" alt="The earlier Gradio prototype: a question, a graph view and a list of source passages" width="60%" />
-</p>
 
 <div align="center">
   <i>Built for stamp history, scholarship, and collectors.</i>

@@ -10,10 +10,11 @@
  * arrives. What the model wrote (source titles, quotes) and what the stores returned
  * (passages, card facts) are text nodes only.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { answerGraph } from "@/lib/answer-graph";
-import type { AnswerGraph, GNode, TreeIssue } from "@/lib/answer-graph";
+import { ESTIMATE } from "@/lib/answer-graph";
+import type { AnswerGraph, GNode, Measure, TreeIssue } from "@/lib/answer-graph";
 import type { AskAnswer, IssueCard, ModelCall } from "@/lib/ask";
 import type { Turn } from "@/lib/conversation";
 import { actLine, dateLabel, formatDate, sourceTitle } from "@/lib/evidence-text";
@@ -188,7 +189,8 @@ function GraphTab({ turn, t, lang, ok, go }: { turn: Turn; t: Labels; lang: Lang
   const evidence = turn.answer!;
   const [view, setView] = useState<"graph" | "list">("graph");
   const title = ok ? t.evGraph : t.evGraphFound;
-  const graph = answerGraph(evidence, ok ? turn.written : undefined, { ...t, lang });
+  const measure = useGraphMeasure();
+  const graph = answerGraph(evidence, ok ? turn.written : undefined, { ...t, lang }, measure);
   const empty = !ok && evidence.issues.length === 0;
   return (
     <>
@@ -213,6 +215,53 @@ function GraphTab({ turn, t, lang, ok, go }: { turn: Turn; t: Labels; lang: Lang
 }
 
 /** The drawing: its box takes the data's proportions before anything is drawn, so nothing shifts. */
+/**
+ * The width of a line of the graph's text, measured as the drawing will draw it: an SVG text in the drawing's own
+ * class, out of sight, read in the drawing's units. Measured again once the page's fonts are in, so a title is
+ * broken by its real width, and its box grows to hold the lines.
+ */
+function useGraphMeasure(): Measure {
+  const [fontsIn, setFontsIn] = useState(0);
+  const probe = useRef<SVGSVGElement | null>(null);
+  useEffect(() => {
+    let live = true;
+    document.fonts?.ready.then(() => live && setFontsIn((n) => n + 1));
+    return () => {
+      live = false;
+      probe.current?.remove();
+      probe.current = null;
+    };
+  }, []);
+  return useMemo<Measure>(() => {
+    if (typeof document === "undefined") return ESTIMATE;
+    const known = new Map<string, number>();
+    return (text) => {
+      const seen = known.get(text);
+      if (seen !== undefined) return seen;
+      if (!probe.current) {
+        const ns = "http://www.w3.org/2000/svg";
+        const svg = document.createElementNS(ns, "svg");
+        svg.setAttribute("class", "ev-graph__svg");
+        svg.setAttribute("aria-hidden", "true");
+        svg.style.cssText = "position:absolute;left:-9999px;top:0;width:10px;height:10px;visibility:hidden;pointer-events:none";
+        const g = document.createElementNS(ns, "g");
+        g.setAttribute("class", "g-node");
+        g.appendChild(document.createElementNS(ns, "text"));
+        svg.appendChild(g);
+        document.body.appendChild(svg);
+        probe.current = svg;
+      }
+      const line = probe.current.querySelector("text")!;
+      line.textContent = text;
+      const width = line.getComputedTextLength() || ESTIMATE(text);
+      known.set(text, width);
+      return width;
+    };
+    // measured again once the fonts are in
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fontsIn]);
+}
+
 function GraphDrawing({ graph, title, go }: { graph: AnswerGraph; title: string; go: (target: NonNullable<GNode["target"]>) => void }) {
   return (
     <div className="ev-graph" style={{ aspectRatio: `${graph.width} / ${graph.height}` }} data-testid="graph-drawing">
