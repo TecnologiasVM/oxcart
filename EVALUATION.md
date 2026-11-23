@@ -193,7 +193,8 @@ development machine, against the hosted stores.
 ### Read this first
 
 - **The grades are a model's. No person has checked them.** The judge was `gpt-6.1-sol` at high reasoning effort,
-  run through the Codex CLI: another vendor's model than the one that writes the answers. One judge, one pass.
+  run through the Codex CLI: another vendor's model than the one that writes the answers. One judge, one pass, for the grades of this part;
+  one mark was later given again by a second judge ([below](#a-stronger-writer-and-a-second-judge)).
 - **One run per setting, three of the served one.** The model's answers change from run to run. The last three
   columns are the served setting asked three times, and show by how much: a difference of a few questions
   between two columns is not a finding.
@@ -666,6 +667,57 @@ Per-question outcomes: `eval/outcomes/answers_web-mk-a.json`, `-b`, `-c` and `an
 other runs, with whether an answer covers all or part), and `eval/outcomes/web_trial.json` (for each question
 asked: how it ended, whether the web was asked, how the web part ended, its counts and the judge's marks; no
 question, no answer, no page's text, title or address).
+
+### As served: two runs of the whole set with the web setting on
+
+The hosted demo has the web setting on since 2026-11-23. Two runs of the 151 questions and the ten follow-ups
+with it on, each asked once. No search was made in either: the runs ask for the answer from the catalogue and
+the literature and never for the web part.
+
+- **`web-final`:** a backend on the development machine against the hosted stores, before the rule on where a
+  sentence ends was changed.
+- **`hosted-y`:** through the public service, after that change. "How it works" on the site reads its figures
+  from this run.
+
+| | `hosted-y` | `web-final` |
+|---|---|---|
+| Catalogue (80): the issue first / in the first three | 75 / 80 | 75 / 80 |
+| Catalogue: written / supported / correct / supported and correct | 80 / 63 / 76 / 60 | 80 / 63 / 78 / 62 |
+| Catalogue: gives what the question asks | 76 | 78 |
+| Literature (41): a page that answers among the five | 36 | 36 |
+| Literature: written / supported | 40 / 25 | 40 / 26 |
+| Literature: agrees in full / in part | 10 / 30 | 10 / 28 |
+| Literature: supported and in full | 7 | 6 |
+| Literature: gives what the question asks | 17 | 18 |
+| Out of scope (30): no written answer | 27 | 28 |
+| Sentences with no citation, removed (catalogue and literature) | 94 of 380 | 95 of 395 |
+| The same over every row, follow-ups and out of scope too | 101 of 410 | 104 of 427 |
+| Citations that did not hold (every row) | 0 of 376 | 0 of 386 |
+| Shown sentences the judge marked supported / partly / not | 259 / 33 / 1 | 273 / 32 / 0 |
+| Follow-ups: the first question's issue first / in the first three | 9 / 10 | 9 / 10 |
+| Cost of a first question, mean / most, USD | 0.00070 / 0.00137 | 0.00071 / 0.00141 |
+| Wait for the evidence / the answer, median, s | 1.04 / 2.94 | 1.53 / 3.76 |
+
+- **The grades are a model's and no person has checked them;** one run of each, so a difference of a few
+  questions between the columns is what the same setting gives when asked twice.
+- **Against the served setting before the web setting** (the columns of "Written answers" and of the short
+  vector): every catalogue question now gets a written answer (73 to 75 before) and 76 and 78 are correct (69 to
+  74 before), as in the catalogue run above; the literature counts are inside their earlier ranges.
+- **Where a sentence ends.** Since `hosted-y` a sentence does not end at an abbreviation's full stop ("No.",
+  "pp."), nor before a number or a lower-case letter; before, a piece cut off at "No. 5" needed a citation of
+  its own to be shown. In `hosted-y`, 13 of 309 shown sentences hold a place the earlier rule would have cut:
+  11 places at an abbreviation, 6 before a lower-case letter, none before a number. The rule on numbers can take
+  two sentences for one; in this run it did not.
+- **The markers in `hosted-y`:** of the 20 questions outside the scope, 19 ended "out of scope" and 1 got an
+  answer marked as part, which would ask for the web; in `web-final` that one got an answer marked as full. Of
+  the 10 whose answer is not in the sources, 8 ended "not covered" and 2 got an answer marked as part. The part
+  marker fired on no catalogue answer and on 18 of 40 literature answers.
+- The waits of `hosted-y` are through the public service with the service awake; those of `web-final` are on
+  the development machine.
+
+Per-question outcomes: `eval/outcomes/answers_hosted-y.json` and `answers_web-final.json`, each with a summary
+of its run (retrieval counts and the two waits). The figures of "How it works" that are in no other outcome
+file, each with where it is stated, are in `eval/outcomes/how_it_works.json`.
 
 ## Other limits
 

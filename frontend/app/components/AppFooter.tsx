@@ -5,7 +5,7 @@
  * not add their own footer.
  */
 const REPO_URL = "https://github.com/TecnologiasVM/oxcart";
-const HOW_URL = `${REPO_URL}/blob/main/EVALUATION.md`;
+const HOW_URL = "/how-it-works";
 
 export function AppFooter() {
   return (
@@ -16,7 +16,7 @@ export function AppFooter() {
             Oxcart · open-source research demo · short answers written from the evidence it shows
           </span>
           <span className="site-foot__links">
-            <a className="mono muted" href={HOW_URL} target="_blank" rel="noreferrer">
+            <a className="mono muted" href={HOW_URL}>
               How it works
             </a>
             <a className="mono muted" href={REPO_URL} target="_blank" rel="noreferrer">

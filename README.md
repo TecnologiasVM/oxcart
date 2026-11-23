@@ -25,7 +25,8 @@ stored examples on the page work meanwhile.
 model writes the answer from the evidence that is shown and from nothing else; a sentence that cites nothing is
 not shown, and when the evidence does not cover the question the page says so and shows the evidence. How often
 the answers are supported and correct was measured on the test set ([EVALUATION.md](EVALUATION.md#written-answers));
-the grades are a model's, not a person's. The hosted demo is the question page; the explorer app for the 1863
+the grades are a model's, not a person's. The hosted demo is the question page and a page on
+[how it works](https://oxcart.chat/how-it-works); the explorer app for the 1863
 First Issue runs locally and writes no answer. The [roadmap](#roadmap) lists what is planned and not built.
 
 <p align="center">
@@ -60,7 +61,7 @@ First Issue runs locally and writes no answer. The [roadmap](#roadmap) lists wha
   - *What it does not do:* no step grades the evidence, none retrieves a second time, and there is no scope
     router; a rule in the model's instructions stands in for the last. Those are the next step, see the
     [roadmap](#roadmap).
-- **A web part, built and off by default** (`POST /api/chat/web`, `backend/app/web_step.py`). When the catalogue
+- **A web part, on at the hosted demo and off by default in the code** (`POST /api/chat/web`, `backend/app/web_step.py`). When the catalogue
   and the literature do not cover an in-scope question, or answer part of it, the page can add a short part
   written from one web search, in a marked block of its own under the answer, with the pages it cites.
   - *How it is asked:* the write call says which of three things happened (outside the scope, not covered,
@@ -89,7 +90,7 @@ The corpus, the databases and the page images are **not in this repository**; se
 | Search | Weaviate 1.32.4. Keyword search (BM25) by default; `near_text` and `hybrid` search over OpenAI `text-embedding-3-large` vectors (3,072 dimensions) when an OpenAI key is set | `docker-compose.yml`, `pipeline/philatelic_weaviate.py`, `pipeline/first_issue_graph/README.md` |
 | API | FastAPI, Pydantic v2 | `backend/requirements.txt` |
 | Written answer | Claude Haiku 5.5 through Anthropic's API, with its citations feature; the steps as a LangGraph graph | `backend/app/answer_model.py`, `backend/app/answer_graph.py` |
-| Web part (off by default) | Tavily's search API: one basic search of five results; the part written by the same model, with citations | `backend/app/web_step.py` |
+| Web part (off by default; on at the hosted demo) | Tavily's search API: one basic search of five results; the part written by the same model, with citations | `backend/app/web_step.py` |
 | UI | Next.js, React, TypeScript, Cytoscape | `frontend/package.json` |
 | Tests | Playwright for the UI; Python test scripts for the linker, the backend and the pipeline | `frontend/tests/`, `oxcart/tests/`, `pipeline/first_issue_graph/tests/`, `tests/` |
 | Parsing | Dolphin | `third_party/dolphin/` |
@@ -218,7 +219,7 @@ not a budget. The one limit that cannot be passed is the monthly spend limit of 
 provider. It is set there, not in this repository (9 USD for November 2026); when it is reached the page shows
 the evidence without a written answer.
 
-**The web part, when it is on.** It adds a third outside service: the question as it was searched goes to
+**The web part, when it is on** (it is on at the hosted demo). It adds a third outside service: the question as it was searched goes to
 Tavily, with fixed words after it; the earlier turns do not, though a follow-up's rewritten question can hold a
 subject named in an earlier turn. The question, the pages the search returned and, for a part answer, the
 answer already given go to Anthropic for one more model call, which counts toward the day's 200; a web request

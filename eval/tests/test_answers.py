@@ -99,3 +99,70 @@ def test_ranking_cases_are_well_formed_and_their_place_is_read_from_the_issues()
     several = {"issue_ids": ["CR-A", "CR-B"]}
     assert ranking_cases.place(several, [{"issue_id": "CR-1"}, {"issue_id": "CR-B"}, {"issue_id": "CR-A"}]) == 2
     assert ranking_cases.place({"issue_ids": []}, [{"issue_id": "CR-1"}]) is None
+
+
+# --------------------------------------------------------------------------- the published summary
+LIT_Q = [{"id": "lit-1", "gold": {"sources": [{"doc_id": "DOC A", "pages": [3], "grade": 2}]}},
+         {"id": "lit-2", "gold": {"sources": [{"doc_id": "DOC B", "pages": [9], "grade": 2}]}},
+         {"id": "lit-3", "gold": {"sources": [{"doc_id": "DOC C", "pages": [1], "grade": 1}]}}]
+CAT_Q = [{"id": "cat-1", "issue_ids": ["I-1"], "fact": "printer", "gold": {"value": ["A printer"], "params": {}}},
+         {"id": "cat-2", "issue_ids": ["I-2"], "fact": "printer", "gold": {"value": ["A printer"], "params": {}}},
+         {"id": "cat-3", "issue_ids": ["I-3"], "fact": "printer", "gold": {"value": ["A printer"], "params": {}}}]
+CARD = {"printers": ["A printer"], "stamps": [], "dates": {}, "acts": []}
+
+
+def _row(qid, part, passages=(), issues=(), first=1.0, seconds=3.0):
+    return {"id": qid, "part": part, "lang": "en", "first_seconds": first, "seconds": seconds,
+            "evidence": {"passages": [{"doc_id": d, "page": p, "text": "A made-up passage."} for d, p in passages],
+                         "issues": [{"issue_id": i, "card": CARD} for i in issues]},
+            "answer": {"state": "ok", "sentences": [{"text": "A made-up sentence.", "cites": [1]}],
+                       "counts": {"sentences": 1, "sentences_without_citation": 0, "citations": 1, "citations_that_do_not_hold": 0}},
+            "calls": [{"purpose": "write", "state": "ok", "input_tokens": 10, "output_tokens": 2, "seconds": 1.0}]}
+
+
+RUN = [_row("lit-1", "literature", [("DOC X", 1), ("DOC A", 3)], first=1.0, seconds=2.0),
+       _row("lit-2", "literature", [("DOC B", 8)], first=2.0, seconds=4.0),
+       _row("lit-3", "literature", [("DOC C", 1)], first=3.0, seconds=6.0),
+       _row("cat-1", "catalogue", issues=["I-1", "I-9"], first=4.0, seconds=8.0),
+       _row("cat-2", "catalogue", issues=["I-9", "I-2"], first=5.0, seconds=10.0),
+       # cat-3 got no reply: it is not counted as asked
+       {"id": "cat-3", "part": "catalogue", "lang": "en", "error": "HTTP 500"},
+       {"id": "thr-1", "part": "threads", "lang": "en", "first_seconds": 99.0, "seconds": 99.0, "gold_issue": "I-1",
+        "alone_issues": [], "evidence": {"issues": [], "passages": []}, "answer": {"state": "ok"}, "calls": []}]
+
+
+def test_retrieval_counts_a_page_graded_2_in_the_first_five_and_the_issue_with_its_fact():
+    counts = chat_arm.retrieval_counts([r for r in RUN if r["part"] != "threads"], LIT_Q, CAT_Q, drafts_left_out=2)
+    # lit-1: a page graded 2 at rank 2; lit-2: another page of the gold document; lit-3: graded 1 only
+    assert counts["literature"] == {"k": 5, "answered_in_first_k": 1, "questions": 3, "asked": 3, "drafts": 5}
+    # cat-1 first, cat-2 second, cat-3 not asked
+    assert counts["catalogue"] == {"issue_first_with_fact": 1, "issue_in_first_three_with_fact": 2, "asked": 2}
+
+
+def test_the_waits_are_of_the_questions_asked_once_and_leave_out_the_threads():
+    waits = chat_arm.wait_summary(RUN)
+    assert waits["evidence"] == {"n": 5, "median": 3.0, "p95": 4.8}
+    assert waits["answer"] == {"n": 5, "median": 6.0, "p95": 9.6}
+    assert chat_arm.wait_summary([]) == {}
+
+
+def test_the_published_file_has_the_summary_and_no_text(tmp_path, monkeypatch):
+    label = "made-up"
+    (tmp_path / "chat" / label).mkdir(parents=True)
+    (tmp_path / "chat" / label / "answers.jsonl").write_text("\n".join(json.dumps(r) for r in RUN) + "\n", encoding="utf-8")
+    monkeypatch.setattr(chat_arm, "OUT", tmp_path / "chat")
+    monkeypatch.setattr(chat_arm, "OUTCOMES", tmp_path / "outcomes")
+    monkeypatch.setattr(chat_arm, "DRAFTS_LEFT_OUT", 2)
+    monkeypatch.setattr(chat_arm.ask_arm, "load", lambda name: {"questions_literature.jsonl": LIT_Q,
+                                                                 "questions_catalogue.jsonl": CAT_Q}.get(name, []))
+    monkeypatch.setattr(chat_arm.stores, "REPO", tmp_path)
+    args = type("Args", (), {"label": label, "grades": None, "asked": None, "judge": "a judge", "publish": True})()
+    chat_arm.table(args)
+    text = (tmp_path / "outcomes" / f"answers_{label}.json").read_text(encoding="utf-8")
+    published = json.loads(text)
+    assert published["summary"]["retrieval"]["literature"]["answered_in_first_k"] == 1
+    assert published["summary"]["retrieval"]["catalogue"]["issue_first_with_fact"] == 1
+    assert published["summary"]["waits"]["answer"]["median"] == 6.0
+    assert len(published["rows"]) == len(RUN)
+    for made_up in ("A made-up passage.", "A made-up sentence.", "DOC A", "first_seconds"):
+        assert made_up not in text

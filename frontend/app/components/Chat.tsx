@@ -42,10 +42,9 @@ import type { PanelFocus, TabKey } from "./ask/EvidencePanel";
 import FirstScreen from "./ask/FirstScreen";
 import Conversations, { RAIL_ID } from "./ask/Conversations";
 import { useConversations, useHeaderHeight, useHumanCheck, useMedia, usePinnedEdges, useService } from "./ask/hooks";
-import { answered, Confirm, followed, HOW_URL, KeepNote, PrivacyLine, REPO_URL, textOf, Waiting, Warn } from "./ask/parts";
+import { answered, Confirm, followed, HeaderNav, KeepNote, LANG_KEY, PrivacyLine, textOf, Waiting, Warn } from "./ask/parts";
 import TurnView from "./ask/TurnView";
 
-const LANG_KEY = "oxcart-lang";
 const RAIL_KEY = "oxcart-rail"; // "hidden" when the visitor hid the rail; kept with the language
 const HUMAN_CODES = ["session_required", "human_check_failed", "human_check_unavailable"];
 const DAY_CODES = ["visitor_daily_limit", "service_daily_limit"];
@@ -508,17 +507,3 @@ export default function Chat() {
     </>
   );
 }
-
-/** The question page's part of the header: how it works, the source, and the language. */
-function HeaderNav({ t, lang, setLang }: { t: Labels; lang: Lang; setLang: (lang: Lang) => void }) {
-  return (
-    <nav className="page-nav" aria-label="Oxcart">
-      <a className="page-nav__link" href={HOW_URL}>{t.how}</a>
-      <a className="page-nav__link" href={REPO_URL}>{t.code}</a>
-      <button type="button" className="lang-btn" lang={lang === "es" ? "en" : "es"} onClick={() => setLang(lang === "es" ? "en" : "es")} data-testid="lang-toggle">
-        {t.language}
-      </button>
-    </nav>
-  );
-}
-

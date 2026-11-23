@@ -25,7 +25,8 @@ so the retrieval counts of the two routes can be compared with the same scorer.
 - tokens and cost per question (mean and maximum), and the waits.
 
 `--publish` writes eval/outcomes/answers_<label>.json: ids, states, counts, token counts
-and grades. No question's answer and no passage.
+and grades, and a summary of the run: retrieval through this route (counts) and the two
+waits (median and 95th percentile). No question's answer and no passage.
 """
 
 from __future__ import annotations
@@ -147,17 +148,13 @@ def _load(label: str) -> list:
     return _rows(OUT / label / "answers.jsonl")
 
 
-def _retrieval(label: str, rows: list) -> None:
-    """The question path's own scoring, on the evidence this route returned."""
+def retrieval_counts(rows: list, literature: list, catalogue: list, drafts_left_out: int = 0) -> dict:
+    """The question path's own scoring, on the evidence this route returned: counts only."""
     by_id = {r["id"]: r for r in rows if "evidence" in r}
-    literature = ask_arm.load("questions_literature.jsonl")
     answered = sum(1 for q in literature if q["id"] in by_id and measures.answer_at(
         [{"doc_id": p["doc_id"], "page": p["page"]} for p in by_id[q["id"]]["evidence"]["passages"]], q["gold"]["sources"], 5))
-    asked = sum(1 for q in literature if q["id"] in by_id)
-    print(f"literature: a page that answers in the first five: {answered} of {len(literature)} "
-          f"({answered} of {len(literature) + DRAFTS_LEFT_OUT} drafts); asked {asked}")
     first = three = n = 0
-    for q in ask_arm.load("questions_catalogue.jsonl"):
+    for q in catalogue:
         if q["id"] not in by_id:
             continue
         n += 1
@@ -167,7 +164,31 @@ def _retrieval(label: str, rows: list) -> None:
         found = bool(rank and catalogue_arm.fact_in_card(q, issues[rank - 1]["card"]))
         first += bool(rank == 1 and found)
         three += found
-    print(f"catalogue: the issue first with the fact in its card: {first} of {n}; in the first three: {three} of {n}")
+    return {"literature": {"k": 5, "answered_in_first_k": answered, "questions": len(literature),
+                           "asked": sum(1 for q in literature if q["id"] in by_id), "drafts": len(literature) + drafts_left_out},
+            "catalogue": {"issue_first_with_fact": first, "issue_in_first_three_with_fact": three, "asked": n}}
+
+
+def wait_summary(rows: list) -> dict:
+    """The two waits of the questions asked once (not the follow-up threads): median and 95th percentile, in seconds."""
+    out = {}
+    for name, key in (("evidence", "first_seconds"), ("answer", "seconds")):
+        waits = [r[key] for r in rows if r["part"] != "threads" and isinstance(r.get(key), (int, float))]
+        if waits:
+            s = measures.latency_summary(waits)
+            out[name] = {"n": s["n"], "median": round(s["p50"], 3), "p95": round(s["p95"], 3)}
+    return out
+
+
+def _retrieval(label: str, rows: list) -> None:
+    """The question path's own scoring, on the evidence this route returned."""
+    counts = retrieval_counts(rows, ask_arm.load("questions_literature.jsonl"), ask_arm.load("questions_catalogue.jsonl"),
+                              DRAFTS_LEFT_OUT)
+    lit, cat = counts["literature"], counts["catalogue"]
+    print(f"literature: a page that answers in the first five: {lit['answered_in_first_k']} of {lit['questions']} "
+          f"({lit['answered_in_first_k']} of {lit['drafts']} drafts); asked {lit['asked']}")
+    print(f"catalogue: the issue first with the fact in its card: {cat['issue_first_with_fact']} of {cat['asked']}; "
+          f"in the first three: {cat['issue_in_first_three_with_fact']} of {cat['asked']}")
 
 
 def _share(count: int, of: int) -> str:
@@ -291,8 +312,13 @@ def table(args) -> None:
                                "gold_issue_rank_alone": (r["alone_issues"].index(r["gold_issue"]) + 1 if r["gold_issue"] in r.get("alone_issues", []) else None)}
                               if r["part"] == "threads" else {})})
         path = OUTCOMES / f"answers_{args.label}.json"
+        # counts, medians and percentiles of the whole run (no question, no answer, no text): retrieval through
+        # this route and the waits, which the rows do not hold (the page "How it works" reads them)
+        retrieval = retrieval_counts(single, ask_arm.load("questions_literature.jsonl"), ask_arm.load("questions_catalogue.jsonl"),
+                                     DRAFTS_LEFT_OUT)
         path.write_text(json.dumps({"label": args.label, "model": "claude-haiku-5-5", "judge": args.judge,
                                     "usd_per_mtok": {"input": USD_PER_MTOK_IN, "output": USD_PER_MTOK_OUT},
+                                    "summary": {"retrieval": retrieval, "waits": wait_summary(rows)},
                                     "rows": public}, indent=1), encoding="utf-8")
         print(f"\n-> {path.relative_to(stores.REPO)}")
 

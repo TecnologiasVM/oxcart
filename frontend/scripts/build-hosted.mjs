@@ -7,7 +7,7 @@
 //   NEXT_PUBLIC_WEB                 optional (1, true, yes, on): the page asks for the web part and its privacy
 //                                   paragraph names the search service; without it neither
 //
-// The hosted site ships the question page only. The explorer under /research is local
+// The hosted site ships the question page and "How it works" (which calls nothing). The explorer under /research is local
 // research tooling: its routes need a backend mode the hosted backend does not mount, so
 // they are removed from the output.
 import { spawnSync } from "node:child_process";
@@ -27,4 +27,4 @@ run(["node_modules/next/dist/bin/next", "build"]);
 for (const path of ["out/research", "out/research.html", "out/research.txt"]) {
   if (existsSync(path)) rmSync(path, { recursive: true });
 }
-console.log("static site in ./out (question page only)");
+console.log("static site in ./out (the question page and How it works)");

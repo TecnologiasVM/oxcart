@@ -8,13 +8,17 @@ import type { KeyboardEvent } from "react";
 import type { WrittenAnswer } from "@/lib/ask";
 import type { Turn } from "@/lib/conversation";
 import { FIGURES_BASE } from "@/lib/figures";
-import type { Labels } from "@/lib/i18n";
+import type { Labels, Lang } from "@/lib/i18n";
 import { WEB } from "@/lib/web";
 import type { Service } from "./hooks";
 
 export const PANEL_ID = "evidence-panel";
 export const REPO_URL = "https://github.com/TecnologiasVM/oxcart";
-export const HOW_URL = `${REPO_URL}/blob/main/EVALUATION.md`;
+/** The page "How it works" (app/how-it-works), and the evaluation it summarizes. */
+export const HOW_URL = "/how-it-works";
+export const EVAL_URL = `${REPO_URL}/blob/main/EVALUATION.md`;
+/** Where this browser keeps the visitor's choice of language. */
+export const LANG_KEY = "oxcart-lang";
 
 /** A written answer with sentences to show. */
 export const answered = (written?: WrittenAnswer) => written?.state === "ok" && (written.sentences ?? []).length > 0;
@@ -114,8 +118,24 @@ export function PrivacyLine({ t }: { t: Labels }) {
       </summary>
       {/* the web search service is named only in a build that asks for it; pictures come from a host
           of their own, said only in a build that draws them */}
-      <p className="priv__full" data-testid="privacy-full">{t.privFull}{WEB ? ` ${t.privWeb}` : ""}{FIGURES_BASE ? ` ${t.privPictures}` : ""}</p>
+      <p className="priv__full" data-testid="privacy-full">{privacyText(t)}</p>
     </details>
+  );
+}
+
+/** The full privacy paragraph, as Details shows it; "How it works" shows the same. */
+export const privacyText = (t: Labels) => `${t.privFull}${WEB ? ` ${t.privWeb}` : ""}${FIGURES_BASE ? ` ${t.privPictures}` : ""}`;
+
+/** A page's part of the header: how it works, the source, and the language. */
+export function HeaderNav({ t, lang, setLang, here = false }: { t: Labels; lang: Lang; setLang: (lang: Lang) => void; here?: boolean }) {
+  return (
+    <nav className="page-nav" aria-label="Oxcart">
+      <a className="page-nav__link" href={HOW_URL} aria-current={here ? "page" : undefined}>{t.how}</a>
+      <a className="page-nav__link" href={REPO_URL}>{t.code}</a>
+      <button type="button" className="lang-btn" lang={lang === "es" ? "en" : "es"} onClick={() => setLang(lang === "es" ? "en" : "es")} data-testid="lang-toggle">
+        {t.language}
+      </button>
+    </nav>
   );
 }
 
