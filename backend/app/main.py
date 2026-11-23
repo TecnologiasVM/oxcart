@@ -34,7 +34,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app import answer_model, public_guard, settings
+from app import answer_model, public_guard, settings, web_step
 from app.deps import lifespan
 from app.routers import ask, chat
 
@@ -68,6 +68,8 @@ def create_app(public: bool | None = None) -> FastAPI:
     # The written answer: the model, and how many calls to it the whole service makes in a day.
     app.state.answer_model = answer_model.ClaudeModel()
     app.state.answer_allowance = public_guard.DayCount(settings.ANSWER_LIMIT_PER_DAY)
+    # The web step, only with ASK_WEB on: its ticket key is made here, at the start, and held in memory only.
+    app.state.web = web_step.WebStep() if settings.ASK_WEB else None
 
     if public:
         app.add_middleware(
@@ -120,6 +122,8 @@ def create_app(public: bool | None = None) -> FastAPI:
     # The question path, in both modes.
     app.include_router(ask.router, prefix="/api")
     app.include_router(chat.router, prefix="/api")
+    if settings.ASK_WEB:                 # off, the route does not exist: every route is the one served before
+        app.include_router(chat.web_router, prefix="/api")
 
     if public:
         app.include_router(ask.health_router, prefix="/api")
