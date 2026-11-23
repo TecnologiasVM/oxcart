@@ -648,3 +648,31 @@ def test_the_app_holds_the_web_step_only_with_the_setting_on(make_client, monkey
     assert main.create_app(public=True).state.web is None
     monkeypatch.setattr(settings, "ASK_WEB", True)
     assert isinstance(main.create_app(public=True).state.web, web_step.WebStep)
+
+
+@pytest.mark.parametrize("outcome", [("timeout", []), ("failed", []), ("used_up", []), ("ok", [])])
+def test_the_model_call_taken_for_a_web_part_is_given_back_when_the_search_leaves_nothing_to_write_from(
+        web_client, model, tavily, monkeypatch, outcome):
+    monkeypatch.setattr(settings, "ANSWER_LIMIT_PER_DAY", 3)
+    client = web_client()
+    headers = session_of(client)
+    question, text, ticket = ticketed(client, model, headers)                 # calls 1 and 2: rewrite, write
+    tavily.outcome = outcome
+    part = web(client, headers, question, text, ticket).json()
+    assert part["state"] in ("unavailable", "nothing") and model.webs == [] and part["calls"] == []
+    model.reply = None
+    assert chat(client, headers)[1]["state"] == "ok"                          # the third call of the day is still there
+
+
+def test_no_ticket_when_a_store_did_not_answer(web_client, model, tavily, fakes):
+    client = web_client()
+    headers = session_of(client)
+    model.reply = NOT_COVERED
+    fakes.search_error = RuntimeError("the literature did not answer")
+    evidence, answer = chat(client, headers)
+    assert evidence["mode"]["literature"] == "unavailable" and answer == {"state": "not_covered"}
+    fakes.search_error, fakes.lookup_error = None, answer_graph.Unavailable("ServiceUnavailable")
+    evidence, answer = chat(client, headers)
+    assert evidence["mode"]["catalogue"] == "unavailable" and answer == {"state": "not_covered"}
+    fakes.lookup_error = None                                                 # both stores answered: a ticket again
+    assert set(chat(client, headers)[1]) == {"state", "web"}

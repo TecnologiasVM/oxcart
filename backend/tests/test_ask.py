@@ -639,6 +639,7 @@ def test_the_short_vector_is_asked_only_when_the_setting_is_on_and_a_refusal_fal
 
     class Link:
         refuse_short = False
+        refusal = ask_service.Refused("ClientError")
 
         def read(self, fn):
             return fn("a session")
@@ -646,7 +647,7 @@ def test_the_short_vector_is_asked_only_when_the_setting_is_on_and_a_refusal_fal
     def fake_lookup(session, question, k, question_vector, use_short=False):
         asked.append(use_short)
         if use_short and Link.refuse_short:
-            raise ask_service.Unavailable("ClientError")   # what the link raises when the graph refuses a query
+            raise Link.refusal                             # what the link raises when the graph refuses a query
         return [{"issue_id": "CR-1901-MADE-UP", "short": use_short}]
 
     monkeypatch.setattr(catalogue_lookup, "lookup", fake_lookup)
@@ -664,3 +665,24 @@ def test_the_short_vector_is_asked_only_when_the_setting_is_on_and_a_refusal_fal
     asked.clear()
     Link.refuse_short = True                                                         # the graph has no such index
     assert lookup("a question", [0.1])[0]["short"] is False and asked == [True, False]
+
+    asked.clear()
+    Link.refusal = ask_service.Unavailable("ClientError")                            # a failure of another kind, whatever its name:
+    with pytest.raises(ask_service.Unavailable):                                     # the lookup is not asked again
+        lookup("a question", [0.1])
+    assert asked == [True]
+
+
+def test_an_ipv6_visitor_is_counted_by_the_first_64_bits_of_its_address(monkeypatch):
+    monkeypatch.setattr(settings, "TRUSTED_PROXY_HOPS", 1)
+    key = lambda address: public_guard.visitor_key(address, "192.0.2.9")
+    # one subscriber's addresses (documentation range 2001:db8::/32): the last 64 bits are theirs to change
+    assert key("2001:db8:12:34::1") == key("2001:db8:12:34:ffff:ffff:ffff:fffe") == key("[2001:DB8:12:34::9]")
+    assert key("2001:db8:12:34::1") != key("2001:db8:12:35::1")                      # another subscriber
+    assert key("2001:db8:12:34::1") == public_guard.visitor_key("192.0.2.1", "192.0.2.9", "2001:db8:12:34:a:b:c:d")
+    # an IPv4 address is counted whole, also when it is written inside an IPv6 one
+    assert key("::ffff:198.51.100.4") == key("198.51.100.4") != key("198.51.100.5")
+    assert public_guard.counted_address("2001:db8:12:34:a:b:c:d") == "2001:db8:12:34::/64"
+    assert public_guard.counted_address("198.51.100.4") == "198.51.100.4"
+    for text in ("unknown", "", "not an address"):                                   # counted as given, nothing raised
+        assert public_guard.counted_address(text) == text

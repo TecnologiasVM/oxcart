@@ -32,7 +32,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 from app import figures, settings
-from app.graph_link import GraphLink, Unavailable  # noqa: F401  (Unavailable is this module's error too)
+from app.graph_link import GraphLink, Refused, Unavailable  # noqa: F401  (Unavailable is this module's error too)
 from app.passage_text import tidy
 
 from oxcart import config
@@ -190,11 +190,9 @@ def make_lookup(link: GraphLink) -> Callable[[str, Optional[list]], list]:
             return read(False)
         try:
             return read(True)
-        except Unavailable as exc:
+        except Refused:
             # A query the graph refuses, not a lost connection: the setting is on and the graph does not
             # hold the short vector index. The lookup of today still answers; the log says why.
-            if str(exc) != "ClientError":
-                raise
             log.warning("short vector index not usable: catalogue lookup without it")
             return read(False)
 

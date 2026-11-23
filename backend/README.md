@@ -159,7 +159,7 @@ With `OXCART_PUBLIC=1` the app runs in **hosted mode**:
 | Routes mounted | `GET /api/health`, `GET /api/ask/examples`, `POST /api/session`, `POST /api/ask`, `POST /api/chat`, and `POST /api/chat/web` only with `ASK_WEB` on. Nothing else: no explorer routes, no export, no figures |
 | Docs | `/docs`, `/redoc` and `/openapi.json` are off |
 | Human check | The page solves a Cloudflare Turnstile challenge and posts its token to `/api/session`; the backend verifies it with Cloudflare and returns a signed token valid for an hour, sent as `X-Oxcart-Session` with each question. If the check cannot be verified, questions are refused with a message |
-| Limits | 10 questions a minute and 100 a day per visitor, 2,000 a day for the service, in memory; a question is at most 300 characters and a request 2 kB. A visitor is counted twice, by address and by session token, and a question passes only when both are under the limits |
+| Limits | 10 questions a minute and 100 a day per visitor, 2,000 a day for the service, in memory; a question is at most 300 characters and a request 2 kB. A visitor is counted twice, by address (an IPv6 address by its first 64 bits) and by session token, and a question passes only when both are under the limits |
 | CORS | The origins in `CORS_ORIGINS`, GET and POST, no credentials |
 | Errors | `{"error": code, "message": text}`; no exception text, nothing of the request repeated |
 | Logs | One line per question with the mode, the timings and error classes. No question text, no address |
@@ -247,7 +247,9 @@ With `ASK_WEB` on, the write call tells apart three ways of not answering in ful
 are counted and is never sent to the page. The model is also told that a card is from the Mena catalogue.
 
 For `not_covered`, and for `ok` with `covers: "part"`, when `TAVILY_API_KEY` is set and a search is allowed
-(below), the chat reply's answer carries `web: {"ticket": .., "expires_in": 120}`. `out_of_scope` never does.
+(below), the chat reply's answer carries `web: {"ticket": .., "expires_in": 120}`. `out_of_scope` never does,
+and no ticket is made when the catalogue or the literature did not answer: that our sources do not cover the
+question is not known then.
 The ticket is an HMAC-SHA256, with a key made when the process starts and held in memory only (no secret to
 set), over a random id, a digest of the question as it was searched (`evidence.question`), a digest of the
 answer's text (its shown sentences joined with a space; empty for `not_covered`), the state and an expiry
@@ -259,7 +261,8 @@ it counts as a question, the service's daily limit, the eval's way in), then ref
 ticket that does not verify for that question and answer, is expired or was used (a ticket is good once; used
 ids are kept in memory until they expire). Then, in this order: a search must still be allowed; one model call
 is taken from the day's allowance (`ANSWER_LIMIT_PER_DAY`), so a day whose calls are spent never spends a
-search; one search is made and counted.
+search; one search is made and counted. When the search fails, times out or leaves no result to write from,
+the model is not called and the call that was taken is given back.
 
 - **The search** (`app/web_step.py`, `Tavily`): `POST https://api.tavily.com/search` with the key as a bearer
   token, `search_depth: "basic"`, `max_results: 5`, no answer, no raw content, no images, `topic: "general"`,

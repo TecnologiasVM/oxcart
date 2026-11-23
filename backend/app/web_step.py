@@ -332,8 +332,10 @@ class WebStep:
             return None
         return self.tickets.make(question, text, state)
 
-    def run(self, question: str, earlier: str, state: str, model: Any, take: Callable[[], bool]) -> tuple[dict, dict]:
-        """(the reply, what the log line adds) for a ticket that was redeemed with ``state``."""
+    def run(self, question: str, earlier: str, state: str, model: Any, take: Callable[[], bool],
+            give_back: Callable[[], None] = lambda: None) -> tuple[dict, dict]:
+        """(the reply, what the log line adds) for a ticket that was redeemed with ``state``. ``take`` takes
+        one model call from the day's allowance; ``give_back`` returns it when no model call is made."""
         started = time.time()
         timings: dict = {}
         note: dict = {"reason": None, "results_returned": 0, "results_kept": 0}
@@ -350,7 +352,8 @@ class WebStep:
             return done({"state": "unavailable"}, "not_configured")
         if not self.searches.allowed():
             return done({"state": "unavailable"}, "not_allowed")
-        # the model call is taken before the search, so a day whose calls are spent never spends a search
+        # the model call is taken before the search, so a day whose calls are spent never spends a search;
+        # it is given back when the search leaves nothing to write from
         if not take():
             return done({"state": "unavailable"}, "daily_cap")
         query = " ".join(f"{question} {settings.WEB_QUERY_SUFFIX}".split())
@@ -359,10 +362,12 @@ class WebStep:
         outcome, raw = self.client.search(query)
         timings["search_ms"] = round((time.time() - searched) * 1000)
         if outcome != "ok":
+            give_back()                         # the search failed or timed out: the model is not called
             return done({"state": "unavailable"}, outcome)
         results = keep_results(raw)
         note["results_returned"], note["results_kept"] = len(raw), len(results)
         if not results:
+            give_back()
             return done({"state": "nothing"}, "no_result_kept")
         reply = model.write_web(question, results, earlier if state == "part" else "")
         calls.append(_call("web", reply))

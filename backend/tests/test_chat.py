@@ -726,3 +726,14 @@ def test_with_the_setting_on_the_model_is_told_whose_catalogue_a_card_is_from_an
     on = answer_graph.sources_of(evidence)[0]
     assert on["title"] == off["title"] and on["lines"] == off["lines"]          # what the page is given does not change
     assert answer_model.document_of(on)["title"] == "Card of the Mena catalogue: A made-up issue"
+
+
+def test_a_call_given_back_is_not_counted_and_only_todays():
+    now = [86400.0 * 10]
+    allowance = public_guard.DayCount(2, now=lambda: now[0])
+    assert [allowance.take(), allowance.take(), allowance.take()] == [True, True, False]
+    allowance.give_back()
+    assert [allowance.take(), allowance.take()] == [True, False]
+    now[0] += 86400
+    allowance.give_back()                                # nothing was taken today: the count does not go under zero
+    assert [allowance.take() for _ in range(3)] == [True, True, False]

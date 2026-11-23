@@ -149,7 +149,9 @@ async def chat(payload: ChatRequest, request: Request) -> StreamingResponse:
             answer = {"state": "failed"}
         calls = [{k: c[k] for k in ("purpose", "state", "input_tokens", "output_tokens", "seconds")} for c in seen["calls"]]
         web = getattr(state, "web", None)               # set only with ASK_WEB on
-        ticket = web.ticket_for(answer, evidence["question"]) if web is not None else None
+        # no ticket when a store did not answer: that our sources do not cover the question is not known then
+        answered = "unavailable" not in (evidence["mode"]["catalogue"], evidence["mode"]["literature"])
+        ticket = web.ticket_for(answer, evidence["question"]) if web is not None and answered else None
         if ticket:
             answer = {**answer, "web": ticket}
         yield _line({"type": "answer", "answer": answer, "calls": calls})
@@ -192,8 +194,9 @@ async def chat_web(payload: WebRequest, request: Request) -> dict:
     if state is None:
         raise ApiError(403, "ticket_refused", "This web search can no longer be made.")
     question = " ".join(payload.question.split())
+    allowance = request.app.state.answer_allowance
     reply, note = await run_in_threadpool(web.run, question, payload.answer, state, request.app.state.answer_model,
-                                          request.app.state.answer_allowance.take)
+                                          allowance.take, allowance.give_back)
     log.info(json.dumps({"event": "web", "request_id": getattr(request.state, "request_id", None),
                          "who": "eval" if visitor is None else "visitor", "ticket": state, "state": reply["state"],
                          "reason": note["reason"], "rule": web.searches.rule, "counts": reply["counts"],
