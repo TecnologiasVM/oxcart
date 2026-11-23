@@ -63,3 +63,20 @@ test("finding 21: a disagreement between two recorded values says they are recor
     box.done();
   }
 });
+
+// ------------------------------------------------------------------ the counts of tests left the generated file
+test("a new test function or test changes nothing in the generated file", () => {
+  const box = sandbox();
+  try {
+    const before = box.run();
+    expect(before.status).toBe(0);
+    box.append("eval/tests/test_answers.py", "\n\ndef test_a_made_up_test_function():\n    assert True\n");
+    box.append("frontend/tests-e2e/how.spec.ts", '\ntest("a made-up test", () => {});\n');
+    const after = box.run();
+    expect(after.status).toBe(0);
+    expect(after.figures).toEqual(before.figures);
+    expect(JSON.stringify(after.figures)).not.toMatch(/"tests"/);
+  } finally {
+    box.done();
+  }
+});

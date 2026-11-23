@@ -14,12 +14,12 @@
  *     recorded values (the generator does not read EVALUATION.md itself),
  *     and (key `stores`) what the served stores say of themselves: versions, counts, index kinds;
  *   - backend/app/settings.py (limits, models), backend/app/ask_service.py (the vectors kept in memory);
- *   - the versions from package-lock.json, backend/requirements.txt, backend/Dockerfile and the CI workflow;
- *   - the test counts, counted in the test files CI runs.
+ *   - the versions from package-lock.json, backend/requirements.txt, backend/Dockerfile and the CI workflow.
+ * The test files are not read: a branch that adds a test does not have to make this file again.
  * A figure a source does not hold is null, and the page leaves out what it would say. No question, no
  * answer and no passage is read into the output.
  */
-import { readFileSync, readdirSync, writeFileSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -245,21 +245,10 @@ function limits() {
   };
 }
 
-// ------------------------------------------------------------------ versions and tests
+// ------------------------------------------------------------------ versions
 function pin(text, name) {
   const m = new RegExp(`^${name}(?:\\[[^\\]]*\\])?==([0-9][^\\s#]*)`, "m").exec(text);
   return m ? m[1] : fail(`${name} is not pinned in backend/requirements.txt`);
-}
-
-function files(dir, test) {
-  const out = [];
-  for (const name of readdirSync(dir)) {
-    const path = join(dir, name);
-    if (statSync(path).isDirectory()) {
-      if (name !== "__pycache__" && name !== "node_modules") out.push(...files(path, test));
-    } else if (test(name)) out.push(path);
-  }
-  return out.sort();
 }
 
 function versions() {
@@ -269,15 +258,7 @@ function versions() {
   const python = /^FROM python:(\d+\.\d+)/m.exec(read("backend", "Dockerfile"));
   const ci = read(".github", "workflows", "tests.yml");
   const pytest = /pytest==([0-9.]+)/.exec(ci);
-  // the folders CI gives pytest, and the folder Playwright is given (its config's testDir)
-  const pyDirs = /python -m pytest ([^\n]+)/.exec(ci);
-  const pwDir = /testDir:\s*"\.\/([^"]+)"/.exec(readFileSync(join(FRONTEND, "playwright.config.ts"), "utf-8"));
-  if (!python || !pytest || !pyDirs || !pwDir) fail("a version or a test folder was not found");
-  const pyFiles = pyDirs[1].trim().split(/\s+/).flatMap((d) => files(join(REPO, d), (n) => /^test_.*\.py$/.test(n)));
-  const pyTests = pyFiles.reduce((a, f) => a + (readFileSync(f, "utf-8").match(/^\s*(?:async\s+)?def test_\w+/gm) ?? []).length, 0);
-  const pwFiles = files(join(FRONTEND, pwDir[1]), (n) => n.endsWith(".spec.ts"));
-  // each test( call: a test written once (some run once per screen width)
-  const pwTests = pwFiles.reduce((a, f) => a + (readFileSync(f, "utf-8").match(/^\s*test\(/gm) ?? []).length, 0);
+  if (!python || !pytest) fail("a version was not found");
   return {
     langgraph: pin(req, "langgraph"),
     fastapi: pin(req, "fastapi"),
@@ -287,7 +268,6 @@ function versions() {
     typescript: npm("typescript"),
     playwright: npm("@playwright/test"),
     pytest: pytest[1],
-    tests: { python: pyTests, python_files: pyFiles.length, browser: pwTests, browser_files: pwFiles.length },
   };
 }
 

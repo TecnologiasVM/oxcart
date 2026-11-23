@@ -149,7 +149,7 @@ test("the fold \"Versions and tests\" is closed, and opens and closes by keyboar
   await expect(fold).toContainText(`Neo4j ${FIGURES.stores.graph.neo4j}, on Aura Free`);
   await expect(fold).toContainText(`Weaviate ${FIGURES.stores.literature.weaviate}, on Weaviate Cloud`);
   await expect(fold).toContainText(`Next.js ${v.next}, React ${v.react}, TypeScript ${v.typescript}`);
-  await expect(fold).toContainText(`pytest ${v.pytest} (${v.tests.python} test functions) and Playwright ${v.playwright} (${v.tests.browser})`);
+  await expect(fold).toContainText(`pytest ${v.pytest} and Playwright ${v.playwright}, run by GitHub Actions on every pull request`);
   await page.keyboard.press("Space");
   await expect(fold).not.toHaveAttribute("open");
 });

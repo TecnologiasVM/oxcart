@@ -108,7 +108,7 @@ export type HowWords = {
     litV: (v: S) => S;
     backendV: (fastapi: S, python: S) => S;
     pageV: (next: S, react: S, ts: S) => S;
-    testsV: (pytest: S, py: S, pw: S, browser: S) => S;
+    testsV: (pytest: S, pw: S) => S;
   };
   stackNote: S;
   moreH: S;
@@ -248,8 +248,7 @@ export const HOW: Record<Lang, HowWords> = {
       litV: (v: S) => `Weaviate ${v}, on Weaviate Cloud`,
       backendV: (fastapi: S, python: S) => `FastAPI ${fastapi}, Python ${python}, Docker, on Render`,
       pageV: (next: S, react: S, ts: S) => `Next.js ${next}, React ${react}, TypeScript ${ts}, static on Cloudflare Pages`,
-      testsV: (pytest: S, py: S, pw: S, browser: S) =>
-        `pytest ${pytest} (${py} test functions) and Playwright ${pw} (${browser}), run by GitHub Actions on every pull request`,
+      testsV: (pytest: S, pw: S) => `pytest ${pytest} and Playwright ${pw}, run by GitHub Actions on every pull request`,
     },
     stackNote: "The page, the backend, the graph and the collection are each hosted on a free tier.",
     // 9. links
@@ -377,8 +376,7 @@ export const HOW: Record<Lang, HowWords> = {
       litV: (v: S) => `Weaviate ${v}, en Weaviate Cloud`,
       backendV: (fastapi: S, python: S) => `FastAPI ${fastapi}, Python ${python}, Docker, en Render`,
       pageV: (next: S, react: S, ts: S) => `Next.js ${next}, React ${react}, TypeScript ${ts}, estática en Cloudflare Pages`,
-      testsV: (pytest: S, py: S, pw: S, browser: S) =>
-        `pytest ${pytest} (${py} funciones de prueba) y Playwright ${pw} (${browser}), que GitHub Actions corre en cada pull request`,
+      testsV: (pytest: S, pw: S) => `pytest ${pytest} y Playwright ${pw}, que GitHub Actions corre en cada pull request`,
     },
     stackNote: "La página, el backend, el grafo y la colección están alojados cada uno en un nivel gratuito.",
     moreH: "La cuenta completa",
