@@ -67,6 +67,8 @@ test("the privacy line stands by the box, and Details unfolds the full paragraph
   const full = page.getByTestId("privacy-full");
   await expect(full).toBeVisible();
   for (const name of ["OpenAI", "Anthropic", "Cloudflare"]) await expect(full).toContainText(name);
+  // this build draws pictures (the tests' figures host), so the paragraph says where they come from
+  await expect(full).toContainText("Pictures are loaded by your browser from a separate host at Cloudflare, which sees your browser's address as any web server does.");
   await expect(full).not.toContainText("Tavily");                     // the web branch is not served
   // what the server holds of a question: the vectors of the last 256, in memory, with no text (backend: Embedder)
   await expect(full).toContainText("last 256 questions");
@@ -173,6 +175,27 @@ test("with nothing heard from the service for 90 seconds the page says it is not
   await expect(page.getByTestId("service-starting")).toContainText(/Waking the service…|Despertando el servicio…/);
   await expect(page.getByTestId("service-unreachable")).toHaveCount(0);
   await pass(96);
+  await expect(page.getByTestId("service-unreachable")).toContainText(/not answering right now|no responde en este momento/);
+  await expect(page.getByTestId("service-starting")).toHaveCount(0);
+});
+
+test("the waking notice ends 180 seconds after the page started looking, even while the service answers that it is connecting", async ({ page }) => {
+  await page.clock.install();
+  await mock(page);
+  await page.route("**/api/health", (route) => route.fulfill({ json: { status: "ok", graph: "connecting", literature: "connected", embedding: "connected" } }));
+  await page.goto("/");
+  let seconds = 0;
+  const pass = async (until: number) => {
+    while (seconds < until) {
+      await page.clock.runFor(2000);
+      seconds += 2;
+      await page.waitForTimeout(20);
+    }
+  };
+  await pass(170);                                          // well past the 90 seconds: it answers, so it is not "not answering"
+  await expect(page.getByTestId("service-starting")).toBeVisible();
+  await expect(page.getByTestId("service-unreachable")).toHaveCount(0);
+  await pass(190);
   await expect(page.getByTestId("service-unreachable")).toContainText(/not answering right now|no responde en este momento/);
   await expect(page.getByTestId("service-starting")).toHaveCount(0);
 });
