@@ -68,6 +68,7 @@ export const LABELS = {
     privMore: "Details",
     privFull:
       "Your conversations are kept in this browser only; the server does not store your questions. Until it restarts it holds in memory the numbers computed from the last 256 questions to search by meaning (their vectors), with no text, and it writes nothing to disk. To answer, your question is sent to OpenAI (to search by meaning), and your question, the evidence shown and, for a follow-up, the turns it follows are sent to Anthropic (to write the answer). On your first question, Cloudflare (Turnstile) checks that you are a person.",
+    privPictures: "Pictures are loaded by your browser from a separate host at Cloudflare, which sees your browser's address as any web server does.",
     how: "How it works",
     code: "Source code",
     storedAll: "Stored examples: they work while the service wakes.",
@@ -94,7 +95,7 @@ export const LABELS = {
     nPassages: (n: number) => `${n} passage${n === 1 ? "" : "s"}`,
     figsTitle: "Figures on the cited pages",
     figsSay: "Crops of the pages this answer cites. They show what is on those pages; they are not pictures of the answer.",
-    figsOf: (k: number, n: number) => (n === 1 ? "The cited page carries figures." : `${k} of the ${n} cited pages carr${k === 1 ? "ies" : "y"} figures.`),
+    figsOf: (k: number, n: number) => (n === 1 ? "The cited page has figures." : `${k} of the ${n} cited pages ${k === 1 ? "has" : "have"} figures.`),
     figsGo: "See the passage",
     figKind: { A: "a stamp", B: "a cover or a postal marking" } as Record<"A" | "B", string>,
     figAlt: (i: number, n: number, kind: string) => `Figure ${i} of ${n} on this page: ${kind}`,
@@ -248,6 +249,7 @@ export const LABELS = {
     privMore: "Detalles",
     privFull:
       "Sus conversaciones se guardan solo en este navegador; el servidor no almacena sus preguntas. Hasta que se reinicia mantiene en memoria los números calculados de las últimas 256 preguntas para buscar por significado (sus vectores), sin texto, y no escribe nada en disco. Para responder, su pregunta se envía a OpenAI (para buscar por significado), y su pregunta, la evidencia mostrada y, en una pregunta de seguimiento, los turnos a los que sigue se envían a Anthropic (para redactar la respuesta). En su primera pregunta, Cloudflare (Turnstile) comprueba que es una persona.",
+    privPictures: "Las imágenes las carga su navegador desde un servidor aparte en Cloudflare, que ve la dirección de su navegador como cualquier servidor web.",
     how: "Cómo funciona",
     code: "Código fuente",
     storedAll: "Ejemplos guardados: funcionan mientras el servicio despierta.",
