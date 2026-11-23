@@ -12,6 +12,7 @@
  * (key `oxcart-chat-v1`: a bare list of turns, newest first) is read once and carried over.
  */
 import type { AskAnswer, ModelCall, ThreadTurn, WrittenAnswer } from "./ask";
+import { keepWeb, withoutTicket } from "./web";
 import type { WebPart } from "./web";
 
 export const STORE_KEY = "oxcart-conversations";
@@ -34,6 +35,7 @@ export type Turn = {
   web?: WebPart; // the web part (lib/web.ts), kept with its turn once it has come; a search under way is not kept
   stored?: boolean;
   storedDate?: string | null;
+  lang?: "es" | "en"; // the language of the question and of what came back, when it is known (a stored example)
   // what is true only while the page is open: never written to storage
   pending?: boolean; // asked, no evidence yet
   writing?: boolean; // the evidence is here, the answer is being written
@@ -49,12 +51,41 @@ export type Keeping = "kept" | "blocked" | "full";
 
 export const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
-/** A turn as it is kept: settled, with its evidence, without what only the open page knows. */
+const isObject = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === "object" && !Array.isArray(v);
+const isText = (v: unknown): v is string => typeof v === "string";
+
+/** Evidence of the shape the page draws: a question, a mode, lists of issues and passages (each an object). */
+function validAnswer(a: unknown): a is AskAnswer {
+  return isObject(a) && isText(a.question) && isObject(a.mode) && Array.isArray(a.issues) && Array.isArray(a.passages)
+    && a.issues.every((i) => isObject(i) && isText(i.issue_id) && (i.card === null || i.card === undefined || isObject(i.card)))
+    && a.passages.every((p) => isObject(p) && isText(p.text));
+}
+/** A written answer of the shape the page draws, or nothing (its evidence stays). Never with a ticket. */
+function validWritten(w: unknown): WrittenAnswer | undefined {
+  if (!isObject(w) || !isText(w.state)) return undefined;
+  if (w.sentences !== undefined && !(Array.isArray(w.sentences) && w.sentences.every((x) => isObject(x) && isText(x.text) && Array.isArray(x.cites)))) return undefined;
+  if (w.sources !== undefined && !(Array.isArray(w.sources) && w.sources.every((x) => isObject(x) && typeof x.n === "number" && isText(x.title)))) return undefined;
+  return withoutTicket(w as WrittenAnswer);
+}
+
+/**
+ * A turn as it is kept: settled, with its evidence, without what only the open page knows. What is read back is
+ * checked: a turn the page cannot draw is dropped (and the next write leaves it out), a part of it that is not of
+ * its shape is left out, and the rest stays.
+ */
 function keepable(turn: Turn): Turn | null {
-  if (!turn || typeof turn.question !== "string" || !turn.answer || turn.pending) return null;
-  const { pending: _p, writing: _w, check: _c, error: _e, web, ...kept } = turn;
+  if (!isObject(turn) || !isText(turn.id) || !isText(turn.question) || !isText(turn.at) || Number.isNaN(Date.parse(turn.at))) return null;
+  if (!validAnswer(turn.answer) || turn.pending) return null;
+  const { pending: _p, writing: _w, check: _c, error: _e, web, written, calls, thread, lang, ...kept } = turn;
+  const out: Turn = { ...kept, answer: { ...turn.answer, timings: isObject(turn.answer.timings) ? turn.answer.timings : {} } };
+  const w = written === undefined ? undefined : validWritten(written);
+  if (w) out.written = w;
+  if (Array.isArray(calls)) out.calls = calls.filter(isObject) as ModelCall[];
+  if (Array.isArray(thread) && thread.every((x) => isObject(x) && isText(x.question) && isText(x.answer))) out.thread = thread;
+  if (lang === "es" || lang === "en") out.lang = lang;
   // a search under way is not kept: a turn read back never asks for the web again
-  return web && web.state !== "searching" ? { ...kept, web } : kept;
+  if (web && web.state !== "searching") out.web = keepWeb(web);
+  return out;
 }
 
 /** Turns read back from storage. A turn cut off while its answer was being written keeps its evidence. */
