@@ -46,7 +46,7 @@
    "same_grade": 39,
    "same_answers_or_not": 41,
    "run": "the literature gold's second check: a seeded sample, 15 pages per grade, one page per call, without the first grade or reason",
-   "stated": "EVALUATION.md:12-15 and the table at EVALUATION.md:84"
+   "stated": "EVALUATION.md, \"Read this first\" (its first item) and the table of \"How the literature gold was made\""
   },
   "answers": {
    "second": "claude-opus-5-5",
@@ -54,35 +54,35 @@
    "same_mark": 177,
    "kappa": 0.78,
    "run": "the mark 'gives what the question asks' given again on the 205 literature answers of the five runs of the first row of 'One writer, different evidence and settings'",
-   "stated": "EVALUATION.md:422-433"
+   "stated": "EVALUATION.md, \"A stronger writer, and a second judge\" (the paragraph \"A second judge\" and its table)"
   }
  },
  "vector_numbers": {
   "value": 3072,
   "run": "the stored vectors of the literature collection and the question's embedding",
-  "stated": "EVALUATION.md:122"
+  "stated": "EVALUATION.md, \"Vector size\""
  },
  "weaviate_version": {
   "value": "1.40.5",
   "run": "the hosted Weaviate's version",
-  "stated": "EVALUATION.md:99"
+  "stated": "EVALUATION.md, \"How small can the literature collection be\""
  },
  "points_a_question": {
   "min": 2,
   "max": 7,
   "run": "the sets are small: one question is 2 to 7 points, depending on the table",
-  "stated": "EVALUATION.md:22"
+  "stated": "EVALUATION.md, \"Read this first\""
  },
  "after_first_question": {
   "usd": 0.0008,
   "run": "a question after a conversation's first, with the page's one question box: one more model call, measured on 85 questions on the development machine",
-  "stated": "EVALUATION.md:318-322"
+  "stated": "EVALUATION.md, \"Cost and waits\" (the paragraph \"Since the page has one question box\")"
  },
  "spend_limit": {
   "usd": 9,
   "month": "2026-11",
   "run": "the monthly spend limit of the model key's workspace, set at the provider",
-  "stated": "README.md:217-218 (not in EVALUATION.md)"
+  "stated": "README.md, \"What the limits are, and what they are not\" (not in EVALUATION.md)"
  },
  "trace": {
   "stated": "The traced question as the served system returned it on 2026-11-23, through the eval's way in to the public service: asked after a first question about the same issue; scores as returned. The opening question's answer, the passages and the timings are left out.",
