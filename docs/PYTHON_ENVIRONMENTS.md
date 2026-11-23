@@ -209,4 +209,3 @@ python -m ipykernel install --user --name=venv-py313 --display-name="Python 3.13
 ---
 
 **Last Updated:** 2025-01-22
-**Maintained By:** Claude Code Assistant

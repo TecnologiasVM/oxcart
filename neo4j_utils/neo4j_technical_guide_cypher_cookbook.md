@@ -23,14 +23,14 @@ Primary modules (files)
 2) Data Model (V1) — Entities, Keys, and Rationale
 
 Goals of the model (V1)
-	1.	Represent Issues and their technical/administrative context; 2) Stamps (base/catalog numbers) + Varieties (suffix-level distinctions); 3) Proofs (die/plate/color) linked to issues; 4) Production Orders & Remainders; 5) Plates and optional Plate Positions for repeatable flaws; 6) Idempotent ingestion via unique constraints and MERGE.  ￼
+	1.	Represent Issues and their technical/administrative context; 2) Stamps (base/catalog numbers) + Varieties (suffix-level distinctions); 3) Proofs (die/plate/color) linked to issues; 4) Production Orders & Remainders; 5) Plates and optional Plate Positions for repeatable flaws; 6) Idempotent ingestion via unique constraints and MERGE.
 
 Key design choices
-	•	:LegalAct replaces the earlier :Document; the Issue→Act relation is (:Issue)-[:AUTHORIZED_BY]->(:LegalAct) keyed by (type, id, date) and stores ids (council/session references).  ￼
-	•	Officials are only recorded as :Person when the token looks like a real name; otherwise the token is appended to LegalAct.ids to avoid polluting people with “session #229”.  ￼  ￼
-	•	Essays provenance is typed: :Person, :Organization, or :BiblioRef. Prefix “ex-” maps to EX_PROVENANCE; otherwise PROVENANCE. Bibliographic strings become :BiblioRef via CITED_IN.  ￼  ￼
-	•	Varieties live under :Stamp (V1), mirroring JSON (base + suffix). This is convenient for “list all suffixes of #N” and for tying constant plate flaws to PlatePosition.  ￼  ￼
-	•	issue_dates are preserved as a JSON string property on :Issue. PlatePosition nodes are created only when both position and plate are present. Ingestion is idempotent via constraints.  ￼  ￼
+	•	:LegalAct replaces the earlier :Document; the Issue→Act relation is (:Issue)-[:AUTHORIZED_BY]->(:LegalAct) keyed by (type, id, date) and stores ids (council/session references).
+	•	Officials are only recorded as :Person when the token looks like a real name; otherwise the token is appended to LegalAct.ids to avoid polluting people with “session #229”.
+	•	Essays provenance is typed: :Person, :Organization, or :BiblioRef. Prefix “ex-” maps to EX_PROVENANCE; otherwise PROVENANCE. Bibliographic strings become :BiblioRef via CITED_IN.
+	•	Varieties live under :Stamp (V1), mirroring JSON (base + suffix). This is convenient for “list all suffixes of #N” and for tying constant plate flaws to PlatePosition.
+	•	issue_dates are preserved as a JSON string property on :Issue. PlatePosition nodes are created only when both position and plate are present. Ingestion is idempotent via constraints.
 
 Unique keys / constraints (recommended)
 	•	(:Issue) ON issue_id
@@ -41,7 +41,7 @@ Unique keys / constraints (recommended)
 	•	(:ProductionOrder) ON (issue_id, date)
 	•	(:Quantity) ON po_key
 	•	(:LegalAct) ON (type, id, date)
-	•	(:Person), (:Printer), (:Organization), (:BiblioRef) on their names/keys.  ￼  ￼
+	•	(:Person), (:Printer), (:Organization), (:BiblioRef) on their names/keys.
 
 ⸻
 
@@ -55,25 +55,25 @@ Constraints first
 run_constraints() installs all uniqueness constraints (see section 2), then ingestion runs per issue to keep idempotency.
 
 Issue core
-ingest_issue() creates/updates :Issue with essential fields and stores issue_dates as JSON string; connects PRINTED_BY to :Printer when present; creates :LegalAct nodes and AUTHORIZED_BY edges; signers become :Person via a name-shaped heuristic, otherwise appended to LegalAct.ids. (This matches the README design.)  ￼
+ingest_issue() creates/updates :Issue with essential fields and stores issue_dates as JSON string; connects PRINTED_BY to :Printer when present; creates :LegalAct nodes and AUTHORIZED_BY edges; signers become :Person via a name-shaped heuristic, otherwise appended to LegalAct.ids. (This matches the README design.)
 
 Stamps & Varieties
 ingest_stamps() creates :Stamp (value/unit, color, perf, watermark, etc.) and links to Issue.
 ingest_varieties() creates :Variety under each base stamp; if a variety has a position and the plate is known, it creates/links a :PlatePosition ((issue_id, plate no, pos) via elementId(pl) to scope positions to a specific plate instance).
 
 Plates & Positions
-ingest_issue() also creates :Plate nodes per denomination + number (and notes) and links via HAS_PLATE. :PlatePosition is optional and only created when the data supports it.  ￼
+ingest_issue() also creates :Plate nodes per denomination + number (and notes) and links via HAS_PLATE. :PlatePosition is optional and only created when the data supports it.
 
 Proofs
 ingest_proofs() handles DieProof, PlateProof, ColorProof under a unified :Proof supertype keyed by code, ensuring uniqueness across groups/variants.
 
 Production Orders & Remainders
-ingest_production_orders() models (Issue)-[:HAS_PRODUCTION_ORDER]->(ProductionOrder)-[:INCLUDES]->(Quantity) (prints) and (Issue)-[:HAS_REMAINDERS]->(RemaindersEvent)-[:INCLUDES]->(Quantity) (remainders), with optional purchaser via SOLD_TO. (See cookbook queries below.)  ￼
+ingest_production_orders() models (Issue)-[:HAS_PRODUCTION_ORDER]->(ProductionOrder)-[:INCLUDES]->(Quantity) (prints) and (Issue)-[:HAS_REMAINDERS]->(RemaindersEvent)-[:INCLUDES]->(Quantity) (remainders), with optional purchaser via SOLD_TO. (See cookbook queries below.)
 
 Essays & Specimens
-ingest_specimens_essays() creates :Essay/:Specimen and attaches typed provenance (PROVENANCE / EX_PROVENANCE) to :Person/:Organization, and citations to :BiblioRef.  ￼
+ingest_specimens_essays() creates :Essay/:Specimen and attaches typed provenance (PROVENANCE / EX_PROVENANCE) to :Person/:Organization, and citations to :BiblioRef.
 
-One-time cleanup tip. If older data incorrectly created sessions as :Person (e.g., “session #229”), move those tokens to LegalAct.ids, delete the wrong edges/nodes with the provided normalization script.  ￼
+One-time cleanup tip. If older data incorrectly created sessions as :Person (e.g., “session #229”), move those tokens to LegalAct.ids, delete the wrong edges/nodes with the provided normalization script.
 
 ⸻
 
@@ -154,7 +154,7 @@ Default Cypher
 
 The default query is a safe starter: find an Issue by text (title or issue_id), then expand one hop to its Stamps and optionally to Varietys—returning paths for graph rendering. (You can paste any Cypher that RETURNs nodes, relationships, and/or paths.)
 
-Tip: In Neo4j Browser or the viewer, queries that RETURN p or RETURN p1, p2... render as Graph. You can switch to a table when you need row detail. See the cookbook in the next section for ready-to-run examples.  ￼
+Tip: In Neo4j Browser or the viewer, queries that RETURN p or RETURN p1, p2... render as Graph. You can switch to a table when you need row detail. See the cookbook in the next section for ready-to-run examples.
 
 Running the app
 
@@ -176,7 +176,7 @@ python neo4j_gradio_VIS.py
 
 These match the V1 model and are safe to run in the viewer or Neo4j Browser.
 
-A) Issue “global” view — Issue and first/second-level neighbors (legal acts, plates, stamps, proofs, quantities, essays/specimens, etc.).  ￼
+A) Issue “global” view — Issue and first/second-level neighbors (legal acts, plates, stamps, proofs, quantities, essays/specimens, etc.).
 
 WITH 'CR-1863-FIRST-ISSUE' AS issue_id
 MATCH p = (iss:Issue {issue_id:issue_id})
@@ -188,7 +188,7 @@ OPTIONAL MATCH p2 = (x)-[:SIGNED_BY|INCLUDES|SOLD_TO|USES_PLATE|HAS_VARIETY|AT_P
 RETURN p, p2
 LIMIT 2000;
 
-B) All stamps of an Issue, with varieties (ordered)  ￼
+B) All stamps of an Issue, with varieties (ordered)
 
 WITH 'CR-1863-FIRST-ISSUE' AS issue_id
 MATCH (iss:Issue {issue_id:issue_id})-[:HAS_STAMP]->(s:Stamp)
@@ -197,13 +197,13 @@ RETURN s.catalog_no AS no, s.color AS color, s.perforation AS perf,
        collect(v.suffix) AS varieties
 ORDER BY no;
 
-C) Varieties anchored to Plate Positions (for constant plate flaws)  ￼
+C) Varieties anchored to Plate Positions (for constant plate flaws)
 
 MATCH (s:Stamp)-[:HAS_VARIETY]->(v:Variety)-[:AT_POSITION]->(pp:PlatePosition)
 RETURN s.issue_id, s.catalog_no, v.suffix, v.description, v.plate AS plate_no, pp.pos
 ORDER BY s.issue_id, s.catalog_no, pp.pos;
 
-D) Overprint/Surcharge derivations (OVERPRINTED_ON)  ￼
+D) Overprint/Surcharge derivations (OVERPRINTED_ON)
 
 MATCH (d:Stamp)-[r:OVERPRINTED_ON]->(b:Stamp)
 RETURN d.issue_id AS derived_issue, d.catalog_no AS derived_no,
@@ -212,20 +212,20 @@ RETURN d.issue_id AS derived_issue, d.catalog_no AS derived_no,
        b.issue_id AS base_issue, b.catalog_no AS base_no
 ORDER BY derived_issue, derived_no;
 
-E) Production orders & quantities (by date)  ￼
+E) Production orders & quantities (by date)
 
 MATCH (iss:Issue)-[:HAS_PRODUCTION_ORDER]->(po:ProductionOrder)-[:INCLUDES]->(q:Quantity)
 RETURN iss.issue_id, po.date, q.plate_desc, q.quantity
 ORDER BY iss.issue_id, po.date, q.plate_desc;
 
-F) Remainders (with buyer when present)  ￼
+F) Remainders (with buyer when present)
 
 MATCH (iss:Issue)-[:HAS_REMAINDERS]->(ev:RemaindersEvent)-[:INCLUDES]->(q:Quantity)
 OPTIONAL MATCH (ev)-[:SOLD_TO]->(p:Person)
 RETURN iss.issue_id, ev.date, q.plate_desc, q.quantity, p.name AS buyer
 ORDER BY iss.issue_id, ev.date, q.plate_desc;
 
-G) “Tech sheet” for a Stamp (core properties + linked plates & suffixes)  ￼
+G) “Tech sheet” for a Stamp (core properties + linked plates & suffixes)
 
 WITH 'CR-1863-FIRST-ISSUE' AS issue_id, '1' AS catalog_no
 MATCH (s:Stamp {issue_id:issue_id, catalog_no:catalog_no})
@@ -235,7 +235,7 @@ RETURN s.catalog_no AS no, s.denomination_value AS val, s.denomination_unit AS u
        s.color AS color, s.perforation AS perf, s.quantity_reported AS qty_reported,
        collect(DISTINCT pl.no) AS plates, collect(DISTINCT v.suffix) AS variety_suffixes;
 
-H) Quick sanity counts (by label)  ￼
+H) Quick sanity counts (by label)
 
 MATCH (n)
 RETURN
@@ -284,15 +284,15 @@ python neo4j_gradio_VIS.py
 ⸻
 
 9) Philately-Aware Tips
-	•	Use Varieties under :Stamp to group all suffixes for a base number—great for collectors’ view and for anchoring to PlatePosition when the flaw is constant.  ￼
+	•	Use Varieties under :Stamp to group all suffixes for a base number—great for collectors’ view and for anchoring to PlatePosition when the flaw is constant.
 	•	Keep Proofs distinct (Die/Plate/Color) but keyed via a unifying code, so your counts and linkages remain clean across subtypes.
-	•	Model Overprints/Surcharges through OVERPRINTED_ON with a few well-chosen properties (type, on/off values/units) and grow later into events if needed.  ￼
+	•	Model Overprints/Surcharges through OVERPRINTED_ON with a few well-chosen properties (type, on/off values/units) and grow later into events if needed.
 
 ⸻
 
 10) Gotchas & Migration Notes
-	•	If you migrated from an earlier schema that used :Document / HAS_DOCUMENT, prefer :LegalAct / AUTHORIZED_BY and do not create fake :Person nodes for sessions/councils. Use the cleanup query if needed.  ￼  ￼
-	•	In Neo4j Browser/Viewer, only paths render as graphs. Ensure your query RETURNs paths (or nodes + relationships) rather than scalar columns.  ￼
+	•	If you migrated from an earlier schema that used :Document / HAS_DOCUMENT, prefer :LegalAct / AUTHORIZED_BY and do not create fake :Person nodes for sessions/councils. Use the cleanup query if needed.
+	•	In Neo4j Browser/Viewer, only paths render as graphs. Ensure your query RETURNs paths (or nodes + relationships) rather than scalar columns.
 
 ⸻
 
@@ -329,7 +329,7 @@ Issue, Stamp, Variety, Plate, PlatePosition, Proof (Die/Plate/Color sublabels), 
 
 A final word
 
-This V1 graph mirrors your JSON, is idempotent, and supports hybrid retrieval and interactive exploration. Upgrading later to treat every suffixed variety as a first-class collectible unit is straightforward, thanks to the current constraints and relationships.  ￼
+This V1 graph mirrors your JSON, is idempotent, and supports hybrid retrieval and interactive exploration. Upgrading later to treat every suffixed variety as a first-class collectible unit is straightforward, thanks to the current constraints and relationships.
 
 ⸻
 

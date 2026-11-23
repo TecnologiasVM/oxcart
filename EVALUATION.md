@@ -1,8 +1,13 @@
 # Evaluation
 
-What was measured in November 2026, on which questions, and how far the numbers can be trusted. Most of this file
-is about retrieval: does the right passage, or the right catalogue issue, come back. The last measured part,
-[Written answers](#written-answers), is about the short answer the question page writes from that evidence.
+What was measured in November 2026, on which questions, and how far the numbers can be trusted. The first parts,
+from [Result](#result) to [What the held-out numbers are](#what-the-held-out-numbers-are), are about retrieval:
+does the right passage, or the right catalogue issue, come back. [Written answers](#written-answers) and
+[What was tried to raise the literature answers](#what-was-tried-to-raise-the-literature-answers) (with the
+sealed set's two runs at its end) are about the short answer the question page writes from that evidence.
+[A web part](#a-web-part-three-markers-and-a-trial-with-real-searches) is about the part written from a web
+search, and holds the two runs of the whole set as served now. The file ends with other limits, notes on the
+data, and the commands that run it.
 
 The earlier audit of the First Issue evidence graph (coverage and precision of the rule-based linker) is a
 separate document: [pipeline/first_issue_graph/EVALUATION.md](pipeline/first_issue_graph/EVALUATION.md).
@@ -39,6 +44,7 @@ Catalogue questions (which issue is the question about), held-out half, 32 quest
 |---|---|---|
 | The app as it was | 4 of 31 scored | |
 | Catalogue lookup with the issue vector index | 30 of 32 | 32 of 32 |
+| Catalogue lookup as served: the issue vector index and the short vector index | 29 of 32 | 32 of 32 |
 | Catalogue lookup with the full-text index only (no embedding) | 26 of 32 | 29 of 32 |
 
 The app as it was answers every question from one issue, the 1863 First Issue; that is why it finds the issue
@@ -142,16 +148,30 @@ stands now; 22 to 20 when the choice was made, before later pages were judged). 
 `oxcart/catalogue_lookup.py` finds the issue a question is about from catalogue numbers, the year,
 and either the graph's full-text index or its vector index over issues. No language model.
 
+The right issue first:
+
 | | Development (48) | Held out (32) |
 |---|---|---|
 | With the vector index | 48 of 48 | 30 of 32 |
+| As served: the vector index and the short vector index | | 29 of 32 (English 15 of 16, Spanish 14 of 16) |
 | Full-text index only | 41 of 48 (English 24 of 24, Spanish 17 of 24) | 26 of 32 (English 15 of 16, Spanish 11 of 16) |
 | The app as it was | 2 of 48 | 4 of 31 |
 
 The catalogue's titles are in English, so Spanish questions miss on the full-text index; the vector index closes
 that gap. The lookup does not make the embedding itself: the caller passes it, and with none the lookup uses the
-full-text index. The two held-out misses are one question in both languages: an issue of the same president two
-years earlier ranks first and the right one third.
+full-text index.
+
+**As served, the held-out questions measured again.** The served setting is the vector index with the short
+vector index ([below](#the-catalogue-lookup-a-second-short-vector-for-each-issue); `ASK_SHORT_VECTOR` on). The
+row above was measured on 2026-11-23, on code `33df63b`: the question's vector on both indexes, no full-text
+index, the first three issues; the lookup only, no language model. The right issue is first for 29 of 32 and in
+the first three for 32 of 32, against 30 of 32 and 32 of 32 with the vector index alone. The lookup took 0.99 s
+at the median and 1.56 s at the 95th percentile. Outcome: `eval/outcomes/catalogue_heldout_served.json`.
+
+With the vector index alone, the two held-out misses are one question in both languages (`cat-001-en`,
+`cat-001-es`): an issue of the same president two years earlier ranks first and the right one third. As served,
+three miss the first place: that question in both languages (the same earlier issue first, the right one
+second) and `cat-014-es` (another 1960 issue first, the right one second).
 
 ### Can a score cut-off tell out-of-scope questions apart
 
@@ -400,8 +420,8 @@ Same instructions, same effort (`low`), same evidence; only the model that write
 served.
 
 The two stronger writers were given more room than the served one: 4,000 tokens for thinking on top of the
-answer's limit (1,500 as served) and 60 seconds for a reply (12 as served). No answer of theirs was cut by the
-limit.
+answer's limit (as served: 500 tokens for the answer and 1,500 for thinking) and 60 seconds for a reply (12 as
+served). No answer of theirs was cut by the limit.
 
 | Writer and evidence | Runs | Written | Supported | In full | Gives what is asked | USD a question |
 |---|---|---|---|---|---|---|
@@ -462,12 +482,14 @@ vector, at the same weight as the first (`scripts/issue_short_vectors.py` writes
 
 | Lookup | Catalogue questions (80): issue first | among the three shown | Ranking cases (15): a wanted issue first | among the three shown |
 |---|---|---|---|---|
-| As served | 78 | 80 | 9 | 12 |
-| With the short vector | 75 | 80 | 11 | 13 |
+| Without the short vector (served before it) | 78 | 80 | 9 | 12 |
+| With the short vector (as served now) | 75 | 80 | 11 | 13 |
 | With the short vector, through the public host | 75 | 80 | 11 | 13 |
 
 - The ranking cases are 15 questions a collector would type (`eval/data/ranking_cases.jsonl`); their wanted
-  issues were set from the catalogue's titles and no person checked them. Both sets are development questions.
+  issues were set from the catalogue's titles and no person checked them. They are development questions; the 80
+  catalogue questions are the whole set, its held-out half included (that half, measured alone as served, is
+  under [Catalogue lookup](#catalogue-lookup)).
 - **It is a trade:** three catalogue questions lose the first place and keep a place among the three cards
   shown; two ranking cases gain the first place and the 1863 issue comes into the three.
 - **A vector index is approximate, and it showed.** Asked for 40 hits, a short index made with Neo4j's default
@@ -661,7 +683,8 @@ questions, so the columns are not one question asked two ways.
   at most), after the search.
 - **The search service's count of credits runs behind.** After the 26 searches its usage route still gave the
   earlier count eleven minutes after the first. The rule that allows a search reads that route, so the backend
-  also adds the searches it made itself in the last two hours (README, "What the limits are").
+  also adds the searches it made itself in the last two hours
+  ([docs/OPERATIONS.md](docs/OPERATIONS.md#how-many-searches)).
 
 Per-question outcomes: `eval/outcomes/answers_web-mk-a.json`, `-b`, `-c` and `answers_web-mk-cat.json` (as the
 other runs, with whether an answer covers all or part), and `eval/outcomes/web_trial.json` (for each question
@@ -747,8 +770,8 @@ machine's secret store through `scripts/with-key.sh`, for the one command only; 
 The questions are read from `eval/data/`.
 
 ```bash
-# unit tests (no store needed)
-python -m pytest eval/tests oxcart/tests/test_catalogue_lookup.py
+# unit tests (no store needed): the four folders the workflow runs
+python -m pytest eval/tests oxcart/tests pipeline/first_issue_graph/tests backend/tests
 
 # literature questions against a collection: writes local-data/eval/results/run_<label>_<split>.json
 scripts/with-key.sh OPENAI_API_KEY=<entry> WEAVIATE_URL=<entry> WEAVIATE_API_KEY=<entry> -- \
@@ -759,6 +782,8 @@ python -m eval.table local-data/eval/results/run_cloud-K_dev.json --split dev
 
 # catalogue questions against the graph
 scripts/with-key.sh OPENAI_API_KEY=<entry> -- python -m eval.catalogue_arm --split dev --mode vector
+#   as served, with the short vector index too (the graph must hold it)
+scripts/with-key.sh OPENAI_API_KEY=<entry> -- python -m eval.catalogue_arm --split heldout --mode vector --short
 
 # written answers: ask every question through a running backend, then grade and print the tables
 OXCART_API=http://127.0.0.1:8090 OXCART_EVAL_KEY=<the backend's EVAL_ACCESS_KEY> python -m eval.chat_arm run --label <name>
@@ -768,4 +793,5 @@ python -m eval.answer_judge collect --dir local-data/eval/judge/answers-<name>
 python -m eval.chat_arm table --label <name> --grades local-data/eval/judge/answers-<name>/grades.json
 ```
 
-Per-question outcomes behind every table: `eval/outcomes/stage2.json` (ids and ranks only).
+Per-question outcomes behind the retrieval tables: `eval/outcomes/stage2.json` and, for the catalogue lookup as
+served, `eval/outcomes/catalogue_heldout_served.json` (ids and ranks only).
