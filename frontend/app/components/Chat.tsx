@@ -27,6 +27,7 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   ask, AskError, chat, liveExamples, MAX_QUESTION_CHARS, storedExamples, THREAD_ANSWER_CHARS, THREAD_TURNS,
@@ -374,13 +375,16 @@ export default function Chat() {
   usePinnedEdges(`${turns.length > 0}|${hasList}|${railHidden}|${docked}|${convsOpen}`);
 
   const status = waking ? (
-    <div className="wake" role="status" aria-label={t.wakeTitle} data-testid="service-starting">
+    <div className="wake" data-testid="service-starting">
       <Waiting service={service} t={t} from={0} />
       {stored.length > 0 && <p className="wait__hint">{t.waitExamples}</p>}
     </div>
   ) : service === "unreachable" && !busy ? (
     <div className="wake" data-testid="service-unreachable"><Warn text={t.unreachable} alert={false} /></div>
   ) : null;
+  // one region for the service's state, always in the page: what it says while waking and when the waiting
+  // ends are both announced, as changes of the same region
+  const statusRegion = (inner: ReactNode) => <div role="status" aria-label={t.wakeTitle} data-testid="service-status">{inner}</div>;
 
   return (
     <>
@@ -433,7 +437,7 @@ export default function Chat() {
                 t={t} draft={draft} setDraft={setDraft} submit={submit} busy={busy} closed={closed} examples={examples} stored={stored}
                 pick={pick} onBoxFocus={check.warm} mine={conv.list} onOpen={openConversation} onAll={() => setConvsOpen(true)}
               />
-              {status && <div className="wake-pin">{status}</div>}
+              {statusRegion(status && <div className="wake-pin">{status}</div>)}
             </>
           ) : (
             <div className="conv__in">
@@ -484,7 +488,7 @@ export default function Chat() {
           )}
           {turns.length > 0 && (
             <div className="dock">
-              {status}
+              {statusRegion(status)}
               <form
                 className="composer"
                 onSubmit={(e) => {
