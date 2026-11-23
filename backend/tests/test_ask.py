@@ -681,6 +681,61 @@ def test_a_literature_client_that_cannot_be_opened_is_reported_and_recovers(monk
     assert len(literature.search("q", None)) == 2 and literature.state == "connected"
 
 
+class CountedStore(FakeStore):
+    """A FakeStore that counts its closings. ``first`` stands in for its first vector search."""
+
+    def __init__(self, first=None):
+        super().__init__()
+        self.closings, calls = 0, [0]
+        query = self.collections.get("any").query
+        usual = query.near_vector
+
+        def near_vector(**kwargs):
+            calls[0] += 1
+            return first(calls[0], usual, **kwargs) if first else usual(**kwargs)
+
+        query.near_vector = near_vector
+
+    def close(self):
+        self.closings += 1
+        self.closed = True
+
+
+def test_a_failed_literature_search_does_not_close_the_client_another_search_is_using(monkeypatch):
+    in_query, go_on = threading.Event(), threading.Event()
+
+    def first_blocks_second_fails(n, usual, **kwargs):
+        if n == 1:                              # the other request: still reading on this client
+            in_query.set()
+            go_on.wait(5)
+            assert not opened[0].closed         # nothing closed the client under it
+            return usual(**kwargs)
+        raise RuntimeError("made-up broken connection")
+
+    opened = []
+
+    def connect(self):
+        opened.append(CountedStore(first_blocks_second_fails if not opened else None))
+        return opened[-1]
+
+    monkeypatch.setattr(ask_service.Literature, "_connect", connect)
+    literature = ask_service.Literature()
+    other = {}
+    thread = threading.Thread(target=lambda: other.update(passages=literature.search("q", [0.1])))
+    thread.start()
+    assert in_query.wait(5)
+    assert len(literature.search("q", [0.1])) == 2           # failed on the shared client, then on a new one
+    assert len(opened) == 2 and not opened[0].closed           # retired, not closed: the other request uses it
+    go_on.set()
+    thread.join(5)
+    assert len(other["passages"]) == 2                         # its query completed on its own client
+    assert opened[0].closings == 1                             # closed once, when its last search gave it back
+    assert len(literature.search("q", [0.1])) == 2 and len(opened) == 2      # the next request: the new client
+    assert opened[1].closings == 0
+    literature.close()
+    assert opened[1].closings == 1 and opened[0].closings == 1
+
+
 def test_startup_opens_both_in_the_background_and_health_says_where_they_are(make_client, monkeypatch):
     gate = threading.Event()
 

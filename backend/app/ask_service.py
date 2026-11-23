@@ -204,10 +204,20 @@ def make_lookup(link: GraphLink) -> Callable[[str, Optional[list]], list]:
 
 # --------------------------------------------------------------------------- 3. literature
 class Literature(WarmedInBackground):
-    """One Weaviate client for the process. The OpenAI key is never given to it."""
+    """One Weaviate client for the process. The OpenAI key is never given to it.
+
+    A search that fails retires the client it used, so the next search opens a new one; a client that
+    another search is still using is closed only when that search gives it back. Each client has a
+    generation, so a failure retires only the client it happened on, never one made since. Any error
+    retires the client: the client's errors do not tell a lost connection from a refused query by their
+    class (a query error can carry either), so a failure is never taken for a query the store would refuse
+    again on a sound connection."""
 
     def __init__(self) -> None:
         self._client = None
+        self._generation = 0                 # of the current client
+        self._borrowed: dict = {}            # generation -> searches using that client now
+        self._retired: dict = {}             # generation -> a retired client, closed when nobody uses it
         self._lock = threading.Lock()
 
     def warm(self) -> bool:
@@ -238,20 +248,54 @@ class Literature(WarmedInBackground):
                                          grpc_port=config.WEAVIATE_GRPC_PORT, auth_credentials=auth,
                                          additional_config=extra)
 
+    def _current(self):
+        """Under the lock: the current client, opened when there is none."""
+        if self._client is None:
+            self._client = self._connect()
+            self._generation += 1
+        return self._client
+
     def _get(self):
         with self._lock:
-            if self._client is None:
-                self._client = self._connect()
-            return self._client
+            return self._current()
+
+    def _borrow(self) -> tuple:
+        """(generation, client) for one search; given back with ``_give_back``."""
+        with self._lock:
+            client = self._current()
+            self._borrowed[self._generation] = self._borrowed.get(self._generation, 0) + 1
+            return self._generation, client
+
+    def _give_back(self, generation: int, failed: bool) -> None:
+        """A search is done with its client. When it failed and that client is still the current one, the
+        client is retired. A retired client is closed when its last search gives it back."""
+        closing = None
+        with self._lock:
+            left = self._borrowed.get(generation, 1) - 1
+            if left > 0:
+                self._borrowed[generation] = left
+            else:
+                self._borrowed.pop(generation, None)
+            if failed and generation == self._generation and self._client is not None:
+                self._retired[generation], self._client = self._client, None
+            if left <= 0 and generation in self._retired:
+                closing = self._retired.pop(generation)
+        if closing is not None:
+            try:
+                closing.close()
+            except Exception:
+                pass
 
     def close(self) -> None:
+        """At shutdown: every client, in use or not."""
         with self._lock:
-            if self._client is not None:
-                try:
-                    self._client.close()
-                except Exception:
-                    pass
-                self._client = None
+            clients = [c for c in [self._client, *self._retired.values()] if c is not None]
+            self._client, self._retired, self._borrowed = None, {}, {}
+        for client in clients:
+            try:
+                client.close()
+            except Exception:
+                pass
 
     def search(self, question: str, vector: Optional[list]) -> list:
         from weaviate.classes.query import MetadataQuery
@@ -259,7 +303,14 @@ class Literature(WarmedInBackground):
         last = "unknown"
         for attempt in (1, 2):
             try:
-                collection = self._get().collections.get(config.OXCART_COLLECTION)
+                generation, client = self._borrow()
+            except Exception as exc:                        # the client could not be opened: nothing was borrowed
+                last = type(exc).__name__
+                log.warning("literature search failed (attempt %d): %s", attempt, last)
+                continue
+            failed = True
+            try:
+                collection = client.collections.get(config.OXCART_COLLECTION)
                 if vector:
                     result = collection.query.near_vector(
                         near_vector=vector, limit=settings.ASK_PASSAGES, target_vector=settings.VECTOR_NAME or None,
@@ -276,12 +327,14 @@ class Literature(WarmedInBackground):
                                      "chunk_type": p.get("chunk_type"),
                                      "text": p.get("text_original") or p.get("text") or "",
                                      "score": round(float(score), 4) if score is not None else None})
+                failed = False
                 self.state = "connected"
                 return passages
             except Exception as exc:
                 last = type(exc).__name__
                 log.warning("literature search failed (attempt %d): %s", attempt, last)
-                self.close()        # a broken connection is not kept
+            finally:
+                self._give_back(generation, failed)         # a failed search retires its own client, no other
         self.state = "unavailable"
         raise Unavailable(last)
 
