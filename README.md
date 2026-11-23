@@ -34,8 +34,8 @@ on the page work meanwhile.
   <a href="https://oxcart.chat/how-it-works"><img src="docs/pictures/oxcart-how-it-works.png" width="70%" alt="The page How it works: its first paragraph, the five steps, and the path of a question as a diagram"></a>
 </p>
 
-Pictures of the page built from this repository, against a backend on the development machine and the hosted
-stores: the page as it is served, with no picture from the literature in them.
+Pictures of the page built from this repository, running against the hosted stores. The served page also shows
+figures from cited pages; none is in these pictures.
 
 ## A question, step by step
 
@@ -77,7 +77,7 @@ the public service; the method, every table and every limit are in [EVALUATION.m
 | **Out of scope** | 27 of 30 out-of-scope questions got no written answer |
 | **Cost and wait** | 0.0007 USD a question on average; 1.04 s until the evidence is on the page, 2.94 s until the checked answer (medians) |
 
-**Limits, the first one first.** On 50 questions never used while the system was changed, no literature answer
+**Limits.** On 50 questions never used while the system was changed, no literature answer
 agreed with its reference in full (0 of 20 in both runs), 2 and 4 of 20 gave what was asked, and 17 and 18 of 20
 catalogue answers were correct. The grades are a model's and no person has checked them; the sets are small, so
 one question is 2 to 7 points. A citation shows where a sentence's text is from: it does not prove the sentence
@@ -115,12 +115,15 @@ Open <http://localhost:3000/research>. `GET /api/health` reports whether Neo4j a
 Tests:
 
 ```bash
-python pipeline/first_issue_graph/tests/test_lexicon.py            # no services needed
-python oxcart/tests/test_figure_refs.py                            # no services needed
-cd backend && python test_mena_backend.py                          # needs Neo4j (and Weaviate for evidence)
-cd ../frontend && npx playwright install chromium
-npx playwright test                                                # smoke tests, no backend needed
-npx playwright test --config=playwright.shadow.config.ts           # full suite, needs both servers running
+# what the workflow runs on every pull request: no database and no key needed
+python -m pip install pytest
+python -m pytest eval/tests oxcart/tests pipeline/first_issue_graph/tests backend/tests
+cd frontend && npx playwright install chromium
+npx playwright test                                                # the browser tests; the backend is mocked
+
+# these need the stores
+npx playwright test --config=playwright.shadow.config.ts           # the explorer's suite, needs both servers running
+cd ../backend && python test_mena_backend.py                       # needs Neo4j (and Weaviate for evidence)
 ```
 
 `servers.py` was tested on Linux. It is written to work on Windows and macOS and has not been run there yet.
@@ -222,7 +225,7 @@ The corpus, the databases and the page images are **not in this repository**; se
 | Written answer | Claude Haiku 5.5 through Anthropic's API, with its citations feature; the steps as a LangGraph graph | `backend/app/answer_model.py`, `backend/app/answer_graph.py` |
 | Web part (off by default; on at the hosted demo) | Tavily's search API: one basic search of five results; the part written by the same model, with citations | `backend/app/web_step.py` |
 | UI | Next.js, React, TypeScript, Cytoscape | `frontend/package.json` |
-| Tests | Playwright for the UI; Python test scripts for the linker, the backend and the pipeline | `frontend/tests/`, `oxcart/tests/`, `pipeline/first_issue_graph/tests/`, `tests/` |
+| Tests | Playwright for the page (the backend mocked) and for the explorer (against the stores); pytest for the question path, the eval, the catalogue lookup and the linker | `frontend/tests-e2e/`, `frontend/tests/`, `backend/tests/`, `eval/tests/`, `oxcart/tests/`, `pipeline/first_issue_graph/tests/`, `tests/` |
 | Parsing | Dolphin | `third_party/dolphin/` |
 | Earlier prototype and catalogue parsing | LangChain, Gradio | `pipeline/mena_stamp_agent.py`, `notebooks/`, `neo4j_utils/neo4j_gradio_VIS.py` |
 
@@ -290,14 +293,12 @@ and the fix.
 |---|---|
 | Coverage scan (`evaluate.py`) | 296 documents, 653 passages, 826 stamp mentions, 232 in the clean tier |
 | Hand audit of linked passages (36-document sample) | about 90% precision; details in `EVALUATION.md` |
-| Linker regression checks (`tests/test_lexicon.py`) | pass |
-| Backend tests (`backend/test_mena_backend.py`) | 22 passed |
-| Browser tests (Playwright) | 57 passed, 3 skipped (full suite); 4 passed (smoke) |
+| Tests that need no database (pytest over `eval/tests`, `oxcart/tests`, `pipeline/first_issue_graph/tests` and `backend/tests`; Playwright over `frontend/tests-e2e`) | run on every pull request and on `main` |
+| Tests that need the stores (`backend/test_mena_backend.py`; the explorer's browser suite, `frontend/tests`) | last run on 2026-11-18, on a clean Linux machine against the stores: passed. Not run since; the question page was built after that date and is covered by the row above |
 | Reference run on a clean Linux machine | source-document counts for the four demo questions match `pipeline/first_issue_graph/EVALUATION.md` (46, 131, 68, 49); the same passages come back in the same order before and after the changes that made the app portable |
 | Retrieval on literature questions ([EVALUATION.md](EVALUATION.md)) | a page that answers the question is among the first five passages for 36 of the 41 questions in the set, and 36 of all 49 drafted (the 8 left out counted as misses); the app as it was: 12 of 41 and 12 of 49 |
 | Catalogue lookup, held-out questions | the right issue is first for 30 of 32 and in the first three for 32 of 32; the fact asked comes from the same graph that generated the question |
 | Written answers ([EVALUATION.md](EVALUATION.md#written-answers)), graded by a model | as served, one run through the public service: catalogue questions: 80 of 80 got a written answer, 63 supported by what they cite, 76 correct; literature questions: 40 of 41 written, 25 supported, 10 agree in full with the reference answer and 30 in part (10 of all 49 drafted); 27 of 30 out-of-scope questions got no written answer. The first served setting, before the web setting: 73 of 80 written, 62 supported, 69 correct; 41 of 41, 27, 10 and 29; 29 of 30 |
-| Eval and lookup unit tests (`eval/tests`, `oxcart/tests/test_catalogue_lookup.py`) | 36 passed |
 
 How to read the retrieval numbers: the literature gold was judged by a model (`gpt-6.1-sol`); no person has checked
 the grades. A second model read a blind sample of 45 pages and gave the same grade on 39 and the same "answers the
@@ -326,8 +327,8 @@ Not done yet: a person's check of the model-judged gold and of the grades of the
 - Only the frontend port needs to be reachable; it proxies `/api` to the backend. Everything binds to `127.0.0.1`
   by default. Embedding vectors are stripped from every response.
 - Dependencies are pinned.
-- A workflow runs the tests that need no database on every pull request: the Python unit tests, the frontend
-  build and the browser smoke test.
+- A workflow runs what needs no database on every pull request: the Python tests, the frontend's build and the
+  build of the hosted site, the browser tests, and the backend's image built and started with no settings.
 
 The hosted demo serves the question path only: a human check before the first question, limits per visitor and
 for the whole service, and a subset of the index that fits a free hosting tier, chosen and measured in
