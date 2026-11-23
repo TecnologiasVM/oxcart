@@ -83,6 +83,7 @@ test("the file: one rule for every path, the policy enforced, the other headers"
       "  Referrer-Policy: strict-origin-when-cross-origin",
       "  X-Frame-Options: DENY",
       "  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()",
+      "  Strict-Transport-Security: max-age=86400",
     ]);
     expect(text).not.toContain("Report-Only");
   } finally {
@@ -103,4 +104,12 @@ test("a policy line longer than Cloudflare's 2,000 characters fails, and nothing
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("Strict-Transport-Security is there for one day, without includeSubDomains or preload", () => {
+  const text = headersText(policy({ hashes: [ALERT], apiBase: API, figuresBase: FIGS }));
+  const hsts = text.split("\n").filter((l) => l.startsWith("  Strict-Transport-Security:"));
+  expect(hsts).toEqual(["  Strict-Transport-Security: max-age=86400"]);
+  expect(text).not.toMatch(/includeSubDomains/i);
+  expect(text).not.toMatch(/preload/i);
 });

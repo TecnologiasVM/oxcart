@@ -6,7 +6,8 @@
 //     (CSP_HEADER, below): a browser blocks what it does not allow. It was first sent report-only, and read on the
 //     served site: the site's own scripts, styles and fonts, the figures host, the backend and the human check
 //     reported nothing. A script the host adds to the pages of its own (Cloudflare's analytics) is not allowed.
-//   - four headers enforced from the start, which break nothing on a static site.
+//   - four headers enforced from the start, which break nothing on a static site, and Strict-Transport-Security
+//     for one day.
 //
 // The policy:
 //   script-src   'self', the sha256 hash of every inline script of every page of this build (Next's static export
@@ -35,6 +36,9 @@ export const ENFORCED = [
   ["Referrer-Policy", "strict-origin-when-cross-origin"],
   ["X-Frame-Options", "DENY"],
   ["Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()"],
+  // https only, for one day. A browser remembers this header for its whole max-age, and keeps to https for that long
+  // whatever the site does next, so it starts short; no includeSubDomains and no preload
+  ["Strict-Transport-Security", "max-age=86400"],
 ];
 
 // a script element's type the browser runs (no type, or a JavaScript one); others (JSON data) run nothing
