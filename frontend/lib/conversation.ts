@@ -124,14 +124,17 @@ const settledWeb = (t: Turn | undefined) => Boolean(t?.web && t.web.state !== "s
 
 /**
  * Two copies of a conversation's turns as one: every turn of each, by id (the second copy wins), in time order.
- * A web part arrives after its turn was first written, so a copy of the turn without it may stand in another tab:
- * a web part either copy has is kept.
+ * A written answer and a web part arrive after their turn was first written, so a copy of the turn without them may
+ * stand in another tab: a written answer or a web part either copy has is kept.
  */
 export function mergeTurns(stored: Turn[], mine: Turn[]): Turn[] {
   const byId = new Map(stored.map((t) => [t.id, t]));
   for (const t of mine) {
     const other = byId.get(t.id);
-    byId.set(t.id, !settledWeb(t) && settledWeb(other) ? { ...t, web: other!.web } : t);
+    // a written answer either copy has is kept: a tab that read the turn before its answer came does not erase it
+    let kept = !t.written && other?.written && !t.writing ? { ...t, written: other.written, ...(other.calls ? { calls: other.calls } : {}) } : t;
+    if (!settledWeb(kept) && settledWeb(other)) kept = { ...kept, web: other!.web };
+    byId.set(t.id, kept);
   }
   return [...byId.values()].sort((a, b) => a.at.localeCompare(b.at));
 }
