@@ -971,5 +971,13 @@ def test_in_a_spanish_card_an_acts_kind_is_said_in_spanish_and_once():
     # an id that names another kind than the act's keeps both; a kind the table does not hold is said as stored
     assert line([{"type": "resolution", "id": "Decree #5"}], "es") == ["autorizada por resolución, Decreto #5"]
     assert line([{"type": "made-up kind", "id": "9"}], "es") == ["autorizada por made-up kind, 9"]
+    # the kind after the body that passed the act, in a bracket, in lower case: said in Spanish where it stands
+    assert line([{"type": "resolution", "id": "MU Resolution #7-01", "date": "1901-01-02"}], "es") == [
+        "autorizada por MU Resolución #7-01, del 2 de enero de 1901"]
+    assert line([{"type": "resolution", "id": "Resolution #5 (session #6)"}], "es") == ["autorizada por Resolución #5 (sesión #6)"]
+    assert line([{"type": "resolution", "id": "MU resolution #8"}], "es") == ["autorizada por MU resolución #8"]
+    assert line([{"type": "resolution", "id": "MU Resolution #7-01"}], "en") == ["authorized by resolution, MU Resolution #7-01"]
+    # a word that only holds a kind's letters is not one
+    assert line([{"type": "note", "id": "Noted 4"}], "es") == ["autorizada por nota, Noted 4"]
     assert line([{"type": None, "id": None}], "es") == []
 
