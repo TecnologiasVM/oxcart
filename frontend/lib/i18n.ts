@@ -9,7 +9,7 @@ export const LABELS = {
   en: {
     title: "Ask about Costa Rican stamps",
     what: "A short answer in which every sentence cites a catalogue card or a passage of the philatelic literature. The evidence is one step away.",
-    placeholder: "For example: When was the Bernardo Soto 1889 issue placed on sale?",
+    placeholder: "For example: When was the Guanacaste Annexation issue placed on sale?",
     question: "Your question",
     ask: "Ask",
     asking: "Searching…",
