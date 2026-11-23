@@ -301,7 +301,8 @@ export default function Chat() {
       };
       const sessionFor = async (again = false) => {
         const result = await check.sessionFor(() => patch(id, { check: "waiting" }), again);
-        if (check.needsCheck && !result.session) throw new AskError(result.code ?? "session_required", "", 0);
+        // a refusal of the session keeps its status: a limit says the service is up, not that it is unreachable
+        if (check.needsCheck && !result.session) throw result.error ?? new AskError(result.code ?? "session_required", "", 0);
         patch(id, { check: undefined });
         return result.session;
       };
