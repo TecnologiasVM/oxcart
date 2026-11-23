@@ -111,6 +111,15 @@ export default function Chat() {
     document.documentElement.lang = lang;
   }, [lang, loaded]);
 
+  // --- the day's limit: the backend counts by UTC day, so the box opens again when the UTC day changes
+  useEffect(() => {
+    if (!closed) return;
+    const now = new Date();
+    const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+    const timer = setTimeout(() => setClosed(false), next - now.getTime() + 1000);
+    return () => clearTimeout(timer);
+  }, [closed]);
+
   // --- the examples that ship with the page, and the live list when there are none
   useEffect(() => {
     storedExamples().then((data) => {
