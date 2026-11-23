@@ -10,7 +10,8 @@
  *     outside the scope only each one's id and type (eval/data/questions_out_of_scope.jsonl);
  *   - eval/outcomes/stage2.json (retrieval and the catalogue lookup), answers_thinking-off.json,
  *     answers_literature_settings.json, the two sealed runs;
- *   - eval/outcomes/how_it_works.json: the figures stated in EVALUATION.md and held in no other outcome file,
+ *   - eval/outcomes/how_it_works.json: the figures stated in EVALUATION.md and held in no other outcome file, as
+ *     recorded values (the generator does not read EVALUATION.md itself),
  *     and (key `stores`) what the served stores say of themselves: versions, counts, index kinds;
  *   - backend/app/settings.py (limits, models), backend/app/ask_service.py (the vectors kept in memory);
  *   - the versions from package-lock.json, backend/requirements.txt, backend/Dockerfile and the CI workflow;
@@ -45,25 +46,35 @@ const round = (value, digits) => Number(value.toFixed(digits));
 // ------------------------------------------------------------------ the results run
 /**
  * The questions outside the scope that were given a ticket for a web search: a row whose question is of type
- * "out_of_scope" (not "unanswerable") and that ended "not_covered", or "ok" with covers "part".
+ * "out_of_scope" (not "unanswerable") and whose answer carried a ticket, as the run published it (`web_ticket`,
+ * written by `eval.chat_arm table --publish`). A run published without it is refused: a ticket is not inferred from
+ * how an answer ended (the backend also needs a search key and searches left to give one).
  */
 export function ticketedOutOfScope(rows, types) {
+  const missing = rows.filter((r) => typeof r.web_ticket !== "boolean");
+  if (missing.length) fail(`the results run has no web_ticket on ${missing.length} rows: publish it again with eval.chat_arm table --publish`);
   const outside = rows.filter((r) => types.get(r.id) === "out_of_scope");
-  const ticket = (r) => r.state === "not_covered" || (r.state === "ok" && r.covers === "part");
-  return { ticketed: count(outside, ticket), of: outside.length };
+  return { ticketed: count(outside, (r) => r.web_ticket === true), of: outside.length };
 }
-// the rule, pinned on made-up rows: only the type "out_of_scope" counts, and only those two endings
+// the rule, pinned on made-up rows: only the type "out_of_scope" counts, and only a row whose answer carried a ticket
 {
   const types = new Map([["a", "out_of_scope"], ["b", "out_of_scope"], ["c", "out_of_scope"], ["d", "out_of_scope"], ["e", "unanswerable"]]);
   const rows = [
-    { id: "a", state: "not_covered" },
-    { id: "b", state: "ok", covers: "part" },
-    { id: "c", state: "ok", covers: "all" },
-    { id: "d", state: "out_of_scope" },
-    { id: "e", state: "not_covered" },
+    { id: "a", state: "not_covered", web_ticket: true },
+    { id: "b", state: "ok", covers: "part", web_ticket: true },
+    { id: "c", state: "ok", covers: "part", web_ticket: false },
+    { id: "d", state: "out_of_scope", web_ticket: false },
+    { id: "e", state: "not_covered", web_ticket: true },
   ];
   const got = ticketedOutOfScope(rows, types);
   if (got.ticketed !== 2 || got.of !== 4) fail(`the rule for a ticket outside the scope gives ${got.ticketed} of ${got.of}, not 2 of 4`);
+  let refused = false;
+  try {
+    ticketedOutOfScope([{ id: "a", state: "ok", covers: "part" }], types);
+  } catch {
+    refused = true;
+  }
+  if (!refused) fail("a run without web_ticket was not refused");
 }
 
 /** Of the questions outside the scope, only each one's id and type (eval/data/questions_out_of_scope.jsonl). */
@@ -114,7 +125,7 @@ function results(file) {
       of: lit.length,
     },
     out_of_scope: { no_answer: count(oos, (r) => r.state !== "ok"), of: oos.length },
-    // with the web on: the questions outside the scope that got a ticket for a web search
+    // with the web on: the questions outside the scope whose answer carried a ticket for a web search
     web_tickets_outside_scope: ticketedOutOfScope(oos, scopeTypes()),
     sentences: { removed: sum("sentences_without_citation"), written: sum("sentences") },
     citations: { not_hold: sum("citations_that_do_not_hold"), of: sum("citations") },
@@ -137,7 +148,9 @@ function stage2() {
     const q = s.catalogue[mode].questions;
     const first = (ids) => count(ids, (id) => q[id]?.rank === 1);
     const spanish = held.filter((id) => id.endsWith("-es"));
-    return { first: first(held), three: count(held, (id) => Boolean(q[id]?.rank)), of: held.length, es_first: first(spanish), es_of: spanish.length };
+    // "in the first three": a rank of 1 to 3, nothing else (a rank is null when the issue was not returned)
+    const inThree = (id) => Number.isInteger(q[id]?.rank) && q[id].rank >= 1 && q[id].rank <= 3;
+    return { first: first(held), three: count(held, inThree), of: held.length, es_first: first(spanish), es_of: spanish.length };
   };
   const runs = s.literature.runs;
   const arm = (run, name) => runs[run].arms[name];
@@ -195,7 +208,12 @@ function sealed() {
       catalogue: { correct: count(cat, (r) => r.state === "ok" && r.correct === "yes"), of: cat.length },
     };
   });
-  if (runs[0].questions !== runs[1].questions) fail("the two sealed runs hold different questions");
+  // the page reads the two runs as the same questions, with one denominator: the same ids, not only as many
+  const ids = ["answers_sealed-served.json", "answers_sealed-chosen.json"].map((file) => outcome(file).rows.map((r) => r.id).sort().join("\n"));
+  if (ids[0] !== ids[1]) fail("the two sealed runs do not hold the same questions (their ids differ)");
+  for (const key of ["literature", "catalogue"]) {
+    if (runs[0][key].of !== runs[1][key].of) fail(`the two sealed runs have ${runs[0][key].of} and ${runs[1][key].of} ${key} questions`);
+  }
   return { questions: runs[0].questions, runs };
 }
 
@@ -288,10 +306,14 @@ function documented() {
     fail("the graph's two issue vector indexes are not of one kind and one similarity");
   if (long.quantization !== true || short.quantization !== false) fail("the long issue index is not quantized, or the short one is");
   if (g.indexes.issue_text_idx?.kind !== "full-text") fail("the graph's issue_text_idx is not a full-text index");
-  // one value, two sources: the page reads the stores; the documents and the other outcome files must agree
-  if (st.literature.weaviate !== d.weaviate_version.value) fail(`Weaviate ${st.literature.weaviate} in the stores, ${d.weaviate_version.value} in EVALUATION.md`);
-  for (const dims of [st.literature.dimensions, long.dimensions, short.dimensions])
-    if (dims !== d.vector_numbers.value) fail(`vectors of ${dims} numbers in the stores, ${d.vector_numbers.value} in EVALUATION.md`);
+  // one value recorded twice: the page reads `stores`. These compare two values recorded in how_it_works.json (what
+  // the stores said, and what was copied from EVALUATION.md); they do not read EVALUATION.md itself
+  if (st.literature.weaviate !== d.weaviate_version.value)
+    fail(`two recorded values disagree in how_it_works.json: Weaviate ${st.literature.weaviate} under stores, ${d.weaviate_version.value} under weaviate_version`);
+  for (const dims of [st.literature.dimensions, long.dimensions, short.dimensions]) {
+    if (dims !== d.vector_numbers.value)
+      fail(`two recorded values disagree in how_it_works.json: vectors of ${dims} numbers under stores, ${d.vector_numbers.value} under vector_numbers`);
+  }
   return {
     stores: {
       graph: { neo4j: g.neo4j, issues: g.issues, stamps: g.stamps, index: { type: long.type, similarity: long.similarity } },
@@ -317,8 +339,9 @@ export function figures() {
   const run = results(RUN);
   const s2 = stage2();
   const stored = documented();
+  // a recorded value (how_it_works.json, stores) against an outcome file (stage2.json, the collection the eval ran on)
   if (stored.stores.literature.objects !== s2.passages)
-    fail(`${stored.stores.literature.objects} passages in the stores, ${s2.passages} in stage2.json`);
+    fail(`recorded values disagree: ${stored.stores.literature.objects} passages under stores in how_it_works.json, ${s2.passages} in stage2.json`);
   // the literature's judges of this run: the same model judges the pages
   return {
     _: "Generated by scripts/how-figures.mjs from the files named in it. Do not edit: run `node scripts/how-figures.mjs`.",

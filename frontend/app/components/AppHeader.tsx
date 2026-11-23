@@ -20,7 +20,8 @@ export function AppHeader() {
         <Link className="brand" href="/">
           <span className="brand__type">
             <span className="brand__name">Oxcart</span>
-            <span className="brand__sub">Costa Rica philately · knowledge graph</span>
+            {/* in English whatever the page's language: marked so */}
+            <span className="brand__sub" lang="en">Costa Rica philately · knowledge graph</span>
           </span>
         </Link>
         <span className="mono mono-muted" style={{ marginLeft: "auto" }} data-testid="demo-tag">

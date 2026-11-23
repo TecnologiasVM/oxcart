@@ -37,6 +37,16 @@ export function ticketOf(written: (WrittenAnswer & { web?: unknown }) | undefine
   return enabled && web && typeof web.ticket === "string" && web.ticket ? web.ticket : null;
 }
 
+/**
+ * Whether a ticket received at `receivedAt` (ms) can still be sent: it is good for `expires_in` seconds, and is
+ * not sent in its last two seconds (the request takes time to arrive). A ticket past its time is never sent.
+ */
+export function ticketFresh(written: (WrittenAnswer & { web?: unknown }) | undefined, receivedAt: number, now = Date.now()): boolean {
+  const web = written?.web as Partial<WebTicket> | undefined;
+  const life = typeof web?.expires_in === "number" ? web.expires_in * 1000 : 0;
+  return now - receivedAt < life - 2000;
+}
+
 /** The written answer as it is kept: without the ticket, which is good for two minutes and once. */
 export function withoutTicket<T extends object>(written: T): T {
   const { web: _w, ...rest } = written as T & { web?: unknown };
@@ -76,17 +86,44 @@ export function keepWeb(value: unknown): WebPart {
   return sentences.length ? { state: "ok", sentences, results } : { state: "nothing" };
 }
 
-/** One web part, for the question as it was searched, the answer's text and the ticket. Never throws. */
-export async function askWeb(question: string, answer: string, ticket: string, session: string | null): Promise<WebPart> {
+/**
+ * How long the page waits for the web part, in ms: above what the backend allows it (the usage route 4 s, the
+ * search 6 s, one model call 12 s; backend/app/settings.py), with room. Past it, nothing is drawn.
+ */
+export const WEB_DEADLINE_MS = 45_000;
+
+/**
+ * One web part, for the question as it was searched, the answer's text and the ticket. Never throws. When the
+ * session ran out before the request (401 session_required), `renew` is asked for a new one, once, and the
+ * request is made again with it.
+ */
+export async function askWeb(question: string, answer: string, ticket: string, session: string | null,
+  renew?: () => Promise<string | null>): Promise<WebPart> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), WEB_DEADLINE_MS);
+  const ended = new Promise<null>((resolve) => controller.signal.addEventListener("abort", () => resolve(null), { once: true }));
   try {
-    const res = await fetch(`${API_BASE}/api/chat/web`, {
+    const res = await Promise.race([fetch(`${API_BASE}/api/chat/web`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(session ? { "X-Oxcart-Session": session } : {}) },
       body: JSON.stringify({ question, answer, ticket }),
-    });
+      signal: controller.signal,
+    }), ended]);
+    if (!res) return { state: "unavailable" };
+    if (res.status === 401 && renew) {
+      const refused = (await Promise.race([res.json().catch(() => null), ended])) as { error?: string } | null;
+      if (refused?.error === "session_required") {
+        clearTimeout(timer);
+        const fresh = await renew();
+        return fresh ? askWeb(question, answer, ticket, fresh) : { state: "unavailable" };
+      }
+    }
     if (!res.ok) return { state: "unavailable" };
-    return keepWeb(await res.json());
+    const body = await Promise.race([res.json(), ended]);
+    return body === null ? { state: "unavailable" } : keepWeb(body);
   } catch {
     return { state: "unavailable" };
+  } finally {
+    clearTimeout(timer);
   }
 }

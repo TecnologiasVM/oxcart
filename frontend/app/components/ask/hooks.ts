@@ -53,20 +53,33 @@ export function useConversations() {
     if (state.current.current === id) setCurrent(newId("c"));
   }, []);
 
-  // write what this tab changed, one conversation at a time
+  // write what this tab changed, one conversation at a time. Only a write that was kept counts as done: one that
+  // failed stays to do, and is tried again at the next change (another conversation, opening one, a new one)
+  const unsaved = useRef(new Set<string>());
   useEffect(() => {
     if (!loaded) return;
+    let failed: Keeping | null = null;
+    let tried = false;
     for (const c of conversations) {
       if (written.current.get(c.id) === c) continue;
-      written.current.set(c.id, c);
+      tried = true;
       const result = writeConversation(c, current, known.current.has(c.id));
       if (result === "deleted") {
+        unsaved.current.delete(c.id);
         dropped(c.id);
         continue;
       }
-      setKeeping(result);
-      if (result === "kept" && c.turns.some((t) => t.answer && !t.pending)) known.current.add(c.id);
+      if (result === "kept") {
+        written.current.set(c.id, c);
+        unsaved.current.delete(c.id);
+        if (c.turns.some((t) => t.answer && !t.pending)) known.current.add(c.id);
+      } else {
+        unsaved.current.add(c.id);
+        failed = result;
+      }
     }
+    if (failed) setKeeping(failed);
+    else if (tried) setKeeping("kept");
   }, [conversations, current, loaded, dropped]);
   // which conversation a new tab opens with
   const firstCurrent = useRef(true);
@@ -76,7 +89,9 @@ export function useConversations() {
       firstCurrent.current = false;
       return;
     }
-    setKeeping(writeCurrent(current));
+    const result = writeCurrent(current);
+    // a conversation still unsaved keeps the note up, whatever this write did
+    if (result !== "kept" || unsaved.current.size === 0) setKeeping(result);
   }, [current, loaded]);
 
   // follow another tab: its new and changed conversations come in, its deletions go
@@ -130,16 +145,27 @@ export function useConversations() {
       c.turns.some((t) => t.id === turnId) ? { ...c, turns: c.turns.map((t) => (t.id === turnId ? { ...t, ...change } : t)) } : c)), []);
   const open = useCallback((id: string) => setCurrent(id), []);
   const start = useCallback(() => setCurrent(newId("c")), []);
-  /** Delete by id: from this tab, and from the store only these ids. */
+  /**
+   * Delete by id: from this tab, and from the store only these ids. When the store refuses the deletion and still
+   * holds them, nothing is deleted here either (they would come back with the next page), and the page says the
+   * browser is not keeping what it is asked to.
+   */
   const forget = useCallback((ids: string[]) => {
     const next = ids.includes(state.current.current) ? newId("c") : state.current.current;
+    const result = removeConversations(ids, next);
+    if (result !== "kept" && (readStore()?.conversations ?? []).some((c) => ids.includes(c.id))) {
+      setKeeping(result);
+      return false;
+    }
     for (const id of ids) {
+      unsaved.current.delete(id);
       written.current.delete(id);
       known.current.delete(id);
     }
     setConversations((prev) => prev.filter((c) => !ids.includes(c.id)));
     setCurrent(next);
-    setKeeping(removeConversations(ids, next));
+    setKeeping(result);
+    return true;
   }, []);
   const remove = useCallback((id: string) => forget([id]), [forget]);
 
@@ -175,23 +201,35 @@ const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  */
 export function useService(busy: boolean) {
   const [service, setService] = useState<Service>("checking");
+  // what a question's own reply said, and when: a health reply asked before it is older news and is dropped
+  const told = useRef({ at: 0, state: "checking" as Service });
+  const tell = useCallback((state: Service) => {
+    told.current = { at: told.current.at + 1, state };
+    setService(state);
+  }, []);
   useEffect(() => {
     let stop = false;
     (async () => {
       const started = Date.now();
       let heard = started; // when the service last answered anything (or when the page started looking)
       const left = () => Math.min(NOT_ANSWERING_AFTER_MS - (Date.now() - heard), STOP_LOOKING_AFTER_MS - (Date.now() - started));
+      let asked = told.current.at;
       let state = await serviceState(4000);
       while (!stop) {
-        setService(fromState(state));
-        if (state === "ready") return;
+        if (asked === told.current.at) {
+          setService(fromState(state));
+          if (state === "ready") return;
+        } else if (told.current.state === "ready") {
+          return; // a question's reply said it is up after this was asked
+        }
         if (state === "connecting") heard = Date.now(); // it answers: it is not "not answering"
         if (left() <= 0) break;
         await pause(Math.min(POLL_EVERY_MS, left()));
         if (stop) return;
+        asked = told.current.at;
         state = await serviceState(Math.max(1000, Math.min(8000, left())));
       }
-      if (!stop) setService("unreachable");
+      if (!stop && asked === told.current.at) setService("unreachable");
     })();
     return () => {
       stop = true;
@@ -202,9 +240,10 @@ export function useService(busy: boolean) {
     let stop = false;
     const timer = setTimeout(async () => {
       while (!stop) {
+        const asked = told.current.at;
         const state = await serviceState(8000);
         if (stop) return;
-        setService(fromState(state));
+        if (asked === told.current.at) setService(fromState(state));
         await pause(POLL_EVERY_MS);
       }
     }, WAIT_LINES_AFTER_SECONDS * 1000);
@@ -213,7 +252,7 @@ export function useService(busy: boolean) {
       clearTimeout(timer);
     };
   }, [busy]);
-  return [service, setService] as const;
+  return [service, tell] as const;
 }
 
 // ---------------------------------------------------------------- the human check
@@ -232,7 +271,8 @@ const SESSION_KEY = "oxcart-session";
 const SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
 type Held = { session: string; expires: number };
-export type CheckResult = { session: string | null; code?: string };
+/** A session, or why there is none: the code, and the refusal itself when the backend sent one (its status kept). */
+export type CheckResult = { session: string | null; code?: string; error?: AskError };
 
 function storedSession(): Held | null {
   try {
@@ -243,7 +283,7 @@ function storedSession(): Held | null {
   }
 }
 
-/** Cloudflare's script, loaded once; `ready` runs when it is there. */
+/** Cloudflare's script, loaded once; `ready` runs when it is there. A script that failed to load is taken away, so it can be loaded again. */
 function withTurnstile(ready: () => void, failed: () => void) {
   if (window.turnstile) return ready();
   let script = document.querySelector<HTMLScriptElement>(`script[src="${SCRIPT_SRC}"]`);
@@ -253,8 +293,12 @@ function withTurnstile(ready: () => void, failed: () => void) {
     script.async = true;
     document.head.appendChild(script);
   }
-  script.addEventListener("load", ready, { once: true });
-  script.addEventListener("error", failed, { once: true });
+  const element = script;
+  element.addEventListener("load", ready, { once: true });
+  element.addEventListener("error", () => {
+    element.remove();
+    failed();
+  }, { once: true });
 }
 
 /**
@@ -272,7 +316,10 @@ export function useHumanCheck() {
   const siteKey = TURNSTILE_SITE_KEY;
   const held = useRef<Held | null>(null);
   const resolver = useRef<((result: CheckResult) => void) | null>(null);
-  const widget = useRef<{ id: string; done: boolean } | null>(null);
+  // done: the widget gave its token (or failed); exchanging: that token is being traded for a session now
+  const widget = useRef<{ id: string; done: boolean; exchanging?: boolean } | null>(null);
+  const scriptFailed = useRef(false); // Cloudflare's script did not load: the next question loads it again
+  const [loads, setLoads] = useState(0);
   const [started, setStarted] = useState(false);
   const [host, setHost] = useState<HTMLDivElement | null>(null);
   const [waiting, setWaiting] = useState(false); // a sent question waits for the check
@@ -298,7 +345,10 @@ export function useHumanCheck() {
   }, []);
 
   const onToken = useCallback(async (token: string) => {
-    if (widget.current) widget.current.done = true;
+    if (widget.current) {
+      widget.current.done = true;
+      widget.current.exchanging = true;
+    }
     try {
       const { session, expires_in } = await openSession(token);
       held.current = { session, expires: Date.now() + expires_in * 1000 };
@@ -309,7 +359,9 @@ export function useHumanCheck() {
       }
       settle({ session });
     } catch (e) {
-      settle({ session: null, code: e instanceof AskError ? e.code : "human_check_unavailable" });
+      settle({ session: null, code: e instanceof AskError ? e.code : "human_check_unavailable", error: e instanceof AskError ? e : undefined });
+    } finally {
+      if (widget.current) widget.current.exchanging = false;
     }
   }, [settle]);
 
@@ -321,6 +373,10 @@ export function useHumanCheck() {
       setAsking(false);
       settle({ session: null, code: "human_check_unavailable" });
       return true; // handled: the page says so in the turn, and a new question tries again
+    };
+    const notLoaded = () => {
+      scriptFailed.current = true;
+      failed();
     };
     withTurnstile(() => {
       if (!window.turnstile || widget.current) return;
@@ -334,8 +390,8 @@ export function useHumanCheck() {
         "after-interactive-callback": () => setAsking(false),
       });
       widget.current = { id, done: false };
-    }, failed);
-  }, [started, host, siteKey, onToken, settle]);
+    }, notLoaded);
+  }, [started, host, siteKey, onToken, settle, loads]);
 
   /** The box took focus: start the check now, unless a session is in hand. */
   const warm = useCallback(() => {
@@ -364,7 +420,12 @@ export function useHumanCheck() {
       setWaiting(true);
       show();
       setStarted(true); // a question sent without the box ever taking focus starts it here
-      if (widget.current?.done && window.turnstile) {
+      if (scriptFailed.current && !widget.current) {
+        scriptFailed.current = false;
+        setLoads((n) => n + 1); // Cloudflare's script failed to load: load it again
+      }
+      // a token being traded now settles this question too: no second check while it is under way
+      if (widget.current?.done && !widget.current.exchanging && window.turnstile) {
         widget.current.done = false;
         window.turnstile.reset(widget.current.id);
       }

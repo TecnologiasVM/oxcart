@@ -157,10 +157,10 @@
   "playwright": "1.60.0",
   "pytest": "9.2.0",
   "tests": {
-   "python": 257,
+   "python": 258,
    "python_files": 16,
-   "browser": 124,
-   "browser_files": 6
+   "browser": 168,
+   "browser_files": 24
   }
  },
  "stores": {

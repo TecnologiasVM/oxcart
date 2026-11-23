@@ -2,7 +2,7 @@
  * AppFooter.tsx — neutral site footer (Server Component, pure markup).
  *
  * States what the demo is and is not. Rendered once in app/layout.tsx; pages do
- * not add their own footer.
+ * not add their own footer. Its words are English on every page, and marked so (lang="en").
  */
 const REPO_URL = "https://github.com/TecnologiasVM/oxcart";
 const HOW_URL = "/how-it-works";
@@ -12,10 +12,10 @@ export function AppFooter() {
     <footer className="site-foot">
       <div className="container">
         <div className="site-foot__bar">
-          <span className="mono muted">
+          <span className="mono muted" lang="en">
             Oxcart · open-source research demo · short answers written from the evidence it shows
           </span>
-          <span className="site-foot__links">
+          <span className="site-foot__links" lang="en">
             <a className="mono muted" href={HOW_URL}>
               How it works
             </a>

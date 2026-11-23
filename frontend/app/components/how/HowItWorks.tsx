@@ -78,7 +78,8 @@ export default function HowItWorks() {
     graphIndex: S.graph.index.type,
     litIndex: S.literature.index.type,
     litCompression: S.literature.index.compression,
-    similarity: S.literature.index.similarity,
+    graphSimilarity: S.graph.index.similarity,
+    litSimilarity: S.literature.index.similarity,
   };
   const stepKeys = (["s1", "s2", "s3", "s4", "s5"] as const).slice(0, steps);
 

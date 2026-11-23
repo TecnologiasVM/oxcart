@@ -100,6 +100,18 @@ export type StoredExample = Example & { answer: AskAnswer };
 export type StoredExamples = { generated: string | null; examples: StoredExample[] };
 
 export const MAX_QUESTION_CHARS = 300;
+
+/*
+ * How long the page waits, in ms, before it stops waiting and says so. Each is above what the backend itself
+ * allows (backend/app/settings.py): its search gives up at 25 s (ASK_TIMEOUT_SECONDS), a rewrite at 5 s and a
+ * model call at 12 s (ANSWER_TIMEOUT_SECONDS, no retry), and a service asleep takes about half a minute to wake
+ * while its host holds the request.
+ *   evidence  from sending a question to its evidence: waking, a rewrite and the search, with room (90 s)
+ *   answer    from the evidence to the written answer: one model call, with room (45 s)
+ *   request   any other request of the question path: a session, the evidence-only route (90 s)
+ * What has arrived when a wait ends is kept: evidence without its answer stays on the page.
+ */
+export const DEADLINES = { evidence: 90_000, answer: 45_000, request: 90_000 };
 export const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 
 /** A refusal from the backend: a code the page can translate, and a wait when there is one. */
@@ -117,18 +129,29 @@ export class AskError extends Error {
 }
 
 async function post<T>(path: string, body: unknown, headers: Record<string, string> = {}): Promise<T> {
-  let res: Response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), DEADLINES.request);
   try {
-    res = await fetch(`${API_BASE}${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...headers },
-      body: JSON.stringify(body),
-    });
-  } catch {
-    throw new AskError("unreachable", "The service could not be reached.", 0);
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...headers },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } catch {
+      throw controller.signal.aborted ? new AskError("timeout", "The request took too long.", 0) : new AskError("unreachable", "The service could not be reached.", 0);
+    }
+    if (!res.ok) throw await refusal(res);
+    try {
+      return (await res.json()) as T;
+    } catch {
+      throw new AskError(controller.signal.aborted ? "timeout" : "unreachable", "The reply did not arrive whole.", 0);
+    }
+  } finally {
+    clearTimeout(timer);
   }
-  if (!res.ok) throw await refusal(res);
-  return (await res.json()) as T;
 }
 
 /** What a response that is not a success says, as an error the page can translate. */
@@ -216,18 +239,30 @@ export async function chat(
   session: string | null,
   onEvidence: (answer: AskAnswer, rewritten: boolean) => void,
 ): Promise<ChatResult> {
+  // one deadline for the evidence, then a new one for the answer; when one passes, the request is cancelled
+  const controller = new AbortController();
+  let timer = setTimeout(() => controller.abort(), DEADLINES.evidence);
+  const ended = new Promise<null>((resolve) => controller.signal.addEventListener("abort", () => resolve(null), { once: true }));
   let res: Response;
   try {
     res = await fetch(`${API_BASE}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(session ? { "X-Oxcart-Session": session } : {}) },
       body: JSON.stringify({ question, thread }),
+      signal: controller.signal,
     });
   } catch {
-    throw new AskError("unreachable", "The service could not be reached.", 0);
+    clearTimeout(timer);
+    throw controller.signal.aborted ? new AskError("timeout", "The search took too long.", 0) : new AskError("unreachable", "The service could not be reached.", 0);
   }
-  if (res.status === 404 || res.status === 405) throw new AskError("no_chat_route", "", res.status);
-  if (!res.ok) throw await refusal(res);
+  if (res.status === 404 || res.status === 405) {
+    clearTimeout(timer);
+    throw new AskError("no_chat_route", "", res.status);
+  }
+  if (!res.ok) {
+    clearTimeout(timer);
+    throw await refusal(res);
+  }
 
   let seen = false;
   let written: WrittenAnswer | null = null;
@@ -237,6 +272,8 @@ export async function chat(
     const data = JSON.parse(line) as { type?: string; evidence?: AskAnswer; rewritten?: boolean; answer?: WrittenAnswer; calls?: ModelCall[] };
     if (data.type === "evidence" && data.evidence) {
       seen = true;
+      clearTimeout(timer);
+      timer = setTimeout(() => controller.abort(), DEADLINES.answer);
       onEvidence(clean(data.evidence), Boolean(data.rewritten));
     } else if (data.type === "answer" && data.answer) {
       written = data.answer;
@@ -246,12 +283,19 @@ export async function chat(
   try {
     const reader = res.body?.getReader();
     if (!reader) {
-      (await res.text()).split("\n").forEach(take);
+      const text = await Promise.race([res.text(), ended]);
+      if (text !== null) text.split("\n").forEach(take);
     } else {
       const decoder = new TextDecoder();
       let rest = "";
       for (;;) {
-        const { done, value } = await reader.read();
+        // a stream that stops sending ends at the deadline, whether or not the request honours the abort
+        const step = await Promise.race([reader.read(), ended]);
+        if (step === null) {
+          reader.cancel().catch(() => {});
+          break;
+        }
+        const { done, value } = step;
         rest += decoder.decode(value ?? new Uint8Array(), { stream: !done });
         const lines = rest.split("\n");
         rest = lines.pop() ?? "";
@@ -262,8 +306,10 @@ export async function chat(
     }
   } catch {
     /* the connection broke: what arrived before it stands */
+  } finally {
+    clearTimeout(timer);
   }
-  if (!seen) throw new AskError("unreachable", "The service could not be reached.", 0);
+  if (!seen) throw controller.signal.aborted ? new AskError("timeout", "The search took too long.", 0) : new AskError("unreachable", "The service could not be reached.", 0);
   return { answer: written ?? { state: "failed" }, calls };
 }
 

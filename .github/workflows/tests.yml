@@ -80,6 +80,8 @@ jobs:
         run: npm run build:hosted
         env:
           NEXT_PUBLIC_API_BASE: https://backend.invalid
+          # made-up settings (no human-check site key): allowed for this check only (scripts/build-hosted.mjs)
+          OXCART_HOSTED_MADE_UP_SETTINGS: "1"
 
   image:
     runs-on: ubuntu-24.04

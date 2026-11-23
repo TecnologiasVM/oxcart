@@ -24,8 +24,9 @@ so the retrieval counts of the two routes can be compared with the same scorer.
   for the follow-up, with the conversation and with the follow-up asked alone;
 - tokens and cost per question (mean and maximum), and the waits.
 
-`--publish` writes eval/outcomes/answers_<label>.json: ids, states, counts, token counts
-and grades, and a summary of the run: retrieval through this route (counts) and the two
+`--publish` writes eval/outcomes/answers_<label>.json: ids, states, counts, token counts,
+grades, whether each answer carried a ticket for the web step (`web_ticket`, never the
+ticket itself), and a summary of the run: retrieval through this route (counts) and the two
 waits (median and 95th percentile). No question's answer and no passage.
 """
 
@@ -303,6 +304,8 @@ def table(args) -> None:
                            "rewritten": r.get("rewritten"),
                            # with the web step's setting on: whether the written answer covers all of the question or part
                            **({"covers": r["answer"]["covers"]} if r.get("answer", {}).get("covers") else {}),
+                           # whether the answer carried a ticket for the web step (only that it did: never the ticket)
+                           "web_ticket": bool((r.get("answer") or {}).get("web")),
                            "calls": [{k: c[k] for k in ("purpose", "state", "input_tokens", "output_tokens")} for c in r.get("calls", [])],
                            **({"supported": [s["supported"] for s in g["sentences"]], "correct": g["correct"],
                                "language": g["language"]} if g else {}),

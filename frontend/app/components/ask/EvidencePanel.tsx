@@ -102,7 +102,10 @@ export default function EvidencePanel({ turn, t, lang, tab, onTab, onClose, shee
     }
     if (e.key !== "Tab" || !sheet || !panel.current) return;
     // in the sheet, focus stays inside
-    const items = [...panel.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null || el === document.activeElement);
+    // what can take focus now: visible, an SVG node too (offsetParent is an HTML element's only; the graph's nodes
+    // are SVG, and the graph is hidden on a phone)
+    const shown = (el: HTMLElement) => (typeof el.checkVisibility === "function" ? el.checkVisibility() : el.getClientRects().length > 0);
+    const items = [...panel.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => shown(el) || el === document.activeElement);
     if (!items.length) return;
     const first = items[0];
     const last = items[items.length - 1];

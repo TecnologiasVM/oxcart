@@ -27,13 +27,14 @@
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   ask, AskError, chat, liveExamples, MAX_QUESTION_CHARS, storedExamples, THREAD_ANSWER_CHARS, THREAD_TURNS,
 } from "@/lib/ask";
 import type { Example, StoredExample } from "@/lib/ask";
 import { newId } from "@/lib/conversation";
-import { askWeb, ticketOf, withoutTicket } from "@/lib/web";
+import { askWeb, ticketFresh, ticketOf, withoutTicket } from "@/lib/web";
 import type { Turn } from "@/lib/conversation";
 import { LABELS } from "@/lib/i18n";
 import type { Labels, Lang } from "@/lib/i18n";
@@ -75,6 +76,8 @@ export default function Chat() {
   const pinned = useRef(true); // the reader is at the foot of the thread
   const autoScrolled = useRef(0);
   const turnsNow = useRef<Turn[]>(turns);
+  const currentNow = useRef(conv.current);
+  currentNow.current = conv.current;
   const check = useHumanCheck();
   const sheet = useMedia("(max-width: 1279px)");
   const railRoom = useMedia("(min-width: 1100px)");
@@ -110,6 +113,15 @@ export default function Chat() {
     }
     document.documentElement.lang = lang;
   }, [lang, loaded]);
+
+  // --- the day's limit: the backend counts by UTC day, so the box opens again when the UTC day changes
+  useEffect(() => {
+    if (!closed) return;
+    const now = new Date();
+    const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+    const timer = setTimeout(() => setClosed(false), next - now.getTime() + 1000);
+    return () => clearTimeout(timer);
+  }, [closed]);
 
   // --- the examples that ship with the page, and the live list when there are none
   useEffect(() => {
@@ -266,7 +278,16 @@ export default function Chat() {
       pinned.current = true;
       setBusy(true);
       setDraft("");
+      const first = turnsNow.current.length === 0;
+      const asking = currentNow.current;
       add({ id, question: q, at: new Date().toISOString(), pending: true, ...(thread.length ? { thread } : {}) });
+      // the first question replaces the first screen, and the control that had focus with it: focus goes to the box
+      if (first) {
+        requestAnimationFrame(() => {
+          const now = document.activeElement;
+          if (!now || now === document.body) document.querySelector<HTMLElement>("form.composer #q")?.focus({ preventScroll: true });
+        });
+      }
       const finish = (change: Partial<Turn>) => patch(id, { pending: false, ...change });
 
       // the evidence comes first and is shown at once; the written answer follows
@@ -279,13 +300,18 @@ export default function Chat() {
             finish({ answer, rewritten, writing: true });
           });
           // the ticket is used here, once, and is not kept: a turn read back never asks for the web
+          const receivedAt = Date.now();
           const ticket = ticketOf(written);
           finish({ written: withoutTicket(written), calls, writing: false, ...(ticket ? { web: { state: "searching" as const } } : {}) });
           setBusy(false); // with the answer on the page, so the box takes the next question at once
           if (ticket) {
-            // after the answer is on screen: a frame for it to be drawn, then the request
-            void new Promise<void>((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)))
-              .then(() => askWeb(searched, written.state === "ok" ? textOf(written) : "", ticket, session))
+            // after the answer is in the page (a task later; no frame: a tab in the background draws none). A ticket
+            // past its time is not sent; a session that ran out meanwhile is renewed once
+            const renew = async () => (await check.sessionFor(() => {}, true)).session;
+            void new Promise<void>((resolve) => setTimeout(resolve, 0))
+              .then(() => (ticketFresh(written, receivedAt)
+                ? askWeb(searched, written.state === "ok" ? textOf(written) : "", ticket, session, check.needsCheck ? renew : undefined)
+                : { state: "unavailable" as const }))
               .then((web) => patch(id, { web }));
           }
         } catch (e) {
@@ -296,7 +322,8 @@ export default function Chat() {
       };
       const sessionFor = async (again = false) => {
         const result = await check.sessionFor(() => patch(id, { check: "waiting" }), again);
-        if (check.needsCheck && !result.session) throw new AskError(result.code ?? "session_required", "", 0);
+        // a refusal of the session keeps its status: a limit says the service is up, not that it is unreachable
+        if (check.needsCheck && !result.session) throw result.error ?? new AskError(result.code ?? "session_required", "", 0);
         patch(id, { check: undefined });
         return result.session;
       };
@@ -317,7 +344,8 @@ export default function Chat() {
         // (a human check that did not finish says nothing about the service)
         if (!human) setService(err.status > 0 ? "ready" : "unreachable");
         finish({ error: { code: err.code, message: err.message }, writing: false, check: human && check.needsCheck ? "failed" : undefined });
-        setDraft(q); // the question goes back to the box: nothing is typed twice
+        // the question goes back to the box, nothing typed twice; unless the visitor has typed or opened another since
+        setDraft((now) => (now.trim() === "" && currentNow.current === asking ? q : now));
         if (DAY_CODES.includes(err.code)) setClosed(true);
       } finally {
         setBusy(false);
@@ -328,7 +356,8 @@ export default function Chat() {
 
   const showStored = (example: StoredExample) => {
     pinned.current = true;
-    add({ id: newId("t"), question: example.question, at: new Date().toISOString(), answer: example.answer, stored: true, storedDate });
+    // a stored example's language is known: its question keeps it, whatever the page's language
+    add({ id: newId("t"), question: example.question, at: new Date().toISOString(), answer: example.answer, stored: true, storedDate, lang: example.lang });
   };
   const pick = (example: Example) => {
     const saved = stored.find((s) => s.question === example.question);
@@ -346,13 +375,16 @@ export default function Chat() {
   usePinnedEdges(`${turns.length > 0}|${hasList}|${railHidden}|${docked}|${convsOpen}`);
 
   const status = waking ? (
-    <div className="wake" role="status" aria-label={t.wakeTitle} data-testid="service-starting">
+    <div className="wake" data-testid="service-starting">
       <Waiting service={service} t={t} from={0} />
       {stored.length > 0 && <p className="wait__hint">{t.waitExamples}</p>}
     </div>
   ) : service === "unreachable" && !busy ? (
     <div className="wake" data-testid="service-unreachable"><Warn text={t.unreachable} alert={false} /></div>
   ) : null;
+  // one region for the service's state, always in the page: what it says while waking and when the waiting
+  // ends are both announced, as changes of the same region
+  const statusRegion = (inner: ReactNode) => <div role="status" aria-label={t.wakeTitle} data-testid="service-status">{inner}</div>;
 
   return (
     <>
@@ -405,7 +437,7 @@ export default function Chat() {
                 t={t} draft={draft} setDraft={setDraft} submit={submit} busy={busy} closed={closed} examples={examples} stored={stored}
                 pick={pick} onBoxFocus={check.warm} mine={conv.list} onOpen={openConversation} onAll={() => setConvsOpen(true)}
               />
-              {status && <div className="wake-pin">{status}</div>}
+              {statusRegion(status && <div className="wake-pin">{status}</div>)}
             </>
           ) : (
             <div className="conv__in">
@@ -456,7 +488,7 @@ export default function Chat() {
           )}
           {turns.length > 0 && (
             <div className="dock">
-              {status}
+              {statusRegion(status)}
               <form
                 className="composer"
                 onSubmit={(e) => {

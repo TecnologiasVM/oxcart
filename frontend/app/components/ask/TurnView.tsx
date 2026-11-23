@@ -46,7 +46,7 @@ export default function TurnView({ turn, t, newest, service, open, storedNote, b
     <article className={`turn${newest ? "" : " turn--old"}`} aria-labelledby={`q-${turn.id}`} data-testid="turn" data-turn={turn.id}>
       <header className="turn__q">
         <p className="label">{t.you}</p>
-        <h2 className="turn__text" id={`q-${turn.id}`}>{turn.question}</h2>
+        <h2 className="turn__text" id={`q-${turn.id}`} lang={turn.lang}>{turn.question}</h2>
         {turn.stored && <span className="ask-chip" data-testid="stored-tag">{t.stored}</span>}
         {turn.rewritten && turn.answer && <p className="turn__as" data-testid="searched-as">{t.searchedAs} “{turn.answer.question}”</p>}
       </header>
