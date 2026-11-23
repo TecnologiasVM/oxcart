@@ -26,6 +26,10 @@ import os
 import re
 from pathlib import Path
 
+# The repository's environment file, loaded before any setting below is read (oxcart/env.py). Without it a
+# value written in the file was not seen here when another module imported this one before oxcart.config.
+from oxcart import env as _env  # noqa: F401
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
@@ -52,7 +56,7 @@ CORS_ORIGINS: list[str] = [
 ]
 
 # Service metadata surfaced at the root endpoint.
-SERVICE_NAME: str = "First Issue KG Explorer API"
+SERVICE_NAME: str = "Oxcart API"
 
 
 # ---------------------------------------------------------------------------

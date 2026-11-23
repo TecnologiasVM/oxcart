@@ -130,7 +130,8 @@ python scripts/servers.py status
 python scripts/servers.py stop
 ```
 
-Open <http://localhost:3000/research>. `GET /api/health` reports whether Neo4j and Weaviate are reachable.
+Open <http://localhost:3000> for the question page, and <http://localhost:3000/research> for the First Issue
+explorer. `GET /api/health` reports whether Neo4j and Weaviate are reachable.
 
 Tests:
 

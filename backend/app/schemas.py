@@ -1,4 +1,4 @@
-"""Pydantic v2 response/request schemas for the First Issue KG Explorer API.
+"""Pydantic v2 response/request schemas for the Oxcart API.
 
 These models are deliberately permissive on the nested payloads (``data``,
 ``domain``, ``related``, etc. are plain ``dict``/``list``) because the shapes

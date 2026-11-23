@@ -151,4 +151,4 @@ print(f"Calidad: {metadata['quality_issues']} issues detectados")
 
 ---
 
-**✅ Resultado**: El sistema de chunks ahora maneja correctamente tanto la **agrupación posterior** como la **actualización de bounding boxes** al combinar o dividir chunks.
+El sistema de chunks ahora maneja correctamente tanto la **agrupación posterior** como la **actualización de bounding boxes** al combinar o dividir chunks.
