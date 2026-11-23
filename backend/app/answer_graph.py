@@ -217,8 +217,12 @@ def sources_of(evidence: dict) -> list:
     sources = []
     lang = question_language(evidence.get("question") or "")
     for index, issue in enumerate(evidence.get("issues") or []):
-        sources.append({"kind": "issue", "index": index, "lines": card_lines(issue, lang),
-                        "title": f"Catalogue card: {issue.get('title') or issue.get('issue_id')}"})
+        name = issue.get("title") or issue.get("issue_id")
+        sources.append({"kind": "issue", "index": index, "lines": card_lines(issue, lang), "title": f"Catalogue card: {name}",
+                        # With ASK_WEB the model is told whose catalogue the card is from. A question that names
+                        # it ("Mena number 188") was otherwise marked as answered in part, because no card said
+                        # so. Only the model reads this title; the response's title is the one above.
+                        **({"document_title": f"Card of the Mena catalogue: {name}"} if settings.ASK_WEB else {})})
     for index, passage in enumerate(evidence.get("passages") or []):
         if (passage.get("text") or "").strip():
             sources.append({"kind": "passage", "index": index, "text": passage["text"],

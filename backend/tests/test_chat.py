@@ -680,3 +680,13 @@ def test_an_answer_says_whether_it_covers_all_of_the_question_or_part(monkeypatc
 def test_a_reply_that_is_only_the_part_marker_is_not_an_answer(monkeypatch):
     monkeypatch.setattr(settings, "ASK_WEB", True)
     assert checked({"text": f"{answer_model.PART_ONLY}\n", "citations": []}) == {"state": "not_covered"}
+
+
+def test_with_the_setting_on_the_model_is_told_whose_catalogue_a_card_is_from_and_the_response_is_not(monkeypatch):
+    evidence = {"question": "q", "issues": [{"issue_id": "CR-9", "title": "A made-up issue"}], "passages": []}
+    off = answer_graph.sources_of(evidence)[0]
+    assert "document_title" not in off and answer_model.document_of(off)["title"] == "Catalogue card: A made-up issue"
+    monkeypatch.setattr(settings, "ASK_WEB", True)
+    on = answer_graph.sources_of(evidence)[0]
+    assert on["title"] == off["title"] and on["lines"] == off["lines"]          # what the page is given does not change
+    assert answer_model.document_of(on)["title"] == "Card of the Mena catalogue: A made-up issue"

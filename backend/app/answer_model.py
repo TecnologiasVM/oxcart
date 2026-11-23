@@ -160,7 +160,8 @@ def document_of(source: dict) -> dict:
         body: dict[str, Any] = {"type": "content", "content": [{"type": "text", "text": line} for line in source["lines"]]}
     else:
         body = {"type": "text", "media_type": "text/plain", "data": source["text"]}
-    return {"type": "document", "source": body, "title": source["title"][:200], "citations": {"enabled": True}}
+    return {"type": "document", "source": body, "title": (source.get("document_title") or source["title"])[:200],
+            "citations": {"enabled": True}}
 
 
 class ClaudeModel:
