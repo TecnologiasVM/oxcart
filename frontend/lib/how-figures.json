@@ -56,6 +56,15 @@
   }
  },
  "issue_found": {
+  "first": 29,
+  "three": 32,
+  "of": 32,
+  "es_first": 14,
+  "es_of": 16,
+  "median_s": 0.99,
+  "p95_s": 1.56
+ },
+ "vector_only": {
   "first": 30,
   "three": 32,
   "of": 32,

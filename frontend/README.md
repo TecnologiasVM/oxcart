@@ -1,19 +1,27 @@
-# First Issue · Knowledge Graph — Frontend
+# Oxcart — Frontend
 
-Next.js (App Router, TypeScript) explorer for the Costa Rica 1863 First Issue knowledge graph.
-Talks to the First Issue GraphRAG backend at `http://localhost:8090`.
+The page, in Next.js (App Router), React and TypeScript. Two parts:
 
-## Constraints (owner-mandated)
+- **The question page** (`/`) and **How it works** (`/how-it-works`): the hosted site. A question box, the
+  evidence (catalogue cards and passages), the written answer with its sources, the Evidence panel, and the
+  conversations, kept in the browser only. The page is built as a static site for the host (`npm run build:hosted`).
+- **The First Issue explorer** (`/research`): a local research tool over the 1863 First Issue graph; the hosted
+  site does not ship it. See [docs/EXPLORER.md](../docs/EXPLORER.md).
 
-- **No direct LLM / OpenAI / Anthropic calls in the frontend.** All data comes from the
-  READ-ONLY backend. There is no answer-generation phase — the sources are the answer.
-- **No vector/embedding fields are ever surfaced.** The backend strips them; `lib/api.ts`
-  strips any key matching `/embed|vector/i` again on the client (`stripVectors`).
+## What the page does and does not do
+
+- **It calls no language model and holds no key.** Every answer comes from the backend (`POST /api/chat`), which
+  writes it ([backend/README.md](../backend/README.md)). The page draws what the model wrote as text only: no
+  markup and no link comes from it.
+- **No vector or embedding field is shown.** The backend strips them; `lib/api.ts` strips any key matching
+  `/embed|vector/i` again on the client (`stripVectors`).
 
 ## Stack
 
-- Next.js (App Router) + React + TypeScript (manual scaffold, no `create-next-app`).
-- Cytoscape.js core (not a React wrapper) mounted client-side in `app/components/GraphView.tsx`.
+- Next.js (App Router) + React + TypeScript.
+- Cytoscape.js core (not a React wrapper), for the explorer's graph, mounted client-side in
+  `app/components/GraphView.tsx`. The Evidence panel's graph is SVG (`app/components/ask/EvidencePanel.tsx`,
+  laid out by `lib/answer-graph.ts`).
 - Design system: **ink-cobalt-paper v2.0** — editorial, reductionist, flat. Palette tokens in
   `app/globals.css`; Cytoscape node styling in `lib/cytoscape-style.ts`.
 
@@ -35,7 +43,8 @@ lists the optional overrides.
 
 | Route               | File                             | Purpose                                         |
 | ------------------- | -------------------------------- | ----------------------------------------------- |
-| `/`                 | `app/page.tsx`                   | Redirects to `/research`.                       |
+| `/`                 | `app/page.tsx`                   | The question page (`app/components/Chat.tsx`).  |
+| `/how-it-works`     | `app/how-it-works/page.tsx`      | How it works, and how it was measured.          |
 | `/research`         | `app/research/page.tsx`          | First Issue overview (health, totals, roster).  |
 | `/research/explore` | `app/research/explore/page.tsx`  | Interactive graph + node detail.                |
 | `/research/query`   | `app/research/query/page.tsx`    | Grounded retrieval evidence + subgraph.         |
@@ -46,8 +55,9 @@ The header and footer are presentation-only components (`app/components/AppHeade
 
 ## Backend contract
 
-Endpoints consumed (see `lib/types.ts` + `lib/api.ts`):
-`GET /api/health`, `/api/overview`, `/api/graph`, `/api/graph/stamp/{cno}`,
+The question page (`lib/ask.ts`, `lib/web.ts`): `GET /api/health`, `POST /api/session` (the human check, on the
+hosted site), `POST /api/ask`, `POST /api/chat`, `POST /api/chat/web` (the web part).
+The explorer (`lib/types.ts` + `lib/api.ts`): `GET /api/overview`, `/api/graph`, `/api/graph/stamp/{cno}`,
 `/api/node?node_id=`, `/api/examples`, `/api/mena/*`, and `POST /api/query`.
 
 ## Pictures
@@ -87,6 +97,6 @@ the off build: `tests-e2e/web.spec.ts` then runs its off tests and skips the oth
 
 ```bash
 npx playwright install chromium   # one-time browser download
-npx playwright test               # smoke tests in tests-e2e/ (no backend needed)
-npx playwright test --config=playwright.shadow.config.ts   # full suite in tests/ (needs both servers running)
+npx playwright test               # the question page's tests in tests-e2e/, the backend mocked; CI runs these
+npx playwright test --config=playwright.shadow.config.ts   # the explorer's tests in tests/ (needs both servers running)
 ```

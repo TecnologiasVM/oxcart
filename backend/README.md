@@ -1,143 +1,89 @@
-# First Issue KG Explorer — Backend
+# Oxcart backend
 
-FastAPI service that exposes the **First Issue GraphRAG** prototype
-(the `oxcart/` package) as a read-only HTTP API for the Next.js frontend.
+The API, in FastAPI (Python 3.10+). It serves the question path that the hosted page uses (`POST /api/ask`, the
+written answer `POST /api/chat`, and the web part `POST /api/chat/web`) and, in local use, the routes of the
+First Issue explorer ([docs/EXPLORER.md](../docs/EXPLORER.md)). The shared modules (settings of the stores, the
+catalogue lookup, the explorer's retrieval) are the `oxcart` package at the repository root, installed with
+`python -m pip install -e .`.
 
-It wraps the prototype's Python API directly — it does **not** reimplement
-retrieval. Specifically it wraps:
+## Rules the code keeps
 
-- `config.neo4j_driver()` / `config.weaviate_client()` — store connections.
-- `retrieve.context_bundle(...)` — the retrieval/context bundle (no LLM).
-- `examples_runner.DEMO` — the demo questions.
-
-## Owner contracts (hard constraints)
-
-These are non-negotiable and are enforced in code:
-
-1. **One module calls a language model, and the explorer calls none.** The
-   explorer's routes return retrieved context only: no answer is generated and
-   no model is called (Weaviate's own vectorizer aside; BM25, which needs no
-   key, is the default). The written answer of `POST /api/chat` is the one
-   exception: `app/answer_model.py` calls Claude, and nothing else in the
-   backend calls a language model. The question's embedding is made in
-   `app/ask_service.py`.
+1. **One module calls a language model:** `app/answer_model.py`, for the written answer of `POST /api/chat` and
+   the web part. One module calls an embedding service: `app/ask_service.py`, for the question's vector. One
+   module calls the web search service: `app/web_step.py`, and only with `ASK_WEB` on. The explorer's routes call
+   none and write no answer (Weaviate's own vectorizer aside: the explorer's search is BM25, which needs no key,
+   with a hybrid pass added when an OpenAI key is set).
 2. **Weaviate is read-only.**
-3. **Neo4j is read-only.** The backend issues only read queries; it never
-   writes to the graph.
-4. **No embedding/vector fields are ever exposed.** Every node / detail /
-   response payload is passed through `app.deps.sanitize_props`, which drops any
-   property whose key matches `/embed|vector/i`. Chunk nodes carry no
-   embeddings, but Mena `Issue`/`Stamp` nodes may carry one from another
-   indexer — it is stripped defensively.
+3. **Neo4j is read-only.** The backend issues only read queries.
+4. **No embedding or vector field is sent.** The explorer's payloads pass through `app.deps.sanitize_props` and
+   the question path's through `_without_vectors` in `app/ask_service.py`; both drop any key that names an
+   embedding or a vector.
 
 ## Layout
 
 ```
 backend/
 ├── app/
-│   ├── __init__.py
-│   ├── settings.py      # ports, CORS, the question path's limits and keys
-│   ├── deps.py          # lifespan (Neo4j singleton), get_driver, get_weaviate, sanitize_props
-│   ├── schemas.py       # Pydantic v2 request/response models
-│   ├── main.py          # app factory: lifespan + CORS + routers + root
-│   └── routers/
-│       ├── __init__.py
-│       ├── graph.py     # (written separately) /api/graph...
-│       ├── meta.py      # (written separately) /api/health, /api/overview, /api/examples
-│       └── query.py     # (written separately) POST /api/query
-└── requirements.txt
+│   ├── main.py            the app: middleware, error handlers, the routes of each mode
+│   ├── settings.py        every setting the backend reads from the environment, and its fixed bounds
+│   ├── deps.py            startup and shutdown (one Neo4j driver, the graph link, warm-up), sanitize_props
+│   ├── routers/
+│   │   ├── ask.py         GET /api/health (hosted mode), GET /api/ask/examples, POST /api/session, POST /api/ask
+│   │   ├── chat.py        POST /api/chat, and POST /api/chat/web with ASK_WEB on
+│   │   ├── meta.py        the explorer: GET /api/health (local mode), GET /api/overview
+│   │   ├── query.py       the explorer: GET /api/examples, POST /api/query, POST /api/query/export
+│   │   ├── graph.py       the explorer: GET /api/graph, GET /api/graph/stamp/{cno}, GET /api/node
+│   │   └── mena.py        the explorer: GET /api/mena/...
+│   ├── ask_service.py     the question path: embedding, catalogue lookup, literature search
+│   ├── answer_graph.py    the written answer's steps, as a LangGraph graph, and the citation check
+│   ├── answer_model.py    the model's calls (Claude Haiku 5.5) and their instructions
+│   ├── web_step.py        the web part: its ticket, how many searches, the search, the results kept
+│   ├── public_guard.py    the human check, the session token, the limits, the eval's way in
+│   ├── body_limit.py      the size and the time of a POST's body, held before anything reads it
+│   ├── graph_link.py      the process's link to the graph, with retries inside a budget
+│   ├── figures.py         the figures a shown passage names, by digest
+│   ├── passage_text.py    a passage's stored text as it is shown
+│   ├── data/figures.tsv   the figures that may be named (8,082 lines: digest, width, height, class; no name)
+│   ├── query_service.py, graph_service.py, mena_service.py, mena_data.py    the explorer's services
+│   └── schemas.py         Pydantic v2 models of the explorer's routes
+├── tests/                 pytest, with fakes in place of the stores and the model
+├── test_mena_backend.py   checks of the explorer's Mena routes, against Neo4j
+├── Dockerfile             the hosted mode's image
+└── requirements.txt       pinned
 ```
 
-> `routers/graph.py`, `routers/meta.py`, and `routers/query.py` are authored by
-> other agents. `app/main.py` imports them as `from app.routers import graph,
-> meta, query`. Until they exist, importing `app.main` will fail — that is
-> expected for the skeleton.
+## Run it
 
-## Configuration
-
-- **Backend port:** `8090`
-- **Frontend dev origin(s):** `http://localhost:3000`, `http://127.0.0.1:3000`
-  (set in `app/settings.py`, used for CORS).
-
-Store connection details come from the prototype's `config.py` (which reads the
-repo `.env`): `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`, `NEO4J_DATABASE`,
-`WEAVIATE_URL`, etc.
-
-### Mena Catalogue tunables (optional; safe defaults)
-
-Read once at import in `app/mena_service.py` via `os.getenv` (never hardcoded).
-Add to the repo `.env` to override:
-
-| Var | Default | Effect |
-|---|---|---|
-| `MENA_SECTION` | `Surface Mail` | The `Issue.section` the `/api/mena/*` endpoints scope to. |
-| `MENA_EVIDENCE_K` | `6` | Default BM25 passages for `/issue/{id}/evidence` (router caps `0..25`). |
-| `MENA_EVIDENCE_MIN_SCORE` | `0.0` | Drop BM25 hits below this score (`0` = keep all). |
-
-`config` constants surfaced through the prototype:
-
-| Constant | Value |
-|---|---|
-| `config.ISSUE_ID` | `CR-1863-FIRST-ISSUE` |
-| `config.PROTOTYPE_TAG` | `first_issue_graphrag` |
-| `config.OXCART_COLLECTION` | `Oxcart` |
-| `config.NEO4J_DATABASE` | (from `.env`) |
-
-## Running
-
-With the project's virtual environment active, from `backend`:
+With the project's virtual environment active and the `oxcart` package installed, from `backend`:
 
 ```bash
-# uvicorn (recommended); listens on this machine only
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8090
-
-# or run the module entrypoint (no reload; host/port from API_HOST / API_PORT)
-python -m app.main
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8090   # this machine only
+python -m app.main                                            # the same, host and port from API_HOST / API_PORT
 ```
 
-To start the backend and the frontend together, on any OS:
+Or both servers, backend and frontend, from the repository root: `python scripts/servers.py start` (also `status`
+and `stop`). In local mode the interactive docs are at <http://localhost:8090/docs>.
 
-```bash
-python scripts/servers.py start    # from the repo root; also: status, stop
-```
+## The question path: `POST /api/ask`
 
-Interactive docs: <http://localhost:8090/docs>
-
-## Endpoints
-
-Mounted under the `/api` prefix (router sub-prefixes are defined in each
-router file by the agents who write them). The intended surface:
-
-| Method | Path | Purpose |
-|---|---|---|
-| `GET`  | `/` | Service banner + docs pointer (`{service, docs}`). |
-| `GET`  | `/api/health` | `HealthResponse` — Neo4j/Weaviate reachability + graph populated. |
-| `GET`  | `/api/overview` | `OverviewResponse` — issue dashboard (totals, series, stamps). |
-| `GET`  | `/api/examples` | `list[ExampleQuery]` — demo questions from `examples_runner.DEMO`. |
-| `GET`  | `/api/graph...` | `GraphResponse` / `NodeDetail` — subgraph + node detail. |
-| `POST` | `/api/query` | `QueryResponse` — wraps `retrieve.context_bundle` (no LLM). |
-| `GET`  | `/api/mena/surface-mail` | `SurfaceMailResponse` — Surface-Mail issues grouped by year (fast). |
-| `GET`  | `/api/mena/issue/{issue_id}` | `MenaIssueDetail` — fast per-issue facts + Scott match. |
-| `GET`  | `/api/mena/issue/{issue_id}/graph` | `GraphResponse` — lazy per-issue mini-graph. |
-| `GET`  | `/api/mena/issue/{issue_id}/evidence` | `MenaEvidenceResponse` — lazy Weaviate BM25 passages (`?k=`). |
-
-## The question path and the hosted mode
-
-`POST /api/ask` takes one question and returns the evidence for it, for any issue. No written answer.
+One question in, the evidence out, for any issue. No written answer.
 
 1. The backend makes the question's embedding (`text-embedding-3-large`, the question as asked). The embedding
    key is used for that call only; it is never given to the vector store.
-2. `catalogue_lookup.lookup` finds the issue in the graph: with the embedding through the vector index over
-   issues, without it through the full-text index.
+2. `catalogue_lookup.lookup` (`oxcart/catalogue_lookup.py`) finds the issue in the graph: with the embedding
+   through the vector index over issues, and with `ASK_SHORT_VECTOR` on through the short vector index too;
+   without the embedding through the full-text index. With the short index on and missing from the graph, the
+   lookup runs without it and the log says so.
 3. The literature store is searched: `near_vector` with the embedding, `bm25` without it.
 
-The answer carries `issues`, `passages` (five, text clipped to 700 characters), `timings`, and a `mode` block that
-says what produced each part: `embedding` (`ok`, `failed`, `not configured`), `catalogue` (`vector index`,
-`full-text index`, `unavailable`), `literature` (`vector`, `keyword`, `unavailable`). A store that cannot be
-reached costs its own block only; the question fails (503) when neither answers. A store that has not answered
-within `ASK_STORE_SECONDS` (12 s) counts as unavailable for that question, and the other's evidence is returned:
-a store that hangs no longer holds back the other. The searches run on two pools of four threads that live as
-long as the process, one per store; a late search is not waited for and what it returns is dropped.
+Steps 2 and 3 run side by side. The answer carries `issues` (three), `passages` (five, text clipped to 700
+characters), `timings`, and a `mode` block that says what produced each part: `embedding` (`ok`, `failed`,
+`not configured`), `catalogue` (`vector index`, `full-text index`, `unavailable`), `literature` (`vector`,
+`keyword`, `unavailable`). A store that cannot be reached costs its own block only; the question fails (503) when
+neither answers. A store that has not answered within `ASK_STORE_SECONDS` (12 s) counts as unavailable for that
+question, and the other's evidence is returned: a store that hangs does not hold back the other. The searches run
+on two pools of four threads that live as long as the process, one per store; a late search is not waited for
+and what it returns is dropped.
 
 **Figures.** A figure on a scanned page was cropped to a file of its own, `<document>_page_N_figure_M.png`, and
 the stored text of a passage names the crops of its page (a Markdown image; the reference is dropped from the
@@ -145,40 +91,12 @@ shown text). With `FIGURES_BASE` set, a shown passage carries `figures`: for eac
 order, `{"id", "width", "height", "class"}`. `id` is the crop's public name, the first 20 hex characters of the
 SHA-256 of its own name normalised to NFC (the figures host serves `<id>.png`); `width` and `height` are the
 file's pixels; `class` is `A` (a stamp) or `B` (a cover or a postal marking). A crop is named only when its id is
-in the list the backend ships with, `app/data/figures.tsv` (8,082 lines: id, width, height, class; no name), and
-not in `FIGURES_REMOVED`. A crop's own name is never in a response, and a passage with no listed figure has no
-`figures` key. The model is not given the figures. The page builds each picture's address from its own build
-setting `NEXT_PUBLIC_FIGURES_BASE` and the id (`frontend/lib/figures.ts`): the response holds no address.
+in `app/data/figures.tsv` and not in `FIGURES_REMOVED`. A crop's own name is never in a response, and a passage
+with no listed figure has no `figures` key. The model is not given the figures. The page builds each picture's
+address from its own build setting `NEXT_PUBLIC_FIGURES_BASE` and the id (`frontend/lib/figures.ts`): the response
+holds no address.
 
-| Setting | Effect |
-|---|---|
-| `FIGURES_BASE` | The address of the figures host, `https://...` (`http://127.0.0.1` or `localhost` for tests). Unset, or any other address: figures are off, no figure is named and the response is what it was without them. It must name the same host as the page's `NEXT_PUBLIC_FIGURES_BASE` |
-| `FIGURES_REMOVED` | Comma-separated ids never named, whatever the list says. A removal on request takes effect with a restart; no build. Remove the file from the host too: a conversation kept in a browser keeps the ids it was shown |
-
-With `OXCART_PUBLIC=1` the app runs in **hosted mode**:
-
-| | |
-|---|---|
-| Routes mounted | `GET /api/health`, `GET /api/ask/examples`, `POST /api/session`, `POST /api/ask`, `POST /api/chat`, and `POST /api/chat/web` only with `ASK_WEB` on. Nothing else: no explorer routes, no export, no figures |
-| Docs | `/docs`, `/redoc` and `/openapi.json` are off |
-| Human check | The page solves a Cloudflare Turnstile challenge and posts its token to `/api/session`; the backend verifies it with Cloudflare and returns a signed token valid for an hour, sent as `X-Oxcart-Session` with each question. If the check cannot be verified, questions are refused with a message |
-| Limits | 10 questions a minute and 100 a day per visitor, 2,000 a day for the service, in memory; a question is at most 300 characters and a request 2 kB (a chat 8 kB, a web part about 61 kB, the human check's token up to 2,048 characters, any other POST the smallest). A body's size is held before it is read (`app/body_limit.py`): a missing or larger `Content-Length` is refused with 413 at once, and so is a body whose bytes pass the limit whatever the header said; a body must arrive within `BODY_READ_SECONDS` (10 s), or 408. A visitor is counted twice, by address (an IPv6 address by its first 64 bits) and by session token, and a question passes only when both are under the limits |
-| CORS | The origins in `CORS_ORIGINS`, GET and POST, no credentials |
-| Errors | `{"error": code, "message": text}`; no exception text, nothing of the request repeated |
-| Logs | One line per question with the mode, the timings and error classes. No question text, no address |
-
-Settings, all from the environment (`app/settings.py`): `OXCART_PUBLIC`, `CORS_ORIGINS`, `WEAVIATE_URL` and
-`WEAVIATE_API_KEY` (a Weaviate Cloud cluster; without `WEAVIATE_URL` the local instance is used),
-`OPENAI_API_KEY`, `TURNSTILE_SECRET`, `SESSION_SIGNING_KEY`, `EVAL_ACCESS_KEY` (the eval's own way in, a secret
-header; empty means that door does not exist), `TRUSTED_PROXY_HOPS`, `VISITOR_ADDRESS_HEADER`, the `ASK_*` bounds
-(among them `ASK_STORE_SECONDS`), `BODY_READ_SECONDS`,
-for the written answer `ANTHROPIC_API_KEY` and the `ANSWER_*` settings, for figures `FIGURES_BASE` and
-`FIGURES_REMOVED`, and for the web step `ASK_WEB`, `TAVILY_API_KEY` and `WEB_QUERY_SUFFIX`.
-
-Without `OXCART_PUBLIC` nothing changes for local use: the explorer's routes are mounted as before, and
-`/api/ask` and `/api/chat` work without a session.
-
-### The written answer
+## The written answer: `POST /api/chat`
 
 `POST /api/chat` takes a question, and the earlier turns of its conversation when it is a follow-up, and returns
 the same evidence followed by a short answer whose sentences cite it. The steps are a graph (LangGraph,
@@ -235,11 +153,11 @@ A web part's sentences carry the same field and counts.
 The route stands behind the same guard as `/api/ask`: the session token, both visitor counts (a question here
 counts as a question there), the service's daily limit, and the eval's way in. On top of that, the whole service
 makes at most `ANSWER_LIMIT_PER_DAY` model calls a day (200; the call that reads a later question against its
-conversation counts, so a question after the first takes two); the eval's way in
-does not skip it. Past it the route answers with the evidence only. When nobody waits for the answer any more
-(the route answered 504 or 503, or the visitor left before the answer line was sent), no call is taken from
-that allowance and the model is not called; a call already under way is not stopped. Once the evidence is sent,
-the answer is waited for at most the write call's timeout and 5 s; past it, it says `failed`.
+conversation counts, so a question after the first takes two); the eval's way in does not skip it. Past it the
+route answers with the evidence only. When nobody waits for the answer any more (the route answered 504 or 503,
+or the visitor left before the answer line was sent), no call is taken from that allowance and the model is not
+called; a call already under way is not stopped. Once the evidence is sent, the answer is waited for at most the
+write call's timeout and 5 s; past it, it says `failed`.
 
 **Every one of these counts lives in the process's memory and starts again when the process does**, and on a
 host that puts an idle service to sleep that is often: the visitor limits, the service's daily limit and the 200
@@ -249,12 +167,12 @@ limit of the key's workspace at the provider; set it there.
 The model is `claude-haiku-5-5` at effort `low`, its lowest, with thinking on: at most 500 output tokens for an
 answer plus 1,500 of room for the thinking, 120 for a rewrite, 12 and 5 seconds, no retry.
 `ANSWER_THINKING=disabled` turns thinking off; the evaluation compared the two ([EVALUATION.md](../EVALUATION.md)).
-The model's client is
-made as the process starts, in the background and without a request, so the first answer does not wait for it. Without
-`ANTHROPIC_API_KEY` the route works and answers with the evidence only (`no_key`). The log line of a question
-holds the answer's state, the citation counts and each call's token counts; no question and no answer.
+The model's client is made as the process starts, in the background and without a request, so the first answer
+does not wait for it. Without `ANTHROPIC_API_KEY` the route works and answers with the evidence only (`no_key`).
+The log line of a question holds the answer's state, the citation counts and each call's token counts; no
+question and no answer.
 
-### The web step (`ASK_WEB`, off by default)
+## The web part: `POST /api/chat/web` (`ASK_WEB`, off by default)
 
 With `ASK_WEB` on, the write call tells apart three ways of not answering in full: `OUT_OF_SCOPE` (state
 `out_of_scope`), `NOT_COVERED` (state `not_covered`), and an answer that ends with a last line `PART_ONLY` (state
@@ -286,17 +204,18 @@ reservation is then released); the search is made, and stays counted whatever it
 may have charged it. When the search fails, times out or leaves no result to write from, the model is not
 called and the call that was taken is given back.
 
-- **The search** (`app/web_step.py`, `Tavily`): `POST https://api.tavily.com/search` with the key as a bearer
+- **The search** (`app/web_step.py`, Tavily): `POST https://api.tavily.com/search` with the key as a bearer
   token, `search_depth: "basic"`, `max_results: 5`, no answer, no raw content, no images, `topic: "general"`,
   6 s. The query is the question as it was searched (for a follow-up, as the rewrite step wrote it), then the
-  fixed words of `WEB_QUERY_SUFFIX`; nothing of an answer a model wrote is in it. Status 432 (the plan used up), any other failure and a timeout give no web part.
+  fixed words of `WEB_QUERY_SUFFIX`; nothing of an answer a model wrote is in it. Status 432 (the plan used up),
+  any other failure and a timeout give no web part.
 - **What is kept of a result:** an `https` address of at most 300 characters, with no user name or password,
   no space, control character or backslash, and a host name that parses; its title cut to 200 characters (the
   host when it has none) and its text to 1,500. At most five. A host that is only numbers and dots is not a
   name and is refused. **Sites left out:** video and social sites, marketplaces and their price guides, and the
-  search service's own site (`WEB_HOST_LABELS_LEFT_OUT`, `WEB_DOMAINS_LEFT_OUT` in `settings.py`): a result is dropped when its host
-  has one of those names as a label or is under one of those domains, and the domains go with the search
-  request as `exclude_domains`.
+  search service's own site (`WEB_HOST_LABELS_LEFT_OUT`, `WEB_DOMAINS_LEFT_OUT` in `settings.py`): a result is
+  dropped when its host has one of those names as a label or is under one of those domains, and the domains go
+  with the search request as `exclude_domains`.
 - **The web call** (`answer_model.ClaudeModel.write_web`, purpose `web`): the same model and call settings as
   `write`; the kept results as documents with citations on; then, in the part case, the answer already given
   between `<answer_given>` marks, and the question between `<question>` marks (the marks' own characters taken
@@ -322,9 +241,9 @@ made). The states:
 
 **How many searches.** Before a ticket is made and again before a search, the backend reads the account's
 credits used this month from `GET https://api.tavily.com/usage` (`account.plan_usage`, with `account.plan_limit`
-present as an integer; 4 s), at most once in five minutes, and adds the searches it made itself in the last two hours of
-the current month: the usage route runs behind the searches made (`WEB_USAGE_LAG_SECONDS`). A search is allowed
-while
+present as an integer; 4 s), at most once in five minutes, and adds the searches it made itself in the last two
+hours of the current month: the usage route runs behind the searches made (`WEB_USAGE_LAG_SECONDS`). A search is
+allowed while
 
     used < 30 + 920 x (the share of the current month gone by, in UTC)
 
@@ -333,9 +252,9 @@ error, a timeout, another shape), 30 searches a day (UTC), counted in memory. No
 restarts. One log line (`{"event": "web_rule", "rule": "usage" | "per_day"}`) when the rule in use changes, with
 no number of the account. The numbers are constants in `app/settings.py` (`WEB_SEARCHES_AT_MONTH_START`,
 `WEB_SEARCHES_OVER_THE_MONTH`, `WEB_SEARCHES_PER_DAY_FALLBACK`, `WEB_USAGE_EVERY_SECONDS`), as are the time-outs
-and the cuts and sizes (`WEB_*`). The read is made by one request at a time and outside the lock that counts the searches;
-other requests meanwhile use the last value read. It can add up to 4 s to the one chat answer that makes it,
-once in five minutes.
+and the cuts and sizes (`WEB_*`). The read is made by one request at a time and outside the lock that counts the
+searches; other requests meanwhile use the last value read. It can add up to 4 s to the one chat answer that
+makes it, once in five minutes.
 
 **Logs.** The chat line gains `web_ticket` (true or false) with `ASK_WEB` on. The web route's line holds the
 ticket's state, the reply's state and why (`reason`), the rule in use, the counts, the timings (`search_ms`,
@@ -347,36 +266,153 @@ ticket's state, the reply's state and why (`reason`), the rule in use, the count
 **Off** (the default), the write call's instructions and their reading are the ones served before, the chat
 reply carries no ticket, and `/api/chat/web` is not mounted (404, as any unknown path).
 
-Tests, with fakes in place of the stores and of the model: `python -m pytest backend/tests`.
-To score the test set through a running backend: `python -m eval.ask_arm --label <name>` (see `EVALUATION.md`).
+## Hosted mode (`OXCART_PUBLIC=1`)
 
-## Deploying the hosted mode
+| | |
+|---|---|
+| Routes mounted | `GET /api/health`, `GET /api/ask/examples`, `POST /api/session`, `POST /api/ask`, `POST /api/chat`, and `POST /api/chat/web` only with `ASK_WEB` on; and `GET /`, which names the service. Nothing else: no explorer routes, no export, no figures |
+| Docs | `/docs`, `/redoc` and `/openapi.json` are off |
+| Human check | The page solves a Cloudflare Turnstile challenge and posts its token to `/api/session`; the backend verifies it with Cloudflare and returns a signed token valid for an hour, sent as `X-Oxcart-Session` with each question. If the check cannot be verified, questions are refused with a message |
+| Limits | 10 questions a minute and 100 a day per visitor, 2,000 a day for the service, in memory; a question is at most 300 characters and a request 2 kB (a chat 8 kB, a web part about 61 kB, the human check's token up to 2,048 characters, any other POST the smallest). A body's size is held before it is read (`app/body_limit.py`): a missing or larger `Content-Length` is refused with 413 at once, and so is a body whose bytes pass the limit whatever the header said; a body must arrive within `BODY_READ_SECONDS` (10 s), or 408. A visitor is counted twice, by address (an IPv6 address by its first 64 bits) and by session token, and a question passes only when both are under the limits |
+| CORS | The origins in `CORS_ORIGINS`, GET and POST, no credentials |
+| Errors | `{"error": code, "message": text}`; no exception text, nothing of the request repeated |
+| Logs | One line per question with the mode, the timings and error classes. No question text, no address |
 
-Two parts, both on free plans that cannot bill: the backend as a container, the page as static files.
+`GET /api/health` in hosted mode makes no store round trip: it answers at once with `graph`, `literature` and
+`embedding`, each `connecting`, `connected` or `unavailable` (`not started` when nothing was opened at startup;
+`embedding` is `not configured` without a key). The page says "connecting" while any of the three is
+`connecting`.
 
-**Backend.** `backend/Dockerfile`, built from the repository root. The image runs the hosted mode
+Without `OXCART_PUBLIC` nothing changes for local use: the explorer's routes are mounted, and `/api/ask` and
+`/api/chat` work without a session.
+
+## The explorer's routes
+
+Mounted in local mode only (without `OXCART_PUBLIC`), under `/api`. They return retrieved context only and call
+no model. The explorer's page is described in [docs/EXPLORER.md](../docs/EXPLORER.md) and
+[frontend/README.md](../frontend/README.md).
+
+| Method | Path | What it returns |
+|---|---|---|
+| `GET` | `/api/health` | Whether Neo4j and Weaviate are reachable and the graph is populated (each probed) |
+| `GET` | `/api/overview` | The First Issue overview: totals, series, stamps |
+| `GET` | `/api/examples` | The explorer's demo questions (`examples_runner.DEMO`) |
+| `GET` | `/api/graph` | The First Issue's subgraph and its top documents (`clean`, `max_docs`, `chunks_per_doc`, `min_score`) |
+| `GET` | `/api/graph/stamp/{cno}` | A subgraph around one stamp, by its Mena number |
+| `GET` | `/api/node?node_id=` | One node's detail (404 when unknown) |
+| `POST` | `/api/query` | The context bundle of `oxcart/retrieve.py` (`context_bundle`), with a subgraph and figures for display |
+| `POST` | `/api/query/export` | The same evidence as a full-text `.txt` download |
+| `GET` | `/api/mena/surface-mail` | The Surface Mail issues of the Mena catalogue, by year |
+| `GET` | `/api/mena/issue/{issue_id}` | One issue's facts and its Scott match |
+| `GET` | `/api/mena/issue/{issue_id}/graph` | A small graph of the issue |
+| `GET` | `/api/mena/issue/{issue_id}/evidence` | BM25 passages for the issue (`?k=`, 0 to 25) |
+| `GET` | `/api/figures/<file>` | The page-figure crops, when `results/markdown/figures` exists on the machine |
+
+`MENA_SECTION`, `MENA_EVIDENCE_K` and `MENA_EVIDENCE_MIN_SCORE` (below) tune the `/api/mena/*` routes.
+
+## Settings
+
+All from the environment. `app/settings.py` reads the question path's and the service's; `oxcart/config.py`
+reads the stores' and `OPENAI_API_KEY`, and loads the repository's `.env` first when `python-dotenv` is
+installed; `app/mena_service.py` reads the `MENA_*` ones. A setting with no default below is empty unless set.
+
+| Setting | Default | What it does |
+|---|---|---|
+| **The process** | | |
+| `API_HOST`, `API_PORT` | `127.0.0.1`, `8090` | Where `python -m app.main` listens |
+| `OXCART_PUBLIC` | off | Hosted mode (above) |
+| `CORS_ORIGINS` | `http://localhost:3000`, `http://127.0.0.1:3000` | Allowed origins, comma separated; replaces the default |
+| **The stores** | | |
+| `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`, `NEO4J_DATABASE` | `bolt://127.0.0.1:7687`, `neo4j`, empty, `neo4j` | The catalogue graph |
+| `WEAVIATE_URL` | | A Weaviate Cloud cluster for the question path; without it the local instance below is used |
+| `WEAVIATE_HOST`, `WEAVIATE_HTTP_PORT`, `WEAVIATE_GRPC_PORT` | `localhost`, `8085`, `50056` | The local Weaviate (the ports of `docker-compose.yml`) |
+| `WEAVIATE_API_KEY` | | The Weaviate key, when the instance needs one |
+| `OXCART_COLLECTION` | `Oxcart` | The literature collection |
+| `OXCART_VECTOR_NAME` | | The vector to search when the collection has several |
+| `OPENAI_API_KEY` | | The question's embedding. Without it the question path uses the full-text index and keyword search |
+| **The question path** | | |
+| `ASK_ISSUES`, `ASK_PASSAGES`, `ASK_TEXT_LIMIT` | `3`, `5`, `700` | Issues and passages returned, and the characters shown of a passage |
+| `ASK_EXCERPT` | `start` | `nearest`: show the stretch of a long passage that shares most words with the question |
+| `ASK_SHORT_VECTOR` | off | Also ask the short vector index of the issues (`scripts/issue_short_vectors.py` writes it) |
+| `ASK_MAX_QUESTION_CHARS`, `ASK_MAX_BODY_BYTES` | `300`, `2048` | A question's length and the body of `/api/ask` |
+| `ASK_TIMEOUT_SECONDS`, `ASK_STORE_SECONDS`, `EMBED_TIMEOUT_SECONDS` | `25`, `12`, `5` | The route's deadline, each store's deadline, the embedding call's timeout |
+| `BODY_READ_SECONDS` | `10` | The time a POST's whole body may take to arrive; past it 408 |
+| `GRAPH_WARM_ON_START`, `ASK_WARM_ON_START` | on, on | Open the graph, the literature client, the embedding's connection and the model's client as the process starts, in the background |
+| `GRAPH_STARTUP_BUDGET_SECONDS`, `GRAPH_QUESTION_BUDGET_SECONDS`, `GRAPH_RETRY_EVERY_SECONDS` | `30`, `8`, `0.5` | How long the graph connection is retried at startup and for a question, and how often |
+| **Visitors** | | |
+| `ASK_LIMIT_PER_MINUTE`, `ASK_LIMIT_PER_DAY`, `ASK_LIMIT_GLOBAL_PER_DAY` | `10`, `100`, `2000` | Questions per visitor a minute and a day, and for the service a day |
+| `TRUSTED_PROXY_HOPS` | `1` | How many of the host's proxies stand in front of the app; the visitor's address is read that many entries from the right of `X-Forwarded-For` (`0`: the socket's peer) |
+| `VISITOR_ADDRESS_HEADER` | | The header in which the host's edge reports the visitor's address, for example `CF-Connecting-IP`; a request without it falls back to `TRUSTED_PROXY_HOPS` |
+| `TURNSTILE_SECRET` | | The human check's secret key |
+| `SESSION_SIGNING_KEY`, `SESSION_TTL_SECONDS` | , `3600` | Signs the session tokens (a long random string); their life |
+| `EVAL_ACCESS_KEY` | | The eval's way in, a secret header; empty means that door does not exist |
+| **The written answer** | | |
+| `ANTHROPIC_API_KEY` | | The model's key. Without it `/api/chat` answers with the evidence only |
+| `ANSWER_EFFORT`, `ANSWER_THINKING` | `low`, on | The model's effort; `ANSWER_THINKING=disabled` turns thinking off |
+| `ANSWER_MAX_TOKENS`, `ANSWER_THINKING_ROOM_TOKENS`, `REWRITE_MAX_TOKENS` | `500`, `1500`, `120` | Output tokens of an answer, the thinking's room on top of it, and of a rewrite |
+| `ANSWER_TIMEOUT_SECONDS`, `REWRITE_TIMEOUT_SECONDS` | `12`, `5` | The two calls' timeouts |
+| `ANSWER_LIMIT_PER_DAY` | `200` | Model calls a day for the whole service |
+| `CHAT_MAX_BODY_BYTES` | `8192` | The body of `/api/chat` |
+| **Figures** | | |
+| `FIGURES_BASE` | | The figures host, `https://...` (`http://127.0.0.1` or `localhost` for tests). Unset, or any other address: figures are off. It must name the same host as the page's `NEXT_PUBLIC_FIGURES_BASE` |
+| `FIGURES_REMOVED` | | Comma-separated ids never named. A removal takes effect with a restart; remove the file from the host too: a conversation kept in a browser keeps the ids it was shown |
+| **The web part** | | |
+| `ASK_WEB` | off | The three markers of the write call and the web part (`1`, `true`, `yes`, `on`) |
+| `TAVILY_API_KEY` | | The search service's key, its own and no other's. Without it no ticket is made and no search is ever made |
+| `WEB_QUERY_SUFFIX` | `Costa Rica philately` | The fixed words after the question in a search; empty means none |
+| **The explorer** | | |
+| `MENA_SECTION`, `MENA_EVIDENCE_K`, `MENA_EVIDENCE_MIN_SCORE` | `Surface Mail`, `6`, `0.0` | The section the `/api/mena/*` routes show, their BM25 passages, and the score under which a passage is dropped |
+| `FIRST_ISSUE_*` | see `oxcart/config.py` | The First Issue linker's thresholds and the explorer's bounds |
+
+The web part's other numbers (the search's time-outs, the cuts of a result, the sites left out, the rule of how
+many searches) are constants in `app/settings.py`, not settings.
+
+## Tests
+
+```bash
+python -m pytest backend/tests          # from the repository root
+cd backend && python test_mena_backend.py
+```
+
+`backend/tests` runs with fakes in place of the stores, the model and the search service: no network, no database
+and no key. It covers the question path, the written answer and its graph, the web part, the body limit, the
+graph link, figures, the excerpt and the shown text of a passage. The workflow runs it on every pull request with
+`eval/tests`, `oxcart/tests` and `pipeline/first_issue_graph/tests`.
+
+`test_mena_backend.py` checks the explorer's Mena routes and needs Neo4j; Weaviate is optional (without it the
+evidence is an empty list). Its checks that need the catalogue match files run only when those files are on the
+machine.
+
+To ask the test set through a running backend: `python -m eval.ask_arm --label <name>` for the evidence of
+`/api/ask`, and `python -m eval.chat_arm run --label <name>` for the written answers of `/api/chat`
+(see [EVALUATION.md](../EVALUATION.md#run-it)).
+
+## The Dockerfile and the hosted deployment
+
+Two parts, both on free plans that cannot bill: the backend as a container, the page as static files. What the
+hosted demo runs on, and its limits, are in [docs/OPERATIONS.md](../docs/OPERATIONS.md).
+
+**Backend.** `backend/Dockerfile`, built from the repository root:
+
+```bash
+docker build -f backend/Dockerfile -t oxcart-backend .
+docker run --rm -p 8000:8000 --env-file <your settings> oxcart-backend
+```
+
+The image is `python:3.12-slim` with the pinned packages and the `oxcart` package. It runs the hosted mode
 (`OXCART_PUBLIC=1` is set in it), listens on `PORT` (8000 without it), runs as a non-root user and writes no
 access log. It holds no key and no data other than the list of figures that may be named (ids and pixel sizes,
-no name). The host provides these settings, as secrets where it has them:
+no name). The workflow builds it on every pull request, starts it with no settings and checks that it runs as a
+user other than root.
 
-| Setting | What it is |
-|---|---|
-| `CORS_ORIGINS` | The page's origin, for example `https://example.org` |
-| `WEAVIATE_URL`, `WEAVIATE_API_KEY` | The literature cluster and a **read-only** key |
-| `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`, `NEO4J_DATABASE` | The catalogue graph |
-| `OPENAI_API_KEY` | A key limited to embeddings, with a spend limit. Without it the backend answers in keyword mode |
-| `ANTHROPIC_API_KEY` | Optional: a key for the written answer, in a workspace with a spend limit. Without it `/api/chat` answers with the evidence only |
-| `TURNSTILE_SECRET` | The human check's secret key |
-| `SESSION_SIGNING_KEY` | A long random string; signs the session tokens |
-| `EVAL_ACCESS_KEY` | Optional: a long random string that lets the eval and the page's build in without the human check |
-| `FIGURES_BASE`, `FIGURES_REMOVED` | Optional: the figures host and the ids never named (see "Figures" above). Without `FIGURES_BASE` no figure is named |
-| `ASK_WEB` | Optional (`1`, `true`, `yes`, `on`): the three markers of the write call and the web step (see "The web step"). Unset: as before |
-| `TAVILY_API_KEY` | Optional, with `ASK_WEB`: the search service's key, its own and no other's. Without it no ticket is made and no search is ever made |
-| `WEB_QUERY_SUFFIX` | Optional: the fixed words after the question in a search (default `Costa Rica philately`; empty means none) |
-| `ASK_STORE_SECONDS` | Optional: each store's deadline for one question, in seconds (default 12). A store that has not answered by then is unavailable for that question |
-| `BODY_READ_SECONDS` | Optional: the time a POST's whole body may take to arrive, in seconds (default 10); past it the answer is 408 |
-| `TRUSTED_PROXY_HOPS` | How many of the host's proxies stand in front of the app (default 1). Check it on the host: the visitor limit must follow the caller, and a made-up `X-Forwarded-For` must not change it |
-| `VISITOR_ADDRESS_HEADER` | Optional: the header in which the host's edge reports the visitor's address, for example `CF-Connecting-IP` where Cloudflare stands in front. With it the visitor limit follows that header; a request without it falls back to `TRUSTED_PROXY_HOPS`. Use it where no entry of `X-Forwarded-For` is the visitor, and check it the same way: a made-up value from a client must not change the count, and two real addresses must be counted apart |
+The host provides, as secrets where it has them: `CORS_ORIGINS` (the page's origin); `WEAVIATE_URL` and a
+**read-only** `WEAVIATE_API_KEY`; the four `NEO4J_*`; `OPENAI_API_KEY` (a key limited to embeddings, with a spend
+limit); `ANTHROPIC_API_KEY` (optional, in a workspace with a spend limit); `TURNSTILE_SECRET`;
+`SESSION_SIGNING_KEY`; and, as it needs them, `EVAL_ACCESS_KEY`, `FIGURES_BASE` and `FIGURES_REMOVED`, `ASK_WEB`
+with `TAVILY_API_KEY` and `WEB_QUERY_SUFFIX`, `ASK_SHORT_VECTOR`, `ASK_STORE_SECONDS`, `BODY_READ_SECONDS`,
+`TRUSTED_PROXY_HOPS` and `VISITOR_ADDRESS_HEADER`. Check the last two on the host: the visitor limit must follow
+the caller, a made-up `X-Forwarded-For` or address header from a client must not change it, and two real
+addresses must be counted apart.
 
 Health check path: `/api/health`. One instance: the limits are counted in the process's memory.
 A service that sleeps when idle wakes on the first request; the page calls `/api/health` as it opens and tells
@@ -386,20 +422,16 @@ catalogue and the literature, searching), with a count of seconds.
 **The graph connection.** A hosted graph can refuse a new connection and accept the next one half a second
 later. So the process opens its connection as it starts, in the background, retrying every half second for up
 to 30 seconds (`GRAPH_STARTUP_BUDGET_SECONDS`), and keeps one driver for its whole life. `/api/health` does not
-wait for it: it answers at once with `graph` set to `connecting`, `connected` or `unavailable`, and the page
-keeps saying "starting" while it is `connecting`. A question that finds no connection retries for up to 8
-seconds (`GRAPH_QUESTION_BUDGET_SECONDS`) before its catalogue block says "unavailable"; the passages do not wait
-for it. A query error is not retried.
+wait for it, and the page keeps saying "starting" while the graph is `connecting`. A question that finds no
+connection retries for up to 8 seconds (`GRAPH_QUESTION_BUDGET_SECONDS`) before its catalogue block says
+"unavailable"; the passages do not wait for it. A query error is not retried.
 
 **The literature client and the embedding's connection.** Opening the Weaviate client and the first connection
 to the embedding service is what the first question after a start used to wait for. Both are opened as the
 process starts, in the background too (`ASK_WARM_ON_START`, on by default); the embedding's connection is opened
-with one tiny embedding per start, and later questions reuse it while it is kept open. `/api/health` reports
-them beside the graph: `literature` and `embedding` are `connecting`, `connected` or `unavailable` (`not started`
-when nothing was opened at startup; `embedding` is `not configured` without a key). The page says "connecting"
-while any of the three is `connecting`. A literature search that fails retires the client it used, unless a
-newer one has replaced it; the next search opens a new one, and a retired client is closed once no search is
-using it.
+with one tiny embedding per start, and later questions reuse it while it is kept open. A literature search that
+fails retires the client it used, unless a newer one has replaced it; the next search opens a new one, and a
+retired client is closed once no search is using it.
 
 **Page.** In `frontend/`: `npm ci && npm run build:hosted` writes the static site to `out/` (the question page
 only). At build time:
@@ -416,25 +448,21 @@ export (passages and their stored vectors). The export is not in this repository
 
 ## Dependencies
 
-See `requirements.txt` (pinned: FastAPI 0.116.2, Pydantic 2.12.5, uvicorn 0.35.0,
-`neo4j` 6.4.1, `weaviate-client` 4.24.1, `anthropic` 2.12.0, `langgraph` 1.2.24). Install it into a Python 3.10+ virtual
-environment:
+`requirements.txt`, pinned: FastAPI 0.116.2, Pydantic 2.12.5, uvicorn 0.35.0, `neo4j` 6.4.1, `weaviate-client`
+4.24.1, `anthropic` 2.12.0, `langgraph` 1.2.24, and the rest it lists. Install it into a Python 3.10+ virtual
+environment, from the repository root:
 
 ```bash
 python -m pip install -r backend/requirements.txt
-python -m pip install -e .          # the shared modules (oxcart/), from the repo root
+python -m pip install -e .          # the shared modules (oxcart/)
 ```
 
-## Notes for router authors
+## Adding a route
 
-- Inject the shared Neo4j driver with `Depends(get_driver)` — it is the single
-  process-wide pool created in `app.deps.lifespan`. Never open a per-request
-  driver.
-- For Weaviate, call `get_weaviate()` and **close the client yourself**
-  (`try/finally`).
-- The prototype's `config.neo4j_driver()` returns a **sync** driver. Inside an
-  `async def` route, run blocking queries with
-  `fastapi.concurrency.run_in_threadpool`. `retrieve.context_bundle(...)` is
-  synchronous and manages its own driver+Weaviate connections — offload it the
-  same way.
-- Pass every node/edge property dict through `sanitize_props` before returning.
+- Inject the shared Neo4j driver with `Depends(get_driver)`: it is the one process-wide pool created in
+  `app.deps.lifespan`. Never open a driver per request.
+- For Weaviate, call `get_weaviate()` and **close the client yourself** (`try/finally`).
+- The driver is synchronous. Inside an `async def` route, run blocking queries with
+  `fastapi.concurrency.run_in_threadpool`. `retrieve.context_bundle(...)` is synchronous and manages its own
+  driver and Weaviate connections: offload it the same way.
+- Pass every node and edge property dict through `sanitize_props` before returning it.

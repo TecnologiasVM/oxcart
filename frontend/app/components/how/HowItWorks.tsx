@@ -240,7 +240,7 @@ export default function HowItWorks() {
                 </dl>
               </figure>
               <p>{trace.note[lang]}</p>
-              <p>{w.whyAlone(f.of(F.full_text.first, F.full_text.of), f.of(F.issue_found.first, F.issue_found.of), f.of(F.full_text.es_first, F.full_text.es_of))}</p>
+              <p>{w.whyAlone(f.of(F.full_text.first, F.full_text.of), f.of(F.vector_only.first, F.vector_only.of), f.of(F.full_text.es_first, F.full_text.es_of))}</p>
             </Section>
 
             <Section id="h-res" title={w.resH}>
