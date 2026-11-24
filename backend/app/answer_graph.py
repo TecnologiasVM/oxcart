@@ -426,8 +426,9 @@ def check(state: Written) -> dict:
             return {"answer": {"state": "out_of_scope"}}
         covers = "part" if PART_ONLY in whole else "all"
         # the marker's line is taken out before sentences are counted: it is not a sentence of the answer
+        # A block that is only space stays: between two cited sentences the model puts the space in a block of
+        # its own, and without it the two were shown joined ("... in black.Variety b ...").
         blocks = [{**block, "text": block["text"].replace(PART_ONLY, "")} for block in blocks]
-        blocks = [block for block in blocks if block["text"].strip() or block.get("citations")]
         if not "".join(block["text"] for block in blocks).strip():
             return {"answer": {"state": "not_covered"}}
     if whole.strip().startswith(NOT_COVERED):

@@ -981,3 +981,22 @@ def test_in_a_spanish_card_an_acts_kind_is_said_in_spanish_and_once():
     assert line([{"type": "note", "id": "Noted 4"}], "es") == ["autorizada por nota, Noted 4"]
     assert line([{"type": None, "id": None}], "es") == []
 
+
+# ---------------------------------------------------------------- two cited sentences are not shown joined
+TWO = [{"text": "The page holds made-up words.", "citations": [{"document": 0, "cited_text": "Some made-up words"}]},
+       {"text": " ", "citations": []},                 # the space between two cited sentences comes as a block of its own
+       {"text": "It is about a made-up issue.", "citations": [{"document": 0, "cited_text": "about a made-up issue"}]}]
+
+
+@pytest.mark.parametrize("web", [False, True])
+def test_the_space_between_two_cited_sentences_is_kept(monkeypatch, web):
+    monkeypatch.setattr(settings, "ASK_WEB", web)
+    answer = checked(*TWO)
+    assert [s["text"] for s in answer["sentences"]] == ["The page holds made-up words.", "It is about a made-up issue."]
+    assert all(".It" not in s["text"] for s in answer["sentences"])
+    # with the part marker after them too, and a quote that stands after a sentence is still not printed
+    answer = checked(*TWO, {"text": f"\n\n{answer_model.PART_ONLY}", "citations": []})
+    assert [s["text"] for s in answer["sentences"]][:2] == ["The page holds made-up words.", "It is about a made-up issue."]
+    quote = {"text": "about a made-up issue", "citations": [{"document": 0, "cited_text": "about a made-up issue"}]}
+    answer = checked(TWO[0], TWO[1], quote)
+    assert answer["sentences"] == [{"text": "The page holds made-up words.", "cites": [1], "quoted": "some"}]
