@@ -1,10 +1,10 @@
-"""FastAPI application for the First Issue KG Explorer backend.
+"""FastAPI application for the Oxcart backend.
 
 This is the app factory: it wires the Neo4j-driver lifespan, CORS for the
 Next.js dev frontend, and the API routers (graph, meta, query) under the
 ``/api`` prefix.
 
-Owner contracts upheld across the whole service:
+What the whole service keeps to:
 
 * One module calls a language model, ``app.answer_model``, for the written answer
   of ``POST /api/chat``; one calls an embedding service, ``app.ask_service``. The

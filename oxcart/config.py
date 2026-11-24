@@ -1,7 +1,7 @@
 """
 Central configuration + connection factories for the First Issue GraphRAG prototype.
 
-Design constraints (per project owner):
+What this package keeps to:
   * No DIRECT LLM API calls anywhere in this package. Weaviate may use OpenAI
     under the hood for its own vectorizer — that is an accepted exception.
   * Weaviate is READ-ONLY here. Never create/delete/overwrite Weaviate data.
@@ -39,14 +39,9 @@ SCOTT_DETAILS_PATH = DATA_DIR / "scott_first_issue.json"
 SCOTT_EQUIV_PATH = DATA_DIR / "scott_equivalences.json"
 
 # --------------------------------------------------------------------------- #
-# .env loading (repo root)
+# The environment file: loaded by oxcart/env.py, before any setting below is read
 # --------------------------------------------------------------------------- #
-try:
-    from dotenv import load_dotenv
-
-    load_dotenv(REPO_ROOT / ".env")
-except ImportError:  # dotenv is optional; any OTHER error (bad .env) should surface
-    pass
+from oxcart import env as _env  # noqa: E402,F401
 
 # --------------------------------------------------------------------------- #
 # Domain constants

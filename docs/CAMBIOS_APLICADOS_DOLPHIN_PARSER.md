@@ -103,6 +103,4 @@ ox = transform_dolphin_to_oxcart_preserving_labels(
 
 ---
 
-**Estado Final**: ✅ **COMPLETADO EXITOSAMENTE**
-
 Las mejoras han sido aplicadas correctamente en `dolphin_parser.ipynb` y el pipeline está listo para generar chunks optimizados para RAG con mejor alineamiento al modelo ideal.

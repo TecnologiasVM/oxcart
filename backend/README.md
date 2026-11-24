@@ -313,8 +313,10 @@ no model. The explorer's page is described in [docs/EXPLORER.md](../docs/EXPLORE
 ## Settings
 
 All from the environment. `app/settings.py` reads the question path's and the service's; `oxcart/config.py`
-reads the stores' and `OPENAI_API_KEY`, and loads the repository's `.env` first when `python-dotenv` is
-installed; `app/mena_service.py` reads the `MENA_*` ones. A setting with no default below is empty unless set.
+reads the stores' and `OPENAI_API_KEY`; `app/mena_service.py` reads the `MENA_*` ones. Before any of them is
+read, `oxcart/env.py` loads the repository's `.env` (or the file `OXCART_ENV_FILE` names) when `python-dotenv` is
+installed; a variable set in the real environment wins over the file. A setting with no default below is empty
+unless set.
 
 | Setting | Default | What it does |
 |---|---|---|
