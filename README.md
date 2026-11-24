@@ -44,26 +44,37 @@ crops of the scanned literature and are served, as the page's figures are, from 
 
 ## Results, in short
 
-151 questions in Spanish and English: 80 on the catalogue, 41 on the literature, 30 out of scope. One run through
-the public service, except the first row, which is the catalogue lookup alone; the method, every table and every
-limit are in [EVALUATION.md](EVALUATION.md).
+151 questions in Spanish and English: 80 on the catalogue, 41 on the literature, 30 out of scope. One run of
+this version's code on a development machine, against the hosted stores, on 24 November 2026, except the first
+row, which is the catalogue lookup alone; the method, every table and every limit are in
+[EVALUATION.md](EVALUATION.md), with the same questions asked the same day with the code as it was before the
+literature was searched in both languages
+([the before and after](EVALUATION.md#the-literature-in-both-languages)).
 
 | Measure | Result |
 |---|---|
 | Issue found: top-1 / top-3 accuracy | 29 of 32 (91%) / 32 of 32 held-out catalogue questions, through the lookup as served. The 32 were kept aside while the lookup was built, then reused, with the other 48, when the short vector it serves was chosen |
-| Page found: hit@5 | A question counts when a page graded 2 (its passages hold the answer, or a clear, direct part of it) is among the five passages: 36 of 41 literature questions (88%); 36 of 49 counting the 8 draft questions left out of the set because the pooled search results held no page that answers them |
-| Catalogue answers: answer accuracy and faithfulness, graded by a model | 76 of 80 state the value the catalogue holds; in 63 of 80 every sentence is stated by its sources, the cards and pages it cites (a card is one issue's record in the Mena catalogue graph) |
-| Literature answers: agreement with a reference answer, graded by a model | Against a reference answer (an answer a model wrote from the pages it graded for that question), the judge's first pass: 10 of 41 agree with it on what the question asks, 30 in part (part of it, or only related facts). A second pass, told that detail the question did not ask for does not count: 17 of 41 give the thing asked |
-| Citations that did not hold; sentences removed | Every question of the run, out of scope and follow-ups too: 0 of 376 citations did not hold; 101 of 410 sentences were removed because the model wrote them with no citation |
-| Out of scope: no written answer | 27 of 30 (90%) got no written answer; the writer is told to answer nothing outside the scope. The other 3 got a part answer, and with it a ticket for a web search: `oos-013-en` (outside the scope), `una-001-en` and `una-008-es` (about Costa Rican stamps, with no answer in the sources) |
-| Cost per question (answer model only; embeddings and web search apart) | median 0.00064 USD, p95 0.00117 USD (mean 0.0007, max 0.00137) |
-| Latency | evidence on the page: median 1.04 s, p95 1.21 s; checked answer: median 2.94 s, p95 7.34 s |
+| Page found | A question counts when a page graded 2 (its passages hold the answer, or a clear, direct part of it) is among the passages shown, seven at most: 40 of 41 literature questions (98%). Among the five passages of the question searched in its own language only, which this version always keeps: 36. Of the 49 drafts, counting the 8 left out of the set because the pooled search results held no page that answers them: 40 |
+| Passages in both languages | 120 of the 121 catalogue and literature questions get passages in Spanish and in English among those shown, against 38 before |
+| Catalogue answers: answer accuracy and faithfulness, graded by a model | 76 of 80 state the value the catalogue holds; in 64 of 80 every sentence is stated by its sources, the cards and pages it cites (a card is one issue's record in the Mena catalogue graph) |
+| Literature answers: agreement with a reference answer, graded by a model | Against a reference answer (an answer a model wrote from the pages it graded for that question), the judge's first pass: 10 of 41 agree with it on what the question asks, 28 in part (part of it, or only related facts). A second pass, told that detail the question did not ask for does not count: 20 of 41 give the thing asked |
+| Citations that did not hold; sentences removed | Every question of the run, out of scope and follow-ups too: 0 of 378 citations did not hold; 106 of 446 sentences were removed because the model wrote them with no citation |
+| Out of scope: no written answer | 28 of 30 (93%) got no written answer; the writer is told to answer nothing outside the scope. The other 2 got an answer: `oos-009-en` (outside the scope) and `una-001-en` (about Costa Rican stamps, with no answer in the sources; an answer marked as part) |
+| Cost per question (answer model only; embeddings and web search apart) | median 0.00092 USD, p95 0.00139 USD (mean 0.00097, max 0.00158): two model calls, the query rewriting (0.00018 USD) and the answer, which reads up to seven passages |
+| Latency | On the development machine: evidence on the page, median 2.90 s, p95 5.66 s; checked answer, median 5.62 s, p95 10.27 s. The query rewriting takes 1.04 s (median) before the search. Through the public service, version 1.0 showed the evidence after 1.04 s (median); this version has not been measured there |
 
-**Limits.** On 50 questions never used while the system was changed (the sealed set, made on 21 November 2026),
+**Limits.** This version's design was measured in one run, and one run cannot tell a difference of one or two
+questions from the spread between runs: the same day, three runs of the code before gave 10, 10 and 10
+literature answers in full and 77, 76 and 78 catalogue answers correct. Three answers to Spanish questions were
+written in another language than the question, where no run before had more than two. A first design, the two
+lists joined and the first five shown, was measured in five runs and not served: it could drop a page that
+answered ([EVALUATION.md](EVALUATION.md#why-the-first-design-was-not-served)). The page found is counted among
+seven passages where it was counted among five. On 50 questions never used while the system was changed (the sealed set, made on 21 November 2026),
 asked on 22 November 2026 once with the code of 21 November (commit `d27e269`) and once with the code of 22
 November (commit `5dae0c1`, the short vector on), no literature answer agreed with its reference on what the
 question asks (0 of 20 in both runs); 2 of 20 with `d27e269` and 4 of 20 with `5dae0c1` gave the thing asked; 17
-and 18 of 20 catalogue answers were correct. Both runs are of code older than what is served today. The grades,
+and 18 of 20 catalogue answers were correct. Both runs are of code older than this version; the sealed set was
+not run again. The grades,
 and the literature gold (the pages that answer each question), are a model's and no person has checked them; a
 second model gave the same grade to 39 of 45 pages of a blind sample. The catalogue questions were generated from
 the same graph the answers read, so they test finding the issue, not the catalogue. The sets are small: one
@@ -77,32 +88,39 @@ for none, and in a trial of 26 real searches 28 of 35 shown web sentences were s
 
 Oxcart answers questions about Costa Rican stamps, in Spanish or English, from two sources: the Mena catalogue,
 held as a graph in Neo4j (819 issues, 2,764 stamps), and 41,126 passages of scanned philatelic literature, held
-with their vectors in Weaviate. A question becomes one vector (OpenAI `text-embedding-3-large`) and is searched
-in both at once. Claude Haiku 5.5 writes a short answer with citations, and a sentence is shown only if its
-citation holds. The steps are a LangGraph graph in a FastAPI backend in Python; the page is Next.js and React in
-TypeScript.
+with their vectors in Weaviate. The literature is in both languages, and a question's vector brings back
+passages of its own language almost only, so every question is searched in both. First, query rewriting: one
+call to Claude Haiku 5.5 makes a follow-up stand alone and gives the question in the other language. Then the
+question's vector (OpenAI `text-embedding-3-large`) finds the issue in the catalogue, while the literature is
+searched once with each text (multi-query retrieval): the question's own five passages are always kept, up to
+two of the other language's search are added, and the list is put in the order of reciprocal rank fusion
+(RRF). Claude Haiku 5.5 writes a short answer with citations, in the language of the question, and a sentence is
+shown only if its citation holds. A passage is shown in its own language; nothing is translated. The steps are
+a LangGraph graph in a FastAPI backend in Python; the page is Next.js and React in TypeScript.
 
 ```mermaid
 flowchart TD
     Q(["Question<br/>in Spanish or English"]) --> R
-    R["1 · Rewritten<br/>every question after the first, only if it points back<br/><i>Claude Haiku 5.5</i>"] --> S
-    S["2 · Searched<br/>one vector, two searches at once<br/><i>OpenAI text-embedding-3-large</i>"] --> C
+    R["1 · Query rewriting<br/>every question: a follow-up made to stand alone,<br/>the question given in the other language too<br/><i>Claude Haiku 5.5</i>"] --> S
+    S["2 · Searched<br/>both texts embedded in one request<br/><i>OpenAI text-embedding-3-large</i>"] --> C
     S --> L
-    C["Catalogue<br/>a graph, 819 issues<br/><i>Neo4j</i>"] --> E
-    L["Literature<br/>41,126 passages, by vectors<br/><i>Weaviate</i>"] --> E
-    E(["Evidence<br/>up to 3 cards and 5 passages, shown first"]) --> W
+    C["Catalogue<br/>a graph, 819 issues, by the question's vector<br/><i>Neo4j</i>"] --> E
+    L["Literature<br/>41,126 passages, one search per language (multi-query retrieval):<br/>the question's five kept, up to two of the other language added,<br/>ordered by reciprocal rank fusion (RRF)<br/><i>Weaviate</i>"] --> E
+    E(["Evidence<br/>up to 3 cards and 7 passages, shown first"]) --> W
     W["3 · Written with citations<br/>a short answer, told to use only the evidence<br/><i>Claude Haiku 5.5</i>"] --> K
     K["4 · Citations checked<br/>a sentence with none is removed<br/><i>no model</i>"] --> A
     A(["Answer<br/>only sentences whose citation holds"]) -.-> X
     X["5 · Searched on the web<br/>only when the sources cover part of a question, or none of it<br/><i>Tavily, then the same writer</i>"] -.-> B
     B(["From the web<br/>a block of its own, not from the catalogue or the literature"])
-    style R stroke-dasharray: 5 5
     style X stroke-dasharray: 5 5
 ```
 
-Rounded: what is on the page. Square: a step in the backend. Dashed: a step for some questions only. The server
-keeps no question's text and no conversation between two requests: a conversation lives in the browser. It holds
-in memory the vectors of the last 256 questions, with no text, and keeps no answer. A language model writes the
+Rounded: what is on the page. Square: a step in the backend. Dashed: a step for some questions only. Step 1
+runs for every question, a conversation's first one too; when its call fails or is late the question is searched
+as it was typed, in its own language only, and when one of the two literature searches fails the other's list is
+used alone. The server keeps no question's text and no conversation between two requests: a conversation lives
+in the browser. It holds in memory the vectors of the last 256 texts it searched (a question and its translation
+are two), with no text, and keeps no answer. A language model writes the
 answer and is told to use the evidence that is shown and nothing else; the check tests that each citation names
 that evidence and holds its cited text, not that the sentence follows from it. When the model says the evidence
 does not cover the question, the page says so and shows the evidence.
@@ -176,16 +194,19 @@ no answer.
   in Spanish or English and read the evidence, the catalogue issue and the passages of the literature. The
   conversation stays in the browser; there are no accounts. This is the page the hosted demo serves.
 - **A written answer with citations, as a graph** (`POST /api/chat`, `backend/app/answer_graph.py`, LangGraph).
-  Four steps: `contextualize` rewrites a follow-up as a question that stands alone, `retrieve` is the question
-  path as it was, `write` asks the model for a short answer with citations, `check` keeps the sentences whose
-  citation holds and drops the rest.
+  Four steps: `contextualize` is query rewriting, for every question (a follow-up becomes a question that
+  stands alone, and the question is given in the other of Spanish and English), `retrieve` is the question path
+  with the literature searched once per language (the question's own five passages kept, up to two of the other
+  language added, the list ordered by reciprocal rank fusion), `write` asks the model for a short answer with
+  citations, `check` keeps the sentences whose citation holds and drops
+  the rest.
   - *Why a graph:* each step is given only the part of the state it declares. The earlier turns of a conversation
     come from the browser, so they are a visitor's text, and `contextualize` is the only step that receives them;
     the step that writes the answer gets the question that stands alone and the evidence. Each step's result is
     sent as it ends, so the evidence arrives as fast as before and the answer follows.
   - *Why no checkpointer:* a conversation lives in the visitor's browser, which sends its last three turns with a
     follow-up. The server keeps no question's text and no conversation between two requests (in memory it holds
-    the vectors of the last 256 questions, with no text, and no answer), so no visitor's text stays in its memory
+    the vectors of the last 256 texts it searched, with no text, and no answer), so no visitor's text stays in its memory
     and nothing of a conversation is lost when the service sleeps.
   - *What it does not do:* no step grades the evidence, none retrieves a second time, and there is no scope
     router; a rule in the model's instructions stands in for the last. What was measured for them is under
@@ -255,7 +276,7 @@ Not built. No order and no date.
   graph views cover the 1863 First Issue only.
 - **Timeouts inside the store clients, and a bound on concurrent chats.** A question's deadline stops waiting for
   a store, not a call already under way: the vector store's client has its own timeouts, the graph's driver has
-  none set, and each store has four threads.
+  none set, and the catalogue has four threads and the literature eight.
 - **The web usage read off the answer's path.** Today it can hold back the answer that makes it (above).
 - **Judging the exact evidence the writer received, and the excerpts shown.** The answer judge reads a card's
   whole record, where the writer reads selected lines; a page's grade counts for any passage of that page, where
@@ -270,7 +291,7 @@ Not built. No order and no date.
 | Layer | What the code uses | Where |
 |---|---|---|
 | Graph | Neo4j, queried with Cypher | `neo4j_utils/`, `pipeline/first_issue_graph/`, `oxcart/` |
-| Search | Weaviate 1.32.4 locally (docker-compose), 1.40.5 hosted. The question page: vector search (`near_vector`) with the question's OpenAI `text-embedding-3-large` vector (3,072 dimensions), made by the backend; keyword search (BM25) when no embedding can be made. The explorer: keyword search (BM25) by default, with a `hybrid` pass when an OpenAI key is set | `backend/app/ask_service.py`, `oxcart/retrieve.py`, `docker-compose.yml` |
+| Search | Weaviate 1.32.4 locally (docker-compose), 1.40.5 hosted. The question page: vector search (`near_vector`) with OpenAI `text-embedding-3-large` vectors (3,072 dimensions) made by the backend, the literature once with the question and once with its text in the other language; the backend keeps the question's five passages, adds up to two of the other list and orders them by reciprocal rank fusion; keyword search (BM25) when no embedding can be made. The explorer: keyword search (BM25) by default, with a `hybrid` pass when an OpenAI key is set | `backend/app/ask_service.py`, `oxcart/retrieve.py`, `docker-compose.yml` |
 | API | FastAPI, Pydantic v2 | `backend/requirements.txt` |
 | Written answer | Claude Haiku 5.5 through Anthropic's API, with its citations feature; the steps as a LangGraph graph | `backend/app/answer_model.py`, `backend/app/answer_graph.py` |
 | Web part (off by default; on at the hosted demo) | Tavily's search API: one basic search of five results; the part written by the same model, with citations | `backend/app/web_step.py` |

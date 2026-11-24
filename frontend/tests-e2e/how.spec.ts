@@ -115,11 +115,31 @@ test("the diagram says what the list says, and has a text alternative", async ({
     const name = await svg.locator(`g[data-node="s${i + 1}"] .p-name`).textContent();
     await expect(steps.nth(i).locator("h3"), `step ${i + 1}`).toContainText(name!);
   }
-  // step 1: every question after the first is read against the conversation, in the box and in the list
-  await expect(svg.locator('g[data-node="s1"]')).toHaveClass(/p-node--some/);
-  await expect(steps.first()).toContainText("Every question after the first is read against the conversation and rewritten only when it points back");
-  await expect(page.locator(".pipe__fig figcaption")).toContainText("rewritten only when it points back");
-  await expect(page.getByTestId("how")).not.toContainText("only a follow-up question");
+  // step 1 runs for every question: query rewriting, in the box and in the list, and its box is not dashed
+  await expect(svg.locator('g[data-node="s1"]')).not.toHaveClass(/p-node--some/);
+  await expect(svg.locator('g[data-node="s1"] .p-name')).toHaveText("Query rewriting");
+  await expect(steps.first()).toContainText("For every question, one call to");
+  await expect(steps.first()).toContainText("the question is given in the other of the two languages, Spanish and English");
+  await expect(steps.first()).toContainText("If the call fails or is late, the question is searched as it was typed.");
+  await expect(page.locator(".pipe__fig figcaption")).not.toContainText("step 1");
+  await expect(page.getByTestId("how")).not.toContainText("after the first");
+  await expect(page.getByTestId("how")).not.toContainText("one vector");
+  // step 2 in the usual terms: multi-query retrieval and reciprocal rank fusion, and the lead says them too
+  await expect(steps.nth(1)).toContainText("Both texts are embedded in one request");
+  await expect(steps.nth(1)).toContainText("searched once with each text (multi-query retrieval)");
+  await expect(steps.nth(1)).toContainText("reciprocal rank fusion (RRF)");
+  // the design as it is: the question's own passages always kept, a few of the other language added, from the settings
+  const L = FIGURES.limits;
+  await expect(steps.nth(1)).toContainText(`The question's own ${L.passages} passages are always kept`);
+  await expect(steps.nth(1)).toContainText(`up to ${L.passages_other_language} passages of the other language's search are added`);
+  await expect(svg.locator('g[data-node="ev"]')).toContainText(`up to ${L.issues} cards and ${L.passages + L.passages_other_language} passages`);
+  await expect(steps.nth(1)).toContainText("A passage is shown in its own language; nothing is translated.");
+  await expect(page.locator(".how__lead")).toContainText("query rewriting");
+  await expect(page.locator(".how__lead")).toContainText("multi-query retrieval");
+  await expect(page.locator(".how__lead")).toContainText("reciprocal rank fusion (RRF)");
+  // the figure of the two runs: questions with passages in both languages, before and after, from the generated file
+  const both = FIGURES.languages;
+  await expect(steps.nth(1)).toContainText(`Searched with the question alone, ${both.before!.both} of ${both.after!.of} catalogue and literature questions of the test set got passages in both languages among those shown; searched with both texts, ${both.after!.both}.`);
   // step 2 names the indexes as the stores report them: HNSW for the catalogue, HFresh with RQ for the literature
   const st = FIGURES.stores;
   await expect(steps.nth(1)).toContainText(`two ${st.graph.index.type} vector indexes by ${st.graph.index.similarity}`);
@@ -220,8 +240,8 @@ test("page found, the two waits and \"gives what the question asks\" read right 
       const p = run.page_found;
       await expect(results.locator('[data-result="page"] .ledger__n')).toHaveText(`${p.found} ${of} ${p.of}`);
       await expect(results.locator('[data-result="page"]')).toContainText(
-        lang === "es" ? `entre los ${p.k} pasajes. Contando los ${p.drafts - p.of} borradores que quedaron fuera: ${p.found} de ${p.drafts}.`
-          : `among the ${p.k} passages. Counting the ${p.drafts - p.of} drafts left out: ${p.found} of ${p.drafts}.`);
+        lang === "es" ? `entre los pasajes mostrados, ${p.k} como máximo. Contando los ${p.drafts - p.of} borradores que quedaron fuera: ${p.found} de ${p.drafts}.`
+          : `among the passages shown, ${p.k} at most. Counting the ${p.drafts - p.of} drafts left out: ${p.found} of ${p.drafts}.`);
     }
     if (run.literature.asks != null) {
       await expect(results.locator('[data-result="literature"]')).toContainText(

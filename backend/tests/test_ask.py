@@ -36,8 +36,9 @@ class Fakes:
         return [{"issue_id": "CR-1", "title": "An issue", "score": 4.0, "matched_by": ["vector"],
                  "card": {"issue_id": "CR-1", "embedding": [1.0, 2.0], "stamps": [{"catalog_no": "1", "text_vector": [3.0]}]}}]
 
-    def search(self, question, vector):
+    def search(self, question, vector, limit=None):
         self.seen["search"] = (question, vector)
+        self.seen.setdefault("searches", []).append((question, vector, limit))
         if self.search_error:
             raise self.search_error
         return [{"doc_id": f"DOC {n}", "page": n, "chunk_type": "text", "text": LONG, "score": 0.9} for n in range(7)]
@@ -853,3 +854,202 @@ def test_the_explorer_corrects_mena_1a_of_the_first_issue_from_the_same_place_as
     assert graph_service._display_denom({**row, "issue_id": "CR-1999-MADE-UP"}) == (1.5, "real")
     assert graph_service._display_denom({**row, "catalog_no": "2"}) == (1.5, "real")
     assert query_service._display_denom(config.ISSUE_ID, "1A", 1.5, "real") == "0.5 real"
+
+
+# ---------------------------------------------------------------- the literature in both languages
+ALSO = {"question": "una pregunta", "lang": "es"}
+
+
+def lit(ident, score=0.5, text="made-up text"):
+    return {"id": ident, "doc_id": f"DOC {ident}", "page": 1, "chunk_type": "text", "text": text, "score": score}
+
+
+def test_reciprocal_rank_fusion_adds_the_ranks_and_keeps_a_passage_once():
+    own = [lit("a", 0.9), lit("b", 0.8), lit("c", 0.7), lit("d", 0.6)]
+    other = [lit("x", 0.5), lit("c", 0.75), lit("y", 0.3)]
+    fused = ask_service.fuse([own, other], ["question", "translation"])
+    # "c" is in both lists (ranks 3 and 2): 1/63 + 1/62 beats any single first rank, 1/61
+    # then by rank, the two lists in turn: "y" is third in its list, "d" fourth in the other
+    assert [p["id"] for p in fused] == ["c", "a", "x", "b", "y", "d"]
+    assert [p["found"] for p in fused] == [["question", "translation"], ["question"], ["translation"], ["question"],
+                                           ["translation"], ["question"]]
+    assert fused[0]["score"] == 0.75                    # its best similarity; the order does not use it
+    assert len({p["id"] for p in fused}) == len(fused)
+    # equal ranks: the question's own list goes first
+    assert [p["id"] for p in ask_service.fuse([[lit("a")], [lit("x")]], ["question", "translation"])] == ["a", "x"]
+    # a weak passage that both lists hold far down still passes one that a single list ranks first: ranks only
+    deep = ask_service.fuse([[lit("a"), lit("w")], [lit("x"), lit("w")]], ["question", "translation"])
+    assert deep[0]["id"] == "w"
+    # a list that carries no ids: the same document, page and text is the same passage
+    plain = [{"doc_id": "D", "page": 1, "text": "t", "score": 0.1}]
+    assert len(ask_service.fuse([plain, [dict(plain[0])]], ["question", "translation"])) == 1
+    assert ask_service.RRF_K == 60
+
+
+def test_the_questions_own_passages_are_all_kept_and_up_to_two_of_the_other_list_are_added():
+    own = [lit(f"own{n}", 0.9 - n / 100) for n in range(1, 7)]                # six: the sixth was never shown
+    other = [lit("x1", 0.95), lit("own1", 0.9), lit("x2", 0.94), lit("x3", 0.93), lit("x4", 0.92), lit("x5", 0.91), lit("x6"), lit("x7")]
+    shown = ask_service.join(own, other, 5, 2)
+    ids = [p["id"] for p in shown]
+    # every one of the question's own five, however well the other list's passages rank; two of the other's; no more
+    assert set(ids) == {"own1", "own2", "own3", "own4", "own5", "x1", "x2"} and len(ids) == 7
+    # in the fusion's order: the passage both searches found first, then by rank, the question's own before a tie
+    assert ids == ["own1", "x1", "own2", "own3", "x2", "own4", "own5"]
+    assert [p["found"] for p in shown][:2] == [["question", "translation"], ["translation"]]
+    # the other list's first passages are the question's own five: the two added are its sixth and seventh
+    same = [lit(f"own{n}") for n in range(1, 6)] + [lit("x6"), lit("x7"), lit("x8")]
+    assert {p["id"] for p in ask_service.join(own, same, 5, 2)} == {"own1", "own2", "own3", "own4", "own5", "x6", "x7"}
+    # a short list of the other language adds what it has; none to add leaves the question's own five
+    assert [p["id"] for p in ask_service.join(own, [lit("x1")], 5, 2)] == ["own1", "x1", "own2", "own3", "own4", "own5"]
+    assert [p["id"] for p in ask_service.join(own, [], 5, 2)] == ["own1", "own2", "own3", "own4", "own5"]
+    assert len(ask_service.join(own, other, 5, 1)) == 6
+
+
+def test_a_question_shows_at_most_its_own_five_and_the_two_added(fakes, monkeypatch):
+    own = [lit(f"own{n}") for n in range(1, 6)]
+    other = [lit(f"x{n}") for n in range(1, 8)]
+    result = ask_service.answer("a question", two_lists(fakes, own, other), ALSO)
+    assert len(result["passages"]) == settings.ASK_PASSAGES + settings.ASK_PASSAGES_OTHER_LANGUAGE == 7
+    assert sum(p["found"] == ["question"] for p in result["passages"]) == 5
+    assert sum(p["found"] == ["translation"] for p in result["passages"]) == 2
+    # the setting at 0: the question alone is searched, as before
+    monkeypatch.setattr(settings, "ASK_PASSAGES_OTHER_LANGUAGE", 0)
+    fakes.seen.clear()
+    result = ask_service.answer("a question", fakes.deps(), ALSO)
+    assert "searches" not in result and fakes.seen["searches"] == [("a question", fakes.vector, None)]
+
+
+def two_lists(fakes, own, other, fail=()):
+    def search(text, vector, limit=None):
+        fakes.seen.setdefault("searches", []).append((text, vector, limit))
+        if text in fail:
+            raise ask_service.Unavailable("down")
+        return own if text == "a question" else other
+    deps = fakes.deps()
+    deps.search = search
+    deps.embed_all = lambda texts: [[0.1], [0.2]]
+    return deps
+
+
+def test_both_texts_are_searched_and_the_passages_say_their_language_and_which_search_found_them(fakes):
+    spanish = "El resello de la emisión se hizo en la imprenta para los sellos que se usaron en la provincia."
+    english = "The overprint of the issue was made at the printing office for the stamps that were used there."
+    deps = two_lists(fakes, [lit("a", text=english)], [lit("x", text=spanish), lit("a", text=english)])
+    result = ask_service.answer("a question", deps, ALSO)
+    assert result["searches"] == [{"question": "a question", "lang": "en", "state": "ok"},
+                                  {"question": "una pregunta", "lang": "es", "state": "ok"}]
+    assert [(p["doc_id"], p["lang"], p["found"]) for p in result["passages"]] == [
+        ("DOC a", "en", ["question", "translation"]), ("DOC x", "es", ["translation"])]
+    assert all("id" not in p for p in result["passages"])                  # the store's id is not given out
+    assert result["mode"]["literature"] == "vector" and fakes.seen["lookup"] == ("a question", [0.1])
+    assert sorted(limit for _, _, limit in fakes.seen["searches"]) == [
+        settings.ASK_PASSAGES, settings.ASK_PASSAGES + settings.ASK_PASSAGES_OTHER_LANGUAGE]
+
+
+def test_when_one_of_the_two_searches_fails_the_other_list_is_used_alone(fakes):
+    own, other = [lit("a"), lit("b")], [lit("x"), lit("y")]
+    result = ask_service.answer("a question", two_lists(fakes, own, other, fail=("una pregunta",)), ALSO)
+    assert [p["doc_id"] for p in result["passages"]] == ["DOC a", "DOC b"]
+    assert [s["state"] for s in result["searches"]] == ["ok", "unavailable"] and result["mode"]["literature"] == "vector"
+    assert {tuple(p["found"]) for p in result["passages"]} == {("question",)}
+    result = ask_service.answer("a question", two_lists(fakes, own, other, fail=("a question",)), ALSO)
+    assert [p["doc_id"] for p in result["passages"]] == ["DOC x", "DOC y"]
+    assert [s["state"] for s in result["searches"]] == ["unavailable", "ok"] and result["mode"]["literature"] == "vector"
+    # both failed: the literature is unavailable and the catalogue's cards still come
+    result = ask_service.answer("a question", two_lists(fakes, own, other, fail=("a question", "una pregunta")), ALSO)
+    assert result["mode"]["literature"] == "unavailable" and result["passages"] == [] and result["issues"]
+
+
+def test_a_search_that_is_late_leaves_the_other_list(fakes, monkeypatch):
+    monkeypatch.setattr(settings, "ASK_STORE_SECONDS", 0.3)
+    release = threading.Event()
+
+    def search(text, vector, limit=None):
+        if text == "una pregunta":
+            release.wait(5)
+        return [lit("a")]
+    deps = fakes.deps()
+    deps.search = search
+    try:
+        result = ask_service.answer("a question", deps, ALSO)
+    finally:
+        release.set()
+    assert [s["state"] for s in result["searches"]] == ["ok", "unavailable"]
+    assert [p["doc_id"] for p in result["passages"]] == ["DOC a"]
+
+
+def test_without_a_second_text_the_question_path_is_the_one_of_before(fakes):
+    for also in (None, {}, {"question": "A  Question", "lang": "es"}, {"question": "otra", "lang": "de"}):
+        fakes.seen.clear()
+        result = ask_service.answer("a question", fakes.deps(), also)
+        assert "searches" not in result and fakes.seen["searches"] == [("a question", fakes.vector, None)]
+        assert all("lang" not in p and "found" not in p for p in result["passages"])
+
+
+def test_without_an_embedding_both_texts_are_searched_by_keyword(fakes):
+    fakes.vector = None
+    result = ask_service.answer("a question", fakes.deps(), ALSO)
+    assert result["mode"]["literature"] == "keyword" and [s["state"] for s in result["searches"]] == ["ok", "ok"]
+    assert sorted((text, vector) for text, vector, _ in fakes.seen["searches"]) == [("a question", None), ("una pregunta", None)]
+    # one text with a vector and one without: the two lists would not be of one kind, so the question alone
+    deps = fakes.deps()
+    deps.embed_all = lambda texts: [[0.1], None]
+    fakes.seen.clear()
+    result = ask_service.answer("a question", deps, ALSO)
+    assert "searches" not in result and fakes.seen["searches"] == [("a question", [0.1], None)]
+
+
+def test_a_passage_in_the_other_language_shows_the_stretch_its_own_language_text_points_to(fakes, monkeypatch):
+    monkeypatch.setattr(settings, "ASK_EXCERPT", "nearest")
+    filler = "En esta parte del pasaje inventado no se dice nada de lo que se pregunta ni de los sellos de la emisión. " * 25
+    hit = "El resello lila del loro se aplicó en Turrialba por un empleado que viajaba durante la inundación. "
+    spanish = filler + hit + filler
+    also = {"question": "¿Dónde se aplicó el resello lila del loro?", "lang": "es"}
+    deps = two_lists(fakes, [], [lit("x", text=spanish)])
+    shown = ask_service.answer("a question", deps, also)["passages"][0]
+    assert shown["lang"] == "es" and "Turrialba" in shown["text"] and shown["clipped"]
+    # with the English question's words alone the same passage showed its start
+    assert "Turrialba" not in ask_service.excerpt(spanish, "Where was the lilac parrot overprint applied?", settings.ASK_TEXT_LIMIT)[0]
+    # a passage whose language cannot be told is compared with both texts
+    texts = {"en": "Where was the lilac parrot overprint applied?", "es": also["question"]}
+    assert ask_service.wanted_for("1863 1864 1865", texts) == texts["en"] + " " + texts["es"]
+    assert ask_service.wanted_for(hit, texts) == texts["es"]
+    assert ask_service.wanted_for("The overprint was applied by the clerk in the town during the flood of that year.", texts) == texts["en"]
+
+
+def test_several_texts_are_embedded_in_one_request(monkeypatch):
+    import httpx
+
+    calls = []
+
+    class Reply:
+        def __init__(self, n):
+            self.n = n
+
+        def raise_for_status(self):
+            pass
+
+        def json(self):                                 # out of order on purpose: the index says which is which
+            return {"data": [{"index": i, "embedding": [float(i)]} for i in reversed(range(self.n))]}
+
+    def post(self, url, **kwargs):
+        calls.append(kwargs["json"])
+        return Reply(len(kwargs["json"]["input"]) if isinstance(kwargs["json"]["input"], list) else 1)
+
+    monkeypatch.setattr(config, "OPENAI_API_KEY", "the-key")
+    monkeypatch.setattr(httpx.Client, "post", post)
+    embed = ask_service.Embedder()
+    assert embed.all(["a question", "una pregunta"]) == [[0.0], [1.0]]
+    assert calls == [{"model": "text-embedding-3-large", "input": ["a question", "una pregunta"]}]      # one request
+    assert embed.all(["una pregunta", "a question"]) == [[1.0], [0.0]] and len(calls) == 1               # both from the cache
+    assert embed.all(["a question", "a third one"]) == [[0.0], [0.0]]
+    assert calls[1]["input"] == "a third one"                                                            # only the new one
+    kept = repr(list(embed._cache)) + repr(vars(embed))
+    assert "pregunta" not in kept and "third" not in kept                                                # no text is kept
+
+    def failing(self, url, **kwargs):
+        raise httpx.ConnectError("down")
+
+    monkeypatch.setattr(httpx.Client, "post", failing)
+    assert embed.all(["a question", "never seen"]) == [[0.0], None] and embed.state == "unavailable"
+    embed.close()

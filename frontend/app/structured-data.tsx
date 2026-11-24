@@ -18,6 +18,13 @@ export const STRUCTURED_DATA = {
   inLanguage: ["en", "es"],
   isAccessibleForFree: true,
   applicationCategory: "ReferenceApplication",
+  // the path of a question, in the usual names of its techniques (the page "How it works" says the same)
+  featureList: [
+    "Query rewriting: a follow-up question is made to stand alone, and every question is translated into the other of Spanish and English",
+    "Multi-query retrieval: the philatelic literature is searched by vectors once per language; a catalogue graph is searched with the question's own vector",
+    "The question's own passages are kept, a few of the other language are added, and the list is ordered by reciprocal rank fusion (RRF)",
+    "A short answer written only from the evidence found, in the language of the question, each sentence with a citation that is checked",
+  ],
   isBasedOn: {
     "@type": "SoftwareSourceCode",
     name: "Oxcart",

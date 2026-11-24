@@ -30,6 +30,7 @@ class FakeModel:
         self.configured = True
         self.rewrites, self.writes = [], []
         self.standalone = STANDALONE
+        self.also = None                    # the rewrite's other-language text: {"question": .., "lang": ..}
         self.reply = None                   # a Reply to give instead of the usual answer
         self.before_writing = None          # called when `write` starts
 
@@ -38,7 +39,8 @@ class FakeModel:
 
     def rewrite(self, question, thread):
         self.rewrites.append((question, thread))
-        return Reply(state="ok", blocks=[{"text": self.standalone, "citations": []}], input_tokens=40, output_tokens=9)
+        return Reply(state="ok", blocks=[{"text": self.standalone, "citations": []}], input_tokens=40, output_tokens=9,
+                     also=self.also)
 
     def write(self, question, sources):
         self.writes.append((question, sources))
@@ -85,7 +87,9 @@ def test_a_question_gives_the_evidence_then_an_answer_whose_sentences_cite_it(ch
     evidence, answer = lines_of(ask(client, "What is it?"))
     assert evidence["type"] == "evidence" and evidence["rewritten"] is False
     assert answer["type"] == "answer" and answer["answer"]["state"] == "ok"
-    assert answer["calls"] == [{"purpose": "write", "state": "ok", "input_tokens": 900, "output_tokens": 60, "seconds": 0.0}]
+    # two model calls for a question, a conversation's first one too: the rewrite step, then the answer
+    assert answer["calls"] == [{"purpose": "rewrite", "state": "ok", "input_tokens": 40, "output_tokens": 9, "seconds": 0.0},
+                               {"purpose": "write", "state": "ok", "input_tokens": 900, "output_tokens": 60, "seconds": 0.0}]
     # the sentence with no citation is not shown, and is counted
     assert [s["text"] for s in answer["answer"]["sentences"]] == ["The made-up issue has one stamp.",
                                                                  "The page is full of the letter x."]
@@ -98,7 +102,9 @@ def test_a_question_gives_the_evidence_then_an_answer_whose_sentences_cite_it(ch
     assert (first["n"], first["kind"], first["index"], first["quotes"]) == (1, "issue", 0, ["stamp 1"])
     assert (second["n"], second["kind"], second["index"]) == (2, "passage", 0)
     assert [s["cites"] for s in answer["answer"]["sentences"]] == [[1], [2]]
-    assert len(model.writes) == 1 and model.rewrites == []          # a first question is not rewritten
+    # a first question passes the rewrite step with no earlier turn, and is searched and answered as it was typed
+    assert len(model.writes) == 1 and model.rewrites == [("What is it?", [])]
+    assert evidence["evidence"]["question"] == "What is it?" and model.writes[0][0] == "What is it?"
 
 
 def test_the_evidence_is_what_the_question_path_returns(chat_client):
@@ -124,7 +130,7 @@ def test_a_follow_up_is_rewritten_and_only_that_step_reads_the_earlier_turns(cha
 
 def test_each_step_is_given_only_what_it_declares():
     assert set(answer_graph.FollowUp.__annotations__) == {"question", "thread"}
-    assert set(answer_graph.Asked.__annotations__) == {"question", "search_question"}
+    assert set(answer_graph.Asked.__annotations__) == {"question", "search_question", "also"}
     assert set(answer_graph.Found.__annotations__) == {"search_question", "evidence"}
     assert set(answer_graph.Written.__annotations__) == {"evidence", "draft"}
     seen = {}
@@ -133,7 +139,7 @@ def test_each_step_is_given_only_what_it_declares():
         def write(self, question, sources):
             return Reply(state="ok", blocks=[{"text": answer_model.NOT_COVERED, "citations": []}])
 
-    def retrieve(question):
+    def retrieve(question, also=None):
         return {"question": question, "mode": {}, "issues": [], "timings": {},
                 "passages": [{"doc_id": "D", "page": 1, "text": "some text", "clipped": False, "score": 1.0}]}
 
@@ -148,7 +154,7 @@ def test_each_step_is_given_only_what_it_declares():
     graph.add_node("retrieve", answer_graph.retrieve)
     graph.add_node("write", spying_write, input_schema=answer_graph.Found)
     graph.add_node("check", answer_graph.check)
-    graph.add_conditional_edges(answer_graph.START, answer_graph._first)
+    graph.add_edge(answer_graph.START, "contextualize")
     graph.add_edge("contextualize", "retrieve")
     graph.add_conditional_edges("retrieve", answer_graph._after_retrieve)
     graph.add_edge("write", "check")
@@ -320,7 +326,7 @@ def recorded_deps(monkeypatch):
     return made
 
 
-def test_a_chat_that_timed_out_at_retrieval_takes_no_call_and_calls_no_model(chat_client, model, fakes, monkeypatch):
+def test_a_chat_that_timed_out_at_retrieval_takes_no_call_for_an_answer(chat_client, model, fakes, monkeypatch):
     monkeypatch.setattr(settings, "ASK_TIMEOUT_SECONDS", 0.4)
     release = threading.Event()
 
@@ -337,10 +343,11 @@ def test_a_chat_that_timed_out_at_retrieval_takes_no_call_and_calls_no_model(cha
     assert r.status_code == 504 and made[0].gone.is_set()
     release.set()
     assert graphs_ended()
-    assert model.writes == [] and allowance.taken == 0
+    # the rewrite step ran before the search, as for every question; nothing was taken or called for an answer
+    assert model.writes == [] and (len(model.rewrites), allowance.taken) == (1, 1)
 
 
-def test_a_visitor_who_leaves_after_the_evidence_gets_no_model_call(chat_client, model, monkeypatch):
+def test_a_visitor_who_leaves_after_the_evidence_gets_no_call_for_an_answer(chat_client, model, monkeypatch):
     import asyncio
 
     monkeypatch.setattr(settings, "EVAL_ACCESS_KEY", "s" * 32)
@@ -377,7 +384,7 @@ def test_a_visitor_who_leaves_after_the_evidence_gets_no_model_call(chat_client,
     assert b'"type":"evidence"' in bodies and b'"type":"answer"' not in bodies
     assert graphs_ended()
     assert made[0].gone.is_set() and not made[0].evidence_sent.is_set()
-    assert model.writes == [] and allowance.taken == 0
+    assert model.writes == [] and (len(model.rewrites), allowance.taken) == (1, 1)      # the rewrite step only
 
 
 def test_a_normal_chat_is_unchanged_and_its_graph_is_told_the_visitor_is_there(chat_client, model, monkeypatch):
@@ -528,7 +535,7 @@ def test_the_log_line_has_counts_and_no_text(chat_client, model):
     finally:
         log.removeHandler(handler)
     line = json.loads(next(r for r in records if '"event": "chat"' in r))
-    assert line["answer"] == "ok" and line["turns"] == 1 and line["rewritten"] is True
+    assert line["answer"] == "ok" and line["turns"] == 1 and line["rewritten"] is True and line["texts_searched"] == 1
     assert [(c["purpose"], c["input_tokens"], c["output_tokens"]) for c in line["model_calls"]] == [("rewrite", 40, 9), ("write", 900, 60)]
     text = json.dumps(records)
     for secret in ("nobody should log", EARLIER, STANDALONE, "made-up issue", "203.0.113"):
@@ -573,7 +580,7 @@ def test_the_evidence_reaches_the_client_before_the_model_has_answered(monkeypat
         thread.join(10)
 
 
-def test_a_visitor_who_left_while_the_stores_were_searching_gets_no_model_call(monkeypatch, fakes, model):
+def test_a_visitor_who_left_while_the_stores_were_searching_gets_no_call_for_an_answer(monkeypatch, fakes, model):
     import uvicorn
 
     monkeypatch.setattr(settings, "EVAL_ACCESS_KEY", "s" * 32)
@@ -606,7 +613,7 @@ def test_a_visitor_who_left_while_the_stores_were_searching_gets_no_model_call(m
         release.set()                               # then the catalogue answers
         time.sleep(0.5)
         assert graphs_ended()
-        assert model.writes == [] and allowance.taken == 0
+        assert model.writes == [] and (len(model.rewrites), allowance.taken) == (1, 1)  # the rewrite step only
     finally:
         release.set()
         server.should_exit = True
@@ -810,7 +817,9 @@ def test_the_rewrite_request_is_small_and_has_no_evidence(monkeypatch):
     model = claude(response(content=[text_block(json.dumps({"stands_alone": False, "question": STANDALONE}))]))
     reply = model.rewrite("And its perforation?", THREAD)
     request = model._client.messages.requests[0]
-    # the reply is held to a shape: a flag and a question, so no reasons can stand before what is searched
+    assert reply.also is None                       # a reply with no other-language text: the question alone is searched
+    # the reply is held to a shape: a flag, a question and its other-language text, so no reasons can stand
+    # before what is searched
     assert request["output_config"] == {"effort": "low", "format": {"type": "json_schema", "schema": answer_model.REWRITE_SCHEMA}}
     alone = claude(response(content=[text_block(json.dumps({"stands_alone": True, "question": ""}))])).rewrite("Who printed it?", THREAD)
     assert alone.state == "ok" and alone.text == answer_model.UNCHANGED
@@ -981,3 +990,117 @@ def test_in_a_spanish_card_an_acts_kind_is_said_in_spanish_and_once():
     assert line([{"type": "note", "id": "Noted 4"}], "es") == ["autorizada por nota, Noted 4"]
     assert line([{"type": None, "id": None}], "es") == []
 
+
+
+# ---------------------------------------------------------------- every question: rewriting, and both languages
+SPANISH = {"question": "¿Cuál es el dentado de la emisión inventada?", "lang": "es"}
+
+
+def test_every_question_is_searched_in_both_languages_and_the_two_lists_are_joined(chat_client, model, fakes):
+    client = chat_client()
+    model.also = SPANISH
+    together = []
+    deps = fakes.deps()
+    deps.embed_all = lambda texts: (together.append(list(texts)), [[0.1], [0.2]])[1]
+    by_text = {"What is its perforation?": [passage("a", 1), passage("b", 2), passage("c", 3)],
+               SPANISH["question"]: [passage("x", 7), passage("b", 2), passage("y", 8)]}
+    deps.search = lambda text, vector, limit=None: (fakes.seen.setdefault("searches", []).append((text, vector, limit)),
+                                                    by_text[text])[1]
+    client.app.state.ask = deps
+    evidence, answer = lines_of(ask(client, "What is its perforation?"))
+    assert together == [["What is its perforation?", SPANISH["question"]]]          # both texts in one embedding request
+    both = settings.ASK_PASSAGES + settings.ASK_PASSAGES_OTHER_LANGUAGE     # the other list: as many, and the few that can be added
+    assert sorted(fakes.seen["searches"]) == sorted([("What is its perforation?", [0.1], settings.ASK_PASSAGES),
+                                                     (SPANISH["question"], [0.2], both)])
+    assert fakes.seen["lookup"] == ("What is its perforation?", [0.1])              # the catalogue: the question's own vector
+    found = evidence["evidence"]
+    assert found["searches"] == [{"question": "What is its perforation?", "lang": "en", "state": "ok"},
+                                 {"question": SPANISH["question"], "lang": "es", "state": "ok"}]
+    # the question's own passages are all there, two of the other list are added, and the order is the fusion's:
+    # the passage both lists hold comes first and once; then the two lists by rank, the question's own first
+    assert [(p["doc_id"], p["found"]) for p in found["passages"]] == [
+        ("b", ["question", "translation"]), ("a", ["question"]), ("x", ["translation"]), ("c", ["question"]), ("y", ["translation"])]
+    assert evidence["rewritten"] is False and found["question"] == "What is its perforation?"
+    assert model.writes[0][0] == "What is its perforation?"                         # the answer is asked for in the visitor's words
+    assert answer["answer"]["state"] == "ok"
+
+
+def passage(doc, page, ident=None, text="made-up text", score=0.5):
+    return {"id": ident or f"id-{doc}-{page}", "doc_id": doc, "page": page, "chunk_type": "text", "text": text, "score": score}
+
+
+@pytest.mark.parametrize("state", ["timeout", "model_unavailable", "rate_limited", "unreadable", "cut"])
+def test_when_the_rewriting_call_fails_or_is_late_the_question_is_searched_as_before(chat_client, model, fakes, state):
+    client = chat_client()
+    model.rewrite = lambda question, thread: Reply(state=state, also=SPANISH)
+    evidence, answer = lines_of(ask(client, "What is its perforation?"))
+    assert fakes.seen["searches"] == [("What is its perforation?", fakes.vector, None)]      # one search, the list of before
+    assert "searches" not in evidence["evidence"] and evidence["rewritten"] is False
+    assert all("lang" not in p and "found" not in p for p in evidence["evidence"]["passages"])
+    assert [c["purpose"] for c in answer["calls"]] == ["rewrite", "write"] and answer["answer"]["state"] == "ok"
+
+
+def test_a_second_text_that_cannot_be_searched_is_left_out(chat_client, model, fakes):
+    client = chat_client()
+    for also in (None, {"question": "", "lang": "es"}, {"question": "what IS it?", "lang": "es"},
+                 {"question": "¿Qué es?", "lang": "fr"}, {"question": "w" * (settings.ASK_MAX_QUESTION_CHARS + 1), "lang": "es"}):
+        model.also = also
+        fakes.seen.clear()
+        evidence, _ = lines_of(ask(client, "What is it?"))
+        assert len(fakes.seen["searches"]) == 1 and "searches" not in evidence["evidence"], also
+
+
+def test_a_follow_up_is_made_to_stand_alone_and_that_question_is_searched_in_both_languages(chat_client, model, fakes):
+    client = chat_client()
+    model.also = SPANISH
+    evidence, _ = lines_of(ask(client, "And its perforation?", THREAD))
+    assert evidence["rewritten"] is True and evidence["evidence"]["question"] == STANDALONE
+    assert [s["question"] for s in evidence["evidence"]["searches"]] == [STANDALONE, SPANISH["question"]]
+    assert sorted(text for text, _, _ in fakes.seen["searches"]) == sorted([STANDALONE, SPANISH["question"]])
+
+
+def test_without_a_key_or_an_allowance_a_first_question_is_searched_as_it_is(chat_client, model, fakes, monkeypatch):
+    client = chat_client()
+    model.also = SPANISH
+    model.configured = False
+    evidence, answer = lines_of(ask(client, "What is it?"))
+    assert model.rewrites == [] and "searches" not in evidence["evidence"] and answer["answer"] == {"state": "no_key"}
+    model.configured = True
+    client.app.state.answer_allowance = types.SimpleNamespace(take=lambda: False, give_back=lambda: None)
+    evidence, answer = lines_of(ask(client, "What is it?"))
+    assert model.rewrites == [] and "searches" not in evidence["evidence"] and answer["answer"] == {"state": "daily_cap"}
+
+
+def test_the_rewrite_reply_carries_the_question_in_the_other_language():
+    given = {"stands_alone": True, "question": "", "translation": "  ¿Quién imprimió   la emisión? ", "translation_language": "es"}
+    reply = claude(response(content=[text_block(json.dumps(given))])).rewrite("Who printed the issue?", [])
+    assert reply.text == answer_model.UNCHANGED and reply.also == {"question": "¿Quién imprimió la emisión?", "lang": "es"}
+    for bad in ({**given, "translation": " "}, {**given, "translation_language": "fr"}, {"stands_alone": True, "question": ""}):
+        assert claude(response(content=[text_block(json.dumps(bad))])).rewrite("Who printed the issue?", []).also is None
+    assert set(answer_model.REWRITE_SCHEMA["required"]) == {"stands_alone", "question", "translation", "translation_language"}
+    # a first question: the message has the marks and no turn between them
+    message = answer_model.rewrite_message("Who printed the issue?", [])
+    assert "<turn>" not in message and message.endswith("<new_question>Who printed the issue?</new_question>")
+    # the instructions hold the field's terms in both languages, and the rule on what a translation leaves as written
+    for word in ("sobrecarga", "overprint", "matasellos", "postmark", "translation_language", "Keep as they are written"):
+        assert word in answer_model.REWRITE_INSTRUCTIONS
+
+
+# ---------------------------------------------------------------- two cited sentences are not shown joined
+TWO = [{"text": "The page holds made-up words.", "citations": [{"document": 0, "cited_text": "Some made-up words"}]},
+       {"text": " ", "citations": []},                 # the space between two cited sentences comes as a block of its own
+       {"text": "It is about a made-up issue.", "citations": [{"document": 0, "cited_text": "about a made-up issue"}]}]
+
+
+@pytest.mark.parametrize("web", [False, True])
+def test_the_space_between_two_cited_sentences_is_kept(monkeypatch, web):
+    monkeypatch.setattr(settings, "ASK_WEB", web)
+    answer = checked(*TWO)
+    assert [s["text"] for s in answer["sentences"]] == ["The page holds made-up words.", "It is about a made-up issue."]
+    assert all(".It" not in s["text"] for s in answer["sentences"])
+    # with the part marker after them too, and a quote that stands after a sentence is still not printed
+    answer = checked(*TWO, {"text": f"\n\n{answer_model.PART_ONLY}", "citations": []})
+    assert [s["text"] for s in answer["sentences"]][:2] == ["The page holds made-up words.", "It is about a made-up issue."]
+    quote = {"text": "about a made-up issue", "citations": [{"document": 0, "cited_text": "about a made-up issue"}]}
+    answer = checked(TWO[0], TWO[1], quote)
+    assert answer["sentences"] == [{"text": "The page holds made-up words.", "cites": [1], "quoted": "some"}]

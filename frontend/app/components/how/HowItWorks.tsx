@@ -67,7 +67,7 @@ export default function HowItWorks() {
     issues: f.n(F.stores.graph.issues),
     passages: f.n(F.stores.literature.objects),
     cards: f.n(F.limits.issues),
-    shown: f.n(F.limits.passages),
+    shown: f.n(F.limits.passages + F.limits.passages_other_language),
   });
   const S = F.stores;
   const stepArgs = {
@@ -75,11 +75,14 @@ export default function HowItWorks() {
     numbers: f.n(S.literature.dimensions),
     issues: f.n(F.limits.issues),
     passages: f.n(F.limits.passages),
+    added: f.n(F.limits.passages_other_language),
     graphIndex: S.graph.index.type,
     litIndex: S.literature.index.type,
     litCompression: S.literature.index.compression,
     graphSimilarity: S.graph.index.similarity,
     litSimilarity: S.literature.index.similarity,
+    // passages in both languages, before and after the literature was searched with both texts
+    langs: F.languages.before && F.languages.after ? w.bothLangs(f.n(F.languages.before.both), f.n(F.languages.after.both), f.n(F.languages.after.of)) : "",
   };
   const stepKeys = (["s1", "s2", "s3", "s4", "s5"] as const).slice(0, steps);
 
@@ -127,7 +130,7 @@ export default function HowItWorks() {
 
   // ---------------------------------------------------------------- 7. cost and wait
   const costs: { n: string; unit: string; text: string }[] = [];
-  if (run.cost) costs.push({ n: f.usd(run.cost.mean), unit: "USD", text: w.costMean(f.usd(run.cost.max)) + (F.after_first_usd != null ? w.costAfter(f.usd(F.after_first_usd)) : "") });
+  if (run.cost) costs.push({ n: f.usd(run.cost.mean), unit: "USD", text: w.costMean(f.usd(run.cost.max)) + (run.rewrite ? w.costRewrite(f.usd(run.rewrite.usd), f.seconds(run.rewrite.median_s)) : "") });
   if (run.waits) {
     costs.push({ n: f.seconds(run.waits.evidence), unit: "s", text: w.waitEvidence });
     costs.push({ n: f.seconds(run.waits.answer), unit: "s", text: w.waitAnswer(f.seconds(run.waits.answer_p95)) });

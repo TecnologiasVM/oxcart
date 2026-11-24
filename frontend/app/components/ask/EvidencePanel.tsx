@@ -434,6 +434,7 @@ function FoundTab({ turn, t, lang, storedNote }: { turn: Turn; t: Labels; lang: 
   const evidence = turn.answer!;
   const sources = !turn.writing && answered(turn.written) ? turn.written?.sources ?? [] : [];
   const cited = (kind: string, index: number) => sources.find((s) => s.kind === kind && s.index === index)?.n;
+  const own = evidence.searches?.[0]?.lang; // the question's language, when the literature was searched in both
   return (
     <>
       <h3>{t.evFound}</h3>
@@ -483,9 +484,10 @@ function FoundTab({ turn, t, lang, storedNote }: { turn: Turn; t: Labels; lang: 
                 <span className="ev-passage__page">{t.page} {p.page ?? "?"}</span>
                 {figs.length > 0 && <span className="ask-chip ask-chip--fig" data-testid="passage-figures-count">{t.nFigures(figs.length)}</span>}
                 {p.clipped && <span className="ask-chip">{t.clipped}</span>}
+                {p.lang && own && p.lang !== own && <span className="ask-chip" data-testid="passage-lang">{t.passageIn(p.lang)}</span>}
               </summary>
               <div className="ev-card__body">
-                {p.text ? <p className="ev-passage__text">{p.text}</p> : <p className="ev__none" data-testid="passage-no-text">{t.noText}</p>}
+                {p.text ? <p className="ev-passage__text" lang={p.lang ?? undefined}>{p.text}</p> : <p className="ev__none" data-testid="passage-no-text">{t.noText}</p>}
               </div>
               {figs.length > 0 && (
                 // under the text, at their own size: never enlarged, narrowed only to the panel's width
@@ -540,21 +542,27 @@ function MadeTab({ turn, t, ok }: { turn: Turn; t: Labels; ok: boolean }) {
   const written = turn.written;
   const call = (purpose: string) => (turn.calls ?? []).find((c) => c.purpose === purpose);
   const keyword = evidence.mode.embedding !== "ok";
+  const also = evidence.searches?.[1]; // the question in the other language
   const counts = written?.counts;
   return (
     <>
       <h3>{ok ? t.evMade : t.evMadeNone}</h3>
       <ol className="steps">
-        {turn.rewritten && (
-          <li>
+        {(turn.rewritten || also || call("rewrite")) && (
+          <li data-testid="step-rewrite">
             <h4>{t.stepRewritten}</h4>
-            <p>{t.searchedAs} “{evidence.question}”</p>
+            {turn.rewritten && <p>{t.searchedAs} “{evidence.question}”</p>}
+            {also && <p>{t.searchedAlso(also.lang)} <span lang={also.lang}>“{also.question}”</span></p>}
             <CallLine call={call("rewrite")} t={t} />
           </li>
         )}
         <li>
           <h4>{t.stepSearched}</h4>
           <p data-testid="mode-line" data-mode={keyword ? "keyword" : "vector"}>{keyword ? t.modeKeyword : t.modeVector}</p>
+          {also && <p data-testid="fused-line">{t.fused}</p>}
+          {(evidence.searches ?? []).filter((s) => s.state === "unavailable").map((s) => (
+            <p key={s.lang} data-testid="search-down">{t.searchDown(s.lang)}</p>
+          ))}
           <dl className="ev-kv">
             {Object.entries(evidence.mode).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{String(v)}</dd></div>)}
           </dl>

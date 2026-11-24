@@ -94,6 +94,12 @@ SESSION_MAX_BODY_BYTES: int = SESSION_TOKEN_CHARS + 64
 # 2,000 characters, each of which JSON can write as six bytes (\u00e9), and the other fields.
 QUERY_MAX_BODY_BYTES: int = 16384
 ASK_PASSAGES: int = _int("ASK_PASSAGES", 5)
+# When the literature is searched in both languages (ask_service.py): the question's own ASK_PASSAGES are
+# always kept, and up to this many passages of the other language's search are added, the best ones that
+# are not already among them. So a question shows at most ASK_PASSAGES + this many. 0: the question alone
+# is searched. Why the question's own passages are kept, and not the first five of the two lists joined, is
+# in EVALUATION.md: joined at five, a page that answered a question could leave the five.
+ASK_PASSAGES_OTHER_LANGUAGE: int = _int("ASK_PASSAGES_OTHER_LANGUAGE", 2)
 ASK_ISSUES: int = _int("ASK_ISSUES", 3)
 ASK_TEXT_LIMIT: int = _int("ASK_TEXT_LIMIT", 700)
 # Which part of a passage longer than the limit is shown: "start" (its first characters) or "nearest"
@@ -188,7 +194,9 @@ ANSWER_EFFORT: str = os.getenv("ANSWER_EFFORT", "low").strip().lower() or "low"
 ANSWER_THINKING: str = "disabled" if os.getenv("ANSWER_THINKING", "").strip().lower() == "disabled" else "adaptive"
 ANSWER_MAX_TOKENS: int = _int("ANSWER_MAX_TOKENS", 500)
 ANSWER_THINKING_ROOM_TOKENS: int = _int("ANSWER_THINKING_ROOM_TOKENS", 1500)
-REWRITE_MAX_TOKENS: int = _int("REWRITE_MAX_TOKENS", 120)
+# The rewrite call's reply holds at most two questions (ASK_MAX_QUESTION_CHARS each): the one that stands
+# alone and its other-language text.
+REWRITE_MAX_TOKENS: int = _int("REWRITE_MAX_TOKENS", 300)
 ANSWER_TIMEOUT_SECONDS: int = _int("ANSWER_TIMEOUT_SECONDS", 12)
 REWRITE_TIMEOUT_SECONDS: int = _int("REWRITE_TIMEOUT_SECONDS", 5)
 # Model calls a day for the whole service (kept in this process's memory). Every call counts,

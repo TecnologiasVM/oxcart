@@ -10,6 +10,19 @@ instead of failing the whole question. A store that has not answered by its dead
 (ASK_STORE_SECONDS) counts as unavailable too: the other's evidence is not held back by it.
 How each mode scored is in EVALUATION.md.
 
+**The literature in both languages (multi-query retrieval).** The publications are in Spanish and in
+English, and a question's vector brings back passages of its own language almost only. When the caller
+also gives the question in the other language (``also``; the written answer's first step makes it,
+answer_graph.contextualize), both texts are embedded in one request and the literature is searched once
+per text, side by side. Then (``join``): the question's own passages are all kept, as many as one search
+showed before (ASK_PASSAGES); up to ASK_PASSAGES_OTHER_LANGUAGE passages of the other text's list are
+added, the best ones not already among them, by a passage's id in the store; and the whole list is put
+in the order of reciprocal rank fusion (``fuse``): a passage scores 1 / (RRF_K + its rank) in each list
+that holds it, and the scores are added. So no passage the question's own search showed is lost to the
+other language. When one of the two searches fails, the other's list is used alone. The catalogue lookup
+keeps the question's own text and vector. Without ``also`` (POST /api/ask, or a rewriting call that
+failed or was late) there is one search, as before.
+
 The first question after a start used to pay for opening the literature client and the
 first connection to the embedding service. Both are now opened as the process starts, in
 the background, as the graph link is (graph_link.py); the health route reports where each
@@ -38,7 +51,7 @@ from app import figures, settings
 from app.graph_link import GraphLink, Refused, Unavailable  # noqa: F401  (Unavailable is this module's error too)
 from app.passage_text import tidy
 
-from oxcart import config
+from oxcart import config, language
 
 log = logging.getLogger("oxcart.ask")
 
@@ -59,8 +72,10 @@ EXAMPLES = [
 class AskDeps:
     embed: Callable[[str], Optional[list]]
     lookup: Callable[[str, Optional[list]], list]
-    search: Callable[[str, Optional[list]], list]
+    search: Callable[..., list]                       # (text, vector, limit=None) -> passages, best first
     verify_human: Callable[[str], str]
+    # Several texts in one request: [vector or None, ...] in the texts' order. None: ``embed`` once per text.
+    embed_all: Optional[Callable[[list], list]] = None
     close: Callable[[], None] = lambda: None
     warm: Callable[[], None] = lambda: None          # start opening, in the background, what the first question needs
     states: Callable[[], dict] = lambda: {"literature": "not started", "embedding": "not started"}   # for the health route
@@ -119,10 +134,17 @@ class Embedder(WarmedInBackground):
             return self._client
 
     def _request(self, key: str, text: str) -> list:
+        return self._request_all(key, [text])[0]
+
+    def _request_all(self, key: str, texts: list) -> list:
+        """One request for all the texts; their vectors in the texts' order."""
         response = self._http().post(self.URL, headers={"Authorization": f"Bearer {key}"},
-                                     json={"model": settings.EMBEDDING_MODEL, "input": text})
+                                     json={"model": settings.EMBEDDING_MODEL, "input": texts if len(texts) > 1 else texts[0]})
         response.raise_for_status()
-        return response.json()["data"][0]["embedding"]
+        rows = sorted(response.json()["data"], key=lambda row: row.get("index", 0))
+        if len(rows) != len(texts):
+            raise ValueError("embeddings")
+        return [row["embedding"] for row in rows]
 
     def _slot(self, question: str) -> bytes:
         return hashlib.blake2b(question.encode("utf-8"), key=self._digest_key, digest_size=16).digest()
@@ -154,27 +176,38 @@ class Embedder(WarmedInBackground):
                 pass
 
     def __call__(self, question: str) -> Optional[list]:
+        return self.all([question])[0]
+
+    def all(self, texts: list) -> list:
+        """The vectors of several texts, in their order, from ONE request for those not in the cache (the
+        question and its other-language text travel together). A text whose vector cannot be made gets None."""
         key = config.OPENAI_API_KEY
         if not key:
-            return None
-        slot = self._slot(question)
+            return [None] * len(texts)
+        slots = [self._slot(text) for text in texts]
+        found: dict = {}
         with self._lock:
-            if slot in self._cache:
-                self._cache.move_to_end(slot)
-                return self._cache[slot]
-        for _attempt in (1, 2):
-            try:
-                vector = self._request(key, question)
-                with self._lock:
-                    self._cache[slot] = vector
-                    while len(self._cache) > self._size:
-                        self._cache.popitem(last=False)
-                self.state = "connected"
-                return vector
-            except Exception as exc:
-                log.warning("embedding failed: %s", type(exc).__name__)
-        self.state = "unavailable"
-        return None
+            for slot in slots:
+                if slot in self._cache:
+                    self._cache.move_to_end(slot)
+                    found[slot] = self._cache[slot]
+        missing = [(slot, text) for slot, text in dict(zip(slots, texts)).items() if slot not in found]
+        if missing:
+            for _attempt in (1, 2):
+                try:
+                    vectors = self._request_all(key, [text for _, text in missing])
+                    with self._lock:
+                        for (slot, _), vector in zip(missing, vectors):
+                            self._cache[slot] = found[slot] = vector
+                        while len(self._cache) > self._size:
+                            self._cache.popitem(last=False)
+                    self.state = "connected"
+                    break
+                except Exception as exc:
+                    log.warning("embedding failed: %s", type(exc).__name__)
+            else:
+                self.state = "unavailable"
+        return [found.get(slot) for slot in slots]
 
 
 # --------------------------------------------------------------------------- 2. catalogue
@@ -297,9 +330,11 @@ class Literature(WarmedInBackground):
             except Exception:
                 pass
 
-    def search(self, question: str, vector: Optional[list]) -> list:
+    def search(self, question: str, vector: Optional[list], limit: Optional[int] = None) -> list:
+        """The nearest passages to one text, best first: at most ``limit`` (ASK_PASSAGES when not given)."""
         from weaviate.classes.query import MetadataQuery
 
+        limit = limit or settings.ASK_PASSAGES
         last = "unknown"
         for attempt in (1, 2):
             try:
@@ -313,17 +348,18 @@ class Literature(WarmedInBackground):
                 collection = client.collections.get(config.OXCART_COLLECTION)
                 if vector:
                     result = collection.query.near_vector(
-                        near_vector=vector, limit=settings.ASK_PASSAGES, target_vector=settings.VECTOR_NAME or None,
+                        near_vector=vector, limit=limit, target_vector=settings.VECTOR_NAME or None,
                         return_properties=PASSAGE_PROPERTIES, return_metadata=MetadataQuery(distance=True))
                 else:
                     result = collection.query.bm25(
-                        query=question, limit=settings.ASK_PASSAGES,
+                        query=question, limit=limit,
                         return_properties=PASSAGE_PROPERTIES, return_metadata=MetadataQuery(score=True))
                 passages = []
                 for o in result.objects:
                     p = o.properties
                     score = (1.0 - o.metadata.distance) if vector and o.metadata.distance is not None else o.metadata.score
-                    passages.append({"doc_id": p.get("doc_id"), "page": p.get("page_number"),
+                    passages.append({"id": str(o.uuid) if getattr(o, "uuid", None) else None,
+                                     "doc_id": p.get("doc_id"), "page": p.get("page_number"),
                                      "chunk_type": p.get("chunk_type"),
                                      "text": p.get("text_original") or p.get("text") or "",
                                      "score": round(float(score), 4) if score is not None else None})
@@ -367,8 +403,9 @@ def excerpt(text: str, question: str, limit: int) -> tuple[str, bool]:
     """At most `limit` characters of a passage: the stretch that shares the most words with the question.
 
     No model: words are compared as written, so a question in one language finds nothing in a
-    passage in the other, and then the passage's start is shown, as `clip` does. The start is
-    also kept whenever it shares as many words as any other stretch. Otherwise the stretch is
+    passage in the other, and then the passage's start is shown, as `clip` does. That is why the
+    caller gives the question's text in the passage's own language when it has it (`wanted_for`).
+    The start is also kept whenever it shares as many words as any other stretch. Otherwise the stretch is
     the middle one of the first run of best stretches, so the shared words sit inside it and
     not at its edge. A stretch starts at a word.
     """
@@ -401,12 +438,84 @@ def _without_vectors(value: Any) -> Any:
     return value
 
 
+# --------------------------------------------------------------------------- two lists into one
+RRF_K = 60          # the constant of reciprocal rank fusion, as in the paper that named it (Cormack et al., 2009)
+
+
+def _same_passage(passage: dict) -> Any:
+    """What tells one stored passage from another: its id in the store, or, for a list that carries none,
+    its document, page and text."""
+    return passage.get("id") or (passage.get("doc_id"), passage.get("page"), passage.get("text"))
+
+
+def fuse(lists: list, names: list) -> list:
+    """Reciprocal rank fusion of ranked lists of passages. A passage scores 1 / (RRF_K + rank) in each list that
+    holds it (rank 1 is the first); the scores are added and the passages put in that order, each once. Between
+    equal scores the passage with the better rank goes first, then the one of the earlier list: the question's
+    own list is the first, so its passage leads a tie with the other language's. ``join`` decides which
+    passages are shown; this gives their order.
+
+    Each passage keeps the fields of its best-ranked appearance, its highest ``score`` (the similarity to the
+    text that found it; the fusion does not use it), and ``found``: the names of the lists that hold it.
+    The fusion looks at ranks only: it does not know how good a passage is."""
+    merged: dict = {}
+    for order, (passages, name) in enumerate(zip(lists, names)):
+        seen = set()
+        for rank, passage in enumerate(passages, start=1):
+            key = _same_passage(passage)
+            if key in seen:                         # one list naming a passage twice: its first rank counts
+                continue
+            seen.add(key)
+            entry = merged.get(key)
+            if entry is None:
+                merged[key] = {"passage": dict(passage), "rrf": 1.0 / (RRF_K + rank), "best": (rank, order), "found": [name]}
+                continue
+            entry["rrf"] += 1.0 / (RRF_K + rank)
+            entry["found"].append(name)
+            scores = [x for x in (entry["passage"].get("score"), passage.get("score")) if x is not None]
+            if (rank, order) < entry["best"]:
+                entry["best"], entry["passage"] = (rank, order), dict(passage)
+            if scores:
+                entry["passage"]["score"] = max(scores)
+    ranked = sorted(merged.values(), key=lambda entry: (-entry["rrf"], entry["best"]))
+    return [{**entry["passage"], "found": entry["found"]} for entry in ranked]
+
+
+def join(own: list, other: list, keep: int, extra: int) -> list:
+    """The passages shown when the literature was searched with both texts, best first.
+
+    ``own`` is the question's list and ``other`` the list of its text in the other language. The first ``keep``
+    of the question's list are all kept. Up to ``extra`` passages of the other list are added: its best ones,
+    looked for among its first ``keep + extra``, that are not already among them (there are always that many
+    there). The chosen passages are then put in the order of reciprocal rank fusion of those two lists, so one
+    that both searches found goes first. Each carries ``found``, as ``fuse`` gives it."""
+    mine, theirs = own[:keep], other[:keep + extra]
+    chosen = {_same_passage(p) for p in mine}
+    added = 0
+    for passage in theirs:
+        if added >= extra:
+            break
+        key = _same_passage(passage)
+        if key not in chosen:
+            chosen.add(key)
+            added += 1
+    return [p for p in fuse([mine, theirs], ["question", "translation"]) if _same_passage(p) in chosen]
+
+
+def wanted_for(passage_text: str, texts: dict) -> str:
+    """The question's text an excerpt is chosen with: the one in the passage's own language. ``texts`` is
+    {"es": .., "en": ..} with one or both; a passage whose language cannot be told, or is not among them, is
+    compared with every text there is."""
+    return texts.get(language.of_passage(passage_text) or "") or " ".join(texts.values())
+
+
 # The searches run on two pools that live as long as the process, one per store, so a store that hangs fills
-# only its own pool and the other store still answers. Four threads each: a question uses one of each, the
-# demo's limits let a handful of questions run at once, and a store that hangs holds at most four threads
-# (a question that finds its store's pool full waits for a free thread and meets its deadline).
+# only its own pool and the other store still answers. A question uses one thread of the catalogue's and one
+# or two of the literature's (one search per language); the demo's limits let a handful of questions run at
+# once, and a store that hangs holds at most its own pool (a question that finds its store's pool full waits
+# for a free thread and meets its deadline).
 _CATALOGUE = ThreadPoolExecutor(max_workers=4, thread_name_prefix="catalogue")
-_LITERATURE = ThreadPoolExecutor(max_workers=4, thread_name_prefix="literature")
+_LITERATURE = ThreadPoolExecutor(max_workers=8, thread_name_prefix="literature")
 
 
 def _timed(name: str, fn: Callable[[], list]) -> tuple[Optional[list], int]:
@@ -422,28 +531,55 @@ def _timed(name: str, fn: Callable[[], list]) -> tuple[Optional[list], int]:
         return None, int((time.time() - t) * 1000)
 
 
-def answer(question: str, deps: AskDeps) -> dict:
-    """Run the three steps. Raises Unavailable only when neither store answered in time."""
+def _other(lang: str) -> str:
+    return "en" if lang == "es" else "es"
+
+
+def answer(question: str, deps: AskDeps, also: Optional[dict] = None) -> dict:
+    """Run the three steps. Raises Unavailable only when neither store answered in time.
+
+    ``also`` is the question in the other language, {"question": str, "lang": "es" | "en"}: the literature is
+    then searched once per text and the two lists are fused (the module's note). The answer says so in
+    ``searches``: both texts, each with its language and whether its search answered."""
     started = time.time()
     timings: dict[str, int] = {}
+    second = " ".join(str((also or {}).get("question") or "").split())
+    keep, extra = settings.ASK_PASSAGES, max(0, settings.ASK_PASSAGES_OTHER_LANGUAGE)
+    if (not second or second.casefold() == question.casefold() or (also or {}).get("lang") not in ("es", "en")
+            or extra == 0):
+        also, second = None, ""
+    texts = [question] + ([second] if also else [])
 
     t0 = time.time()
     try:
-        vector = deps.embed(question)
+        if also and deps.embed_all is not None:
+            vectors = list(deps.embed_all(texts))
+        else:
+            vectors = [deps.embed(text) for text in texts]
     except Exception as exc:
         log.warning("embedding failed: %s", type(exc).__name__)
-        vector = None
+        vectors = []
+    vectors = (vectors + [None] * len(texts))[:len(texts)]
+    vector = vectors[0]
     timings["embedding_ms"] = int((time.time() - t0) * 1000)
     if vector:
         embedding_mode = "ok"
     else:
         embedding_mode = "failed" if config.OPENAI_API_KEY else "not configured"
+    if also and bool(vectors[1]) != bool(vector):
+        # one text with a vector and one without would mix a vector list and a keyword list: the question alone
+        also, texts, vectors = None, texts[:1], vectors[:1]
 
     # Both stores at once, each on the process's pool for that store, each with a deadline. A store that has
     # not answered by it is unavailable for this question; its thread is not waited for, and what it returns
-    # later is dropped.
-    futures = {"catalogue": _CATALOGUE.submit(_timed, "catalogue", lambda: deps.lookup(question, vector)),
-               "literature": _LITERATURE.submit(_timed, "literature", lambda: deps.search(question, vector))}
+    # later is dropped. With a second text the literature is searched twice, side by side: the question's
+    # search returns what it returned before, the other's as many and the few that can be added (``join``).
+    futures = {"catalogue": _CATALOGUE.submit(_timed, "catalogue", lambda: deps.lookup(question, vector))}
+    if also:
+        futures["literature"] = _LITERATURE.submit(_timed, "literature", lambda: deps.search(question, vector, keep))
+        futures["literature_also"] = _LITERATURE.submit(_timed, "literature", lambda: deps.search(second, vectors[1], keep + extra))
+    else:
+        futures["literature"] = _LITERATURE.submit(_timed, "literature", lambda: deps.search(question, vector))
     submitted = time.time()
     concurrent.futures.wait(futures.values(), timeout=settings.ASK_STORE_SECONDS)
     found: dict = {}
@@ -457,18 +593,39 @@ def answer(question: str, deps: AskDeps) -> dict:
             log.warning("%s deadline", name)
     issues, passages = found["catalogue"], found["literature"]
 
+    searches = None
+    if also:
+        other = found["literature_also"]
+        own_lang = _other(also["lang"])
+        searches = [{"question": question, "lang": own_lang, "state": "unavailable" if passages is None else "ok"},
+                    {"question": second, "lang": also["lang"], "state": "unavailable" if other is None else "ok"}]
+        shown_at_most = keep
+        if passages is not None and other is not None:
+            passages = join(passages, other, keep, extra)
+            shown_at_most = keep + extra
+        elif other is not None:                 # the question's own search failed: the other list alone
+            passages = [{**p, "found": ["translation"]} for p in other]
+        elif passages is not None:              # ... or the other one did
+            passages = [{**p, "found": ["question"]} for p in passages]
+
     if issues is None and passages is None:
         raise Unavailable("both stores")
 
+    by_lang = {searches[0]["lang"]: question, searches[1]["lang"]: second} if searches else None
     shown = []
     with_figures = figures.on()
-    for p in passages or []:
+    for p in (passages or [])[: shown_at_most if searches else keep]:
+        whole = tidy(p.get("text", ""))
         if settings.ASK_EXCERPT == "nearest":
-            text, clipped = excerpt(tidy(p.get("text", "")), question, settings.ASK_TEXT_LIMIT)
+            text, clipped = excerpt(whole, wanted_for(whole, by_lang) if by_lang else question, settings.ASK_TEXT_LIMIT)
         else:
-            text, clipped = clip(tidy(p.get("text", "")), settings.ASK_TEXT_LIMIT)
+            text, clipped = clip(whole, settings.ASK_TEXT_LIMIT)
         entry = {"doc_id": p.get("doc_id"), "page": p.get("page"), "chunk_type": p.get("chunk_type"),
                  "text": text, "clipped": clipped, "score": p.get("score")}
+        if searches:
+            # the passage's own language, by its words (None: it cannot be told), and which search found it
+            entry["lang"] = language.of_passage(whole)
+            entry["found"] = p.get("found") or []
         if with_figures:
             # the figures the whole stored passage names, not only its shown excerpt: by digest, never by name
             named = figures.of_passage(p.get("text", ""))
@@ -484,7 +641,8 @@ def answer(question: str, deps: AskDeps) -> dict:
             "literature": "unavailable" if passages is None else ("vector" if vector else "keyword"),
         },
         "issues": _without_vectors(issues or [])[: settings.ASK_ISSUES],
-        "passages": shown[: settings.ASK_PASSAGES],
+        "passages": shown,
+        **({"searches": searches} if searches else {}),
         "timings": timings,
     }
 
@@ -502,6 +660,6 @@ def default_deps(link: GraphLink) -> AskDeps:
         literature.close()
         embedder.close()
 
-    return AskDeps(embed=embedder, lookup=make_lookup(link), search=literature.search,
+    return AskDeps(embed=embedder, embed_all=embedder.all, lookup=make_lookup(link), search=literature.search,
                    verify_human=public_guard.verify_turnstile, close=close, warm=warm,
                    states=lambda: {"literature": literature.state, "embedding": embedder.state})

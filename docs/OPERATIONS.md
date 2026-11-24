@@ -19,10 +19,11 @@ cannot be reached the page shows what the other returned and says which one is m
 ## What the limits are, and what they are not
 
 A visitor may ask 10 questions a minute and 100 a day; the service takes 2,000 questions a day and makes at most
-200 model calls a day (about 4 USD a month at the measured average). A written answer takes one to three of
-those calls: one to write it, one before it for every question after a conversation's first (the page has one
-question box), and one for a web part; a call can also be spent on an answer that is not shown (a timeout, a
-failed call). All of these counts are counters of one process: they live in the server's memory and start again
+200 model calls a day (about 3 USD a month at the measured averages). A written answer takes two or three of
+those calls: the query rewriting before the search, for every question; the call that writes the answer; and
+one for a web part. So 200 calls are about 100 answered questions a day. A call can also be spent on an answer
+that is not shown (a timeout, a failed call, a visitor who left), and the rewriting call is made before it is
+known whether a store answers. All of these counts are counters of one process: they live in the server's memory and start again
 whenever the service restarts, which on a host that puts an idle service to sleep happens many times a day.
 They slow down a running service; they are not a budget. The one limit that cannot be passed is the monthly
 spend limit of the model key's workspace at the provider. It is set there, not in this repository, and kept
@@ -30,9 +31,9 @@ low; when it is reached the page shows the evidence without a written answer.
 
 ## The web part, when it is on
 
-It is on at the hosted demo. It adds a third outside service: the question as it was searched goes to Tavily,
-with fixed words after it; the earlier turns do not, though a follow-up's rewritten question can hold a subject
-named in an earlier turn. The question, the pages the search returned and, for a part answer, the answer already
+It is on at the hosted demo. It adds a third outside service: the question as it was searched, in the visitor's
+language, goes to Tavily, with fixed words after it; its translation and the earlier turns do not, though a
+follow-up's rewritten question can hold a subject named in an earlier turn. The question, the pages the search returned and, for a part answer, the answer already
 given go to Anthropic for one more model call, which counts toward the day's 200; a web request also counts as
 one of the visitor's questions. Settings: `ASK_WEB` and `TAVILY_API_KEY` on the backend, `NEXT_PUBLIC_WEB` in
 the page's build, `WEB_QUERY_SUFFIX` for the fixed words. Pages of video and social sites, of marketplaces and
@@ -53,11 +54,12 @@ its ticket, so it can hold that answer back by up to its timeout, 4 s, at most o
 
 ## What is in place for running it as a service
 
-- The explorer's query path calls no language model. The written answer of the question page does: one call to
-  write it, measured at 0.0007 USD a question on average and 0.0014 USD at most, and for every question after a
-  conversation's first one small call before the search, about 0.0001 USD, which says whether the question
-  needs the earlier turns and rewrites it only then
-  ([EVALUATION.md](../EVALUATION.md#written-answers)), and one more for a web part. These costs are the answer
+- The explorer's query path calls no language model. The written answer of the question page does, twice for
+  every question: one small call before the search (query rewriting: it makes a follow-up stand alone and gives
+  the question in the other of Spanish and English), measured at 0.00018 USD and 1.0 s (median), and one call to
+  write the answer from up to seven passages, 0.0008 USD on average; together 0.001 USD a question on average
+  and 0.0016 USD at most ([EVALUATION.md](../EVALUATION.md#the-literature-in-both-languages)). A web part takes
+  one more. These costs are the answer
   model's only; the question's embedding and a web search are paid apart. Without a key the page works and
   shows the evidence only.
 - Both stores are used read-only.
@@ -77,6 +79,7 @@ its ticket, so it can hold that answer back by up to its timeout, 4 s, at most o
 
 The hosted demo serves the question path only: a human check before the first question, limits per visitor and
 for the whole service, and a subset of the index that fits a free hosting tier, chosen and measured in
-[EVALUATION.md](../EVALUATION.md). What it caches: the vectors of the last 256 questions, in memory, under a
-digest of each question and with no text, so a repeated question is not embedded twice. No answer is cached, and
+[EVALUATION.md](../EVALUATION.md). What it caches: the vectors of the last 256 texts it searched (a question and its
+translation are two), in memory, under a digest of each text and with no text, so a repeated question is not
+embedded twice. No answer is cached, and
 no question's text or conversation is kept between requests.

@@ -16,7 +16,9 @@ counts as a question there.
 The answer comes as lines of JSON (``application/x-ndjson``), sent as they are ready:
 
     {"type": "evidence", "rewritten": false, "evidence": {...}}    what POST /api/ask returns, for the question
-                                                                  that was searched (``evidence.question``)
+                                                                  that was searched (``evidence.question``); with
+                                                                  ``evidence.searches`` when the literature was
+                                                                  searched in both languages (ask_service.py)
     {"type": "answer", "answer": {"state": "ok", "sentences": [...], "sources": [...]}, "calls": [...]}
 
 ``answer.state`` is "ok", "not_covered" (the evidence does not answer the question), or
@@ -32,9 +34,14 @@ refused for want of a store, or the visitor left before the answer line), the gr
 (``Deps.gone``) and makes no model call and takes none from the day's allowance. The answer
 is waited for at most ``answer_wait_seconds()`` after the evidence; past it, it says "failed".
 
+Every question passes the rewriting step first (``answer_graph.contextualize``): one model
+call before the search, which makes a follow-up stand alone and gives the question in the
+other of the two languages. So a question takes two model calls, and the first is made
+before it is known whether a store answers or the visitor stays.
+
 The earlier turns come from the browser, which is where a conversation is kept. They are
-bounded here and read by one step only (``answer_graph.contextualize``). Nothing of a
-request is kept after its answer, and neither a question nor an answer is logged.
+bounded here and read by that one step only. Nothing of a request is kept after its answer,
+and neither a question nor an answer is logged.
 """
 
 from __future__ import annotations
@@ -130,7 +137,7 @@ def _the_answer(out: "queue.Queue", seen: dict, deadline: float) -> dict:
 
 def answer_wait_seconds() -> float:
     """How long the answer is waited for once the evidence was sent: the one model call left (``write``; the
-    rewrite of a follow-up was made before the evidence, inside ASK_TIMEOUT_SECONDS), as many times as the
+    rewriting call was made before the evidence, inside ASK_TIMEOUT_SECONDS), as many times as the
     SDK makes it, and a margin. Past it the answer says "failed"."""
     return settings.ANSWER_TIMEOUT_SECONDS * (answer_model.MAX_RETRIES + 1) + ANSWER_WAIT_MARGIN_SECONDS
 
@@ -160,7 +167,7 @@ async def chat(payload: ChatRequest, request: Request) -> StreamingResponse:
         raise ApiError(429, reason, MESSAGES[reason], wait)
 
     state = request.app.state
-    deps = answer_graph.Deps(retrieve=lambda q: ask_service.answer(q, state.ask),
+    deps = answer_graph.Deps(retrieve=lambda q, also=None: ask_service.answer(q, state.ask, also),
                              model=state.answer_model, take=state.answer_allowance.take,
                              evidence_sent=threading.Event())
     asked = {"question": question,
@@ -203,6 +210,7 @@ async def chat(payload: ChatRequest, request: Request) -> StreamingResponse:
             log.info(json.dumps({"event": "chat", "request_id": getattr(request.state, "request_id", None),
                                  "who": "eval" if visitor is None else "visitor", "chars": len(question),
                                  "turns": len(payload.thread), "rewritten": bool(seen.get("rewritten")),
+                                 "texts_searched": len(evidence.get("searches") or []) or 1,
                                  "mode": evidence["mode"], "issues": len(evidence["issues"]),
                                  "passages": len(evidence["passages"]), "timings": evidence["timings"],
                                  "answer": answer["state"], "counts": answer.get("counts"),

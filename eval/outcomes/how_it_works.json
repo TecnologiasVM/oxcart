@@ -73,11 +73,6 @@
   "run": "one question as a share of the catalogue questions (1 of 80: 1.25 points) and of each part of the sealed set (1 of 20: 5 points)",
   "stated": "EVALUATION.md, \"Read this first\" (its last item, which gives the size of one question for every set)"
  },
- "after_first_question": {
-  "usd": 0.0008,
-  "run": "a question after a conversation's first, with the page's one question box: one more model call, measured on 85 questions on the development machine",
-  "stated": "EVALUATION.md, \"Cost and waits\" (the paragraph \"Since the page has one question box\")"
- },
  "spend_limit": {
   "run": "the monthly spend limit of the model key's workspace, set at the provider and kept low; its amount is not published",
   "stated": "docs/OPERATIONS.md, \"What the limits are, and what they are not\" (not in EVALUATION.md)"

@@ -24,6 +24,8 @@ export type Passage = {
   text: string;
   clipped: boolean;
   score: number | null;
+  lang?: "es" | "en" | null; // the passage's own language, told by its words; only when both languages were searched
+  found?: string[]; // which of the two searches returned it: "question", "translation" or both
   figures?: Figure[]; // the figures the passage's page carries, by id (lib/figures.ts); only when the backend names some
 };
 
@@ -54,11 +56,15 @@ export type Issue = {
   card: IssueCard | null;
 };
 
+/** One of the two texts the literature was searched with: the question, then the question in the other language. */
+export type Search = { question: string; lang: "es" | "en"; state: "ok" | "unavailable" };
+
 export type AskAnswer = {
   question: string;
   mode: Mode;
   issues: Issue[];
   passages: Passage[];
+  searches?: Search[]; // both texts, when the literature was searched in both languages
   timings: Record<string, number>;
 };
 
@@ -181,7 +187,20 @@ function clean(answer: AskAnswer): AskAnswer {
     const kept = keepFigures(figures);
     return kept ? { ...rest, figures: kept } : rest;
   });
-  return { ...answer, issues: stripVectors(answer.issues ?? []), passages };
+  const { searches, ...rest } = answer;
+  const both = keepSearches(searches);
+  return { ...rest, issues: stripVectors(answer.issues ?? []), passages, ...(both ? { searches: both } : {}) };
+}
+
+/** The two searched texts, kept only when they are what the backend sends: two entries, each a text and a language. */
+function keepSearches(value: unknown): Search[] | null {
+  if (!Array.isArray(value) || value.length !== 2) return null;
+  const out: Search[] = [];
+  for (const v of value) {
+    if (!v || typeof v.question !== "string" || !v.question.trim() || (v.lang !== "es" && v.lang !== "en")) return null;
+    out.push({ question: v.question, lang: v.lang, state: v.state === "unavailable" ? "unavailable" : "ok" });
+  }
+  return out;
 }
 
 /**
@@ -224,7 +243,8 @@ export async function ask(question: string, session: string | null): Promise<Ask
 /**
  * One question through the route that also writes an answer. The response is lines of
  * JSON sent as they are ready: the evidence first (`onEvidence` is called with it, and with
- * whether a follow-up was rewritten before it was searched), then the written answer and
+ * whether a follow-up was rewritten before it was searched; the evidence itself says which two
+ * texts were searched, `searches`), then the written answer and
  * the model calls made for it, which is what this resolves to.
  *
  * `thread` holds the earlier turns of the conversation when the question is a follow-up;

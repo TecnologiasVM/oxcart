@@ -3,6 +3,7 @@ import { formatDate } from "../lib/evidence-text";
 import { webOn } from "../lib/web";
 import {
   ANSWER,
+  CALLS,
   ISSUE,
   LONG,
   STORED,
@@ -76,8 +77,10 @@ test("the privacy line stands by the box, and Details unfolds the full paragraph
   // the web search service is named only in a build that asks for the web part (tests-e2e/web.spec.ts)
   if (WEB_BUILD) await expect(full).toContainText("When our sources cover only part of a question, or none of it, the question is also sent to Tavily (to search the web).");
   else await expect(full).not.toContainText("Tavily");
-  // what the server holds of a question: the vectors of the last 256, in memory, with no text (backend: Embedder)
-  await expect(full).toContainText("last 256 questions");
+  // what the server holds of a question: the vectors of the last 256 texts, in memory, with no text (backend: Embedder)
+  await expect(full).toContainText("last 256 texts it searched by meaning (their vectors; a question and its translation are two)");
+  // the order in which a question leaves the server: the answer's model first, for every question, then the search
+  await expect(full).toContainText("are first sent to Anthropic (to put the question in the other of Spanish and English, and to make a follow-up stand alone); the question and that translation are sent to OpenAI (to search by meaning); then your question and the evidence shown are sent to Anthropic (to write the answer)");
   await expect(full).toContainText("writes nothing to disk");
   // the footer is one line, with no company name; "How it works" is the site's own page, the source the repository
   const footer = page.locator("footer.site-foot");
@@ -1245,3 +1248,87 @@ for (const width of [360, 820]) {
     expect(seen.some((s) => s.includes("Delete this conversation"))).toBe(true);
   });
 }
+
+/* Both languages: the literature is searched with the question and with its text in the other language. */
+const BOTH = {
+  ...ANSWER,
+  question: "Who printed the test issue?",
+  searches: [
+    { question: "Who printed the test issue?", lang: "en", state: "ok" },
+    { question: "¿Quién imprimió la emisión de prueba?", lang: "es", state: "ok" },
+  ],
+  passages: [
+    { ...ANSWER.passages[0], lang: "en", found: ["question", "translation"] },
+    { doc_id: "UN DOCUMENTO", page: 4, chunk_type: "text", text: "Un pasaje inventado en español.", clipped: false, score: 0.7, lang: "es", found: ["translation"] },
+    { doc_id: "A LIST", page: 9, chunk_type: "text", text: "1 2 3", clipped: false, score: 0.6, lang: null, found: ["question"] },
+  ],
+};
+const TWO_CALLS = [{ purpose: "rewrite", state: "ok", input_tokens: 1400, output_tokens: 60, seconds: 1.1 }, ...CALLS];
+
+test("the page shows the second text the search used, and each passage in its own language", async ({ page }) => {
+  await mock(page);
+  await page.unroute("**/api/chat");
+  await page.route("**/api/chat", (route) =>
+    route.fulfill({ contentType: "application/x-ndjson", body: lines(WRITTEN, BOTH, false, TWO_CALLS) }));
+  await page.goto("/");
+  await ask(page, "Who printed the test issue?");
+  const turn = newest(page);
+  await expect(turn.getByTestId("written-answer")).toBeVisible();
+  // a first question was not rewritten: no "Searched as", and the other-language text under the question
+  await expect(turn.getByTestId("searched-as")).toHaveCount(0);
+  const also = turn.getByTestId("searched-also");
+  await expect(also).toHaveText("Also searched in Spanish: “¿Quién imprimió la emisión de prueba?”");
+  await expect(also.locator("span")).toHaveAttribute("lang", "es");
+  // Evidence: a passage in the other language says so and carries its language; nothing is translated
+  await turn.getByTestId("evidence-button").click();
+  await page.getByTestId("tab-found").click();
+  const passages = panel(page).getByTestId("passage");
+  await expect(passages).toHaveCount(3);
+  await expect(passages.nth(1).getByTestId("passage-lang")).toHaveText("in Spanish");
+  await expect(passages.nth(0).getByTestId("passage-lang")).toHaveCount(0);
+  await expect(passages.nth(2).getByTestId("passage-lang")).toHaveCount(0);        // a language that cannot be told: no label
+  await passages.nth(1).locator("summary").click();
+  await expect(passages.nth(1).locator(".ev-passage__text")).toHaveAttribute("lang", "es");
+  await expect(passages.nth(1).locator(".ev-passage__text")).toHaveText("Un pasaje inventado en español.");
+  // how it was made: the rewriting step with its call, and the fusion named in its usual term
+  await page.getByTestId("tab-made").click();
+  const step = panel(page).getByTestId("step-rewrite");
+  await expect(step).toContainText("Query rewriting");
+  await expect(step).toContainText("Also searched in Spanish: “¿Quién imprimió la emisión de prueba?”");
+  await expect(step).toContainText("rewrite");
+  await expect(panel(page).getByTestId("fused-line")).toContainText("reciprocal rank fusion (RRF)");
+  await expect(panel(page).getByTestId("search-down")).toHaveCount(0);
+  // a picture of the turn and its Evidence, to be looked at (kept under test-results, not committed)
+  await page.getByTestId("tab-found").click();
+  await page.screenshot({ path: "test-results/both-languages.png", fullPage: true });
+  await page.getByTestId("tab-made").click();
+  // in Spanish the same lines
+  await page.getByTestId("lang-toggle").click();
+  await expect(also).toContainText("También se buscó en español:");
+  await expect(panel(page).getByTestId("fused-line")).toContainText("fusión de rangos recíprocos (RRF)");
+});
+
+test("when one of the two searches did not answer the page says which, and a turn searched with one text says nothing", async ({ page }) => {
+  await mock(page);
+  await page.unroute("**/api/chat");
+  const down = { ...BOTH, searches: [BOTH.searches[0], { ...BOTH.searches[1], state: "unavailable" }], passages: [BOTH.passages[0]] };
+  let evidence: object = down;
+  await page.route("**/api/chat", (route) =>
+    route.fulfill({ contentType: "application/x-ndjson", body: lines(WRITTEN, evidence, false, TWO_CALLS) }));
+  await page.goto("/");
+  await ask(page, "Who printed the test issue?");
+  await expect(newest(page).getByTestId("searched-also")).toBeVisible();
+  await newest(page).getByTestId("evidence-button").click();
+  await page.getByTestId("tab-made").click();
+  await expect(panel(page).getByTestId("search-down")).toHaveText("The search in Spanish did not answer: the passages come from the other one.");
+  // the rewriting call failed or was late: one text, as before; the step still shows its call
+  evidence = ANSWER;
+  await ask(page, "And another question?");
+  await expect(newest(page).getByTestId("written-answer")).toBeVisible();
+  await expect(newest(page).getByTestId("searched-also")).toHaveCount(0);
+  await newest(page).getByTestId("evidence-button").click();
+  await page.getByTestId("tab-made").click();
+  await expect(panel(page).getByTestId("step-rewrite")).toContainText("rewrite");
+  await expect(panel(page).getByTestId("fused-line")).toHaveCount(0);
+  await expect(panel(page).getByTestId("search-down")).toHaveCount(0);
+});

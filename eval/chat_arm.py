@@ -14,7 +14,9 @@ so the retrieval counts of the two routes can be compared with the same scorer.
 
 `table` prints, from that file and the judge's grades when they are given:
 
-- retrieval through this route (it must equal the question path's);
+- retrieval through this route (a page that answers among the passages shown for the question);
+- the languages of the shown passages: how many are in the other language than the question, and how many
+  questions get passages in both (the passage's language is told by its words, oxcart/language.py);
 - how each question ended (answered, not covered, or the reason nothing was written), by
   part and by language;
 - the share of the answers' sentences that carried no citation;
@@ -27,7 +29,8 @@ so the retrieval counts of the two routes can be compared with the same scorer.
 `--publish` writes eval/outcomes/answers_<label>.json: ids, states, counts, token counts,
 grades, whether each answer carried a ticket for the web step (`web_ticket`, never the
 ticket itself), and a summary of the run: retrieval through this route (counts) and the two
-waits (median and 95th percentile). No question's answer and no passage.
+waits (median and 95th percentile), the languages of the shown passages (counts) and each kind of model call
+(seconds, tokens, cost). No question's answer and no passage.
 """
 
 from __future__ import annotations
@@ -43,6 +46,7 @@ import urllib.request
 from pathlib import Path
 
 from eval import ask_arm, catalogue_arm, measures, stores
+from oxcart import language
 
 API = os.environ.get("OXCART_API", "http://127.0.0.1:8090").rstrip("/")
 OUT = stores.REPO / "local-data" / "eval" / "chat"
@@ -150,10 +154,15 @@ def _load(label: str) -> list:
 
 
 def retrieval_counts(rows: list, literature: list, catalogue: list, drafts_left_out: int = 0) -> dict:
-    """The question path's own scoring, on the evidence this route returned: counts only."""
+    """The question path's own scoring, on the evidence this route returned: counts only.
+
+    A literature question counts when a page graded 2 is among the passages shown for it: five when one text is
+    searched, up to seven when the question's own five are kept and passages of the other language are added.
+    ``k`` is the most passages any question of the run was shown (five at least)."""
     by_id = {r["id"]: r for r in rows if "evidence" in r}
+    k = max([5] + [len(by_id[q["id"]]["evidence"]["passages"]) for q in literature if q["id"] in by_id])
     answered = sum(1 for q in literature if q["id"] in by_id and measures.answer_at(
-        [{"doc_id": p["doc_id"], "page": p["page"]} for p in by_id[q["id"]]["evidence"]["passages"]], q["gold"]["sources"], 5))
+        [{"doc_id": p["doc_id"], "page": p["page"]} for p in by_id[q["id"]]["evidence"]["passages"]], q["gold"]["sources"], k))
     first = three = n = 0
     for q in catalogue:
         if q["id"] not in by_id:
@@ -165,9 +174,49 @@ def retrieval_counts(rows: list, literature: list, catalogue: list, drafts_left_
         found = bool(rank and catalogue_arm.fact_in_card(q, issues[rank - 1]["card"]))
         first += bool(rank == 1 and found)
         three += found
-    return {"literature": {"k": 5, "answered_in_first_k": answered, "questions": len(literature),
+    return {"literature": {"k": k, "answered_in_first_k": answered, "questions": len(literature),
                            "asked": sum(1 for q in literature if q["id"] in by_id), "drafts": len(literature) + drafts_left_out},
             "catalogue": {"issue_first_with_fact": first, "issue_in_first_three_with_fact": three, "asked": n}}
+
+
+def language_counts(rows: list) -> dict:
+    """The languages of the shown passages, by part and by the question's language: counts only.
+
+    A passage's language is told from its shown text by its function words (oxcart/language.py); one that cannot
+    be told (a list, a table, too few such words) is neither. ``both`` counts the questions whose shown passages
+    hold at least one in Spanish and one in English; ``two_texts`` those the backend searched with two texts."""
+    out: dict = {}
+    for r in rows:
+        if "evidence" not in r or r["part"] == "threads":
+            continue
+        passages = r["evidence"].get("passages") or []
+        langs = [language.of_passage(p.get("text") or "") for p in passages]
+        other = "en" if r["lang"] == "es" else "es"
+        cell = out.setdefault(r["part"], {}).setdefault(r["lang"], {"questions": 0, "passages": 0, "same": 0, "other": 0, "untold": 0,
+                                                                   "other_in_first_five": 0, "with_other": 0, "both": 0, "two_texts": 0})
+        cell["questions"] += 1
+        cell["passages"] += len(langs)
+        cell["same"] += sum(x == r["lang"] for x in langs)
+        cell["other"] += sum(x == other for x in langs)
+        cell["untold"] += sum(x is None for x in langs)
+        cell["other_in_first_five"] += sum(x == other for x in langs[:5])
+        cell["with_other"] += any(x == other for x in langs)
+        cell["both"] += {"es", "en"} <= set(langs)
+        cell["two_texts"] += len(r["evidence"].get("searches") or []) == 2
+    return out
+
+
+def call_summary(rows: list, purpose: str) -> dict:
+    """One kind of model call over the questions asked once: how many, their seconds (median, 95th percentile),
+    mean tokens and mean cost."""
+    calls = [c for r in rows if r["part"] != "threads" for c in r.get("calls", []) if c["purpose"] == purpose]
+    if not calls:
+        return {}
+    s = measures.latency_summary([c["seconds"] for c in calls])
+    return {"n": len(calls), "ok": sum(c["state"] == "ok" for c in calls), "median_seconds": round(s["p50"], 3),
+            "p95_seconds": round(s["p95"], 3), "input_tokens_mean": round(statistics.mean(c["input_tokens"] for c in calls)),
+            "output_tokens_mean": round(statistics.mean(c["output_tokens"] for c in calls)),
+            "usd_mean": round(statistics.mean(cost([c]) for c in calls), 6)}
 
 
 def wait_summary(rows: list) -> dict:
@@ -186,7 +235,7 @@ def _retrieval(label: str, rows: list) -> None:
     counts = retrieval_counts(rows, ask_arm.load("questions_literature.jsonl"), ask_arm.load("questions_catalogue.jsonl"),
                               DRAFTS_LEFT_OUT)
     lit, cat = counts["literature"], counts["catalogue"]
-    print(f"literature: a page that answers in the first five: {lit['answered_in_first_k']} of {lit['questions']} "
+    print(f"literature: a page that answers among the passages shown (at most {lit['k']}): {lit['answered_in_first_k']} of {lit['questions']} "
           f"({lit['answered_in_first_k']} of {lit['drafts']} drafts); asked {lit['asked']}")
     print(f"catalogue: the issue first with the fact in its card: {cat['issue_first_with_fact']} of {cat['asked']}; "
           f"in the first three: {cat['issue_in_first_three_with_fact']} of {cat['asked']}")
@@ -208,6 +257,15 @@ def table(args) -> None:
     print(f"# Written answers, run '{args.label}': {len(single)} questions, {sum(1 for r in rows if r['part'] == 'threads')} threads\n")
     print("## Retrieval through this route\n")
     _retrieval(args.label, single)
+
+    print("\n## The languages of the shown passages\n")
+    print("other = in the other language than the question; both = questions whose shown passages hold Spanish and English.\n")
+    for part, by_lang in language_counts(single).items():
+        for lang, c in sorted(by_lang.items()):
+            n = c["questions"]
+            print(f"{part:<12} {lang:<3} n={n:<3} passages shown {c['passages'] / n:.1f} a question; in the other language "
+                  f"{c['other'] / n:.2f} a question ({c['other_in_first_five'] / n:.2f} among the first five); questions with one "
+                  f"or more {_share(c['with_other'], n)}; with both languages {_share(c['both'], n)}; searched with two texts {c['two_texts']}")
 
     print("\n## How each question ended\n")
     for part in ("catalogue", "literature", "out_of_scope"):
@@ -293,6 +351,11 @@ def table(args) -> None:
         if waits:
             s = measures.latency_summary(waits)
             print(f"wait for the {name}: median {s['p50']:.2f} s, 95th percentile {s['p95']:.2f} s (n={s['n']})")
+    for purpose in ("rewrite", "write"):
+        c = call_summary(rows, purpose)
+        if c:
+            print(f"the {purpose} call of a first question: n={c['n']} (ok {c['ok']}); median {c['median_seconds']:.2f} s, 95th percentile "
+                  f"{c['p95_seconds']:.2f} s; tokens in {c['input_tokens_mean']}, out {c['output_tokens_mean']} (mean); {c['usd_mean']:.6f} USD (mean)")
 
     if args.publish:
         OUTCOMES.mkdir(parents=True, exist_ok=True)
@@ -302,6 +365,8 @@ def table(args) -> None:
             public.append({"id": r["id"], "part": r["part"], "lang": r["lang"],
                            "state": r.get("answer", {}).get("state"), "counts": r.get("answer", {}).get("counts"),
                            "rewritten": r.get("rewritten"),
+                           # how many texts the literature was searched with (2: the question and its other-language text)
+                           "texts_searched": len((r.get("evidence") or {}).get("searches") or []) or 1,
                            # with the web step's setting on: whether the written answer covers all of the question or part
                            **({"covers": r["answer"]["covers"]} if r.get("answer", {}).get("covers") else {}),
                            # whether the answer carried a ticket for the web step (only that it did: never the ticket)
@@ -321,7 +386,9 @@ def table(args) -> None:
                                      DRAFTS_LEFT_OUT)
         path.write_text(json.dumps({"label": args.label, "model": "claude-haiku-5-5", "judge": args.judge,
                                     "usd_per_mtok": {"input": USD_PER_MTOK_IN, "output": USD_PER_MTOK_OUT},
-                                    "summary": {"retrieval": retrieval, "waits": wait_summary(rows)},
+                                    "summary": {"retrieval": retrieval, "waits": wait_summary(rows),
+                                                "languages": language_counts(single),
+                                                "calls": {purpose: call_summary(rows, purpose) for purpose in ("rewrite", "write")}},
                                     "rows": public}, indent=1), encoding="utf-8")
         print(f"\n-> {path.relative_to(stores.REPO)}")
 

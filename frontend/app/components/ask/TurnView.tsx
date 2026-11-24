@@ -42,6 +42,7 @@ type Props = {
 
 export default function TurnView({ turn, t, newest, service, open, storedNote, busy, onEvidence, onAskNow }: Props) {
   const errorText = turn.error ? t.errors[turn.error.code] ?? (turn.error.message || t.errors.unreachable) : "";
+  const also = turn.answer?.searches?.[1]; // the question in the other language, which the literature was searched with too
   return (
     <article className={`turn${newest ? "" : " turn--old"}`} aria-labelledby={`q-${turn.id}`} data-testid="turn" data-turn={turn.id}>
       <header className="turn__q">
@@ -49,6 +50,7 @@ export default function TurnView({ turn, t, newest, service, open, storedNote, b
         <h2 className="turn__text" id={`q-${turn.id}`} lang={turn.lang}>{turn.question}</h2>
         {turn.stored && <span className="ask-chip" data-testid="stored-tag">{t.stored}</span>}
         {turn.rewritten && turn.answer && <p className="turn__as" data-testid="searched-as">{t.searchedAs} “{turn.answer.question}”</p>}
+        {also && <p className="turn__as" data-testid="searched-also">{t.searchedAlso(also.lang)} <span lang={also.lang}>“{also.question}”</span></p>}
       </header>
       {turn.check === "waiting" ? (
         // the check's words and its room stand right under this question (Chat.tsx, `.check`)

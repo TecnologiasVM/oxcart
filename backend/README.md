@@ -76,14 +76,41 @@ One question in, the evidence out, for any issue. No written answer.
    lookup runs without it and the log says so.
 3. The literature store is searched: `near_vector` with the embedding, `bm25` without it.
 
-Steps 2 and 3 run side by side. The answer carries `issues` (three), `passages` (five, text clipped to 700
-characters), `timings`, and a `mode` block that says what produced each part: `embedding` (`ok`, `failed`,
+Steps 2 and 3 run side by side. The answer carries `issues` (three), `passages` (five, or up to seven when the
+literature was searched in both languages, below; text clipped to 700 characters), `timings`, and a `mode` block that says what produced each part: `embedding` (`ok`, `failed`,
 `not configured`), `catalogue` (`vector index`, `full-text index`, `unavailable`), `literature` (`vector`,
 `keyword`, `unavailable`). A store that cannot be reached costs its own block only; the question fails (503) when
 neither answers. A store that has not answered within `ASK_STORE_SECONDS` (12 s) counts as unavailable for that
 question, and the other's evidence is returned: a store that hangs does not hold back the other. The searches run
-on two pools of four threads that live as long as the process, one per store; a late search is not waited for
-and what it returns is dropped.
+on two pools of threads that live as long as the process, one per store (four for the catalogue, eight for the
+literature); a late search is not waited for and what it returns is dropped.
+
+**The literature in both languages (multi-query retrieval, reciprocal rank fusion).** The publications are in
+Spanish and in English, and a question's vector brings back passages of its own language almost only
+([EVALUATION.md](../EVALUATION.md#the-literature-in-both-languages)). `ask_service.answer` therefore takes an
+optional second text, the question in the other language, which the written answer's first step makes (below);
+this route has no model and gives none, so `POST /api/ask` searches one text. With a second text:
+
+- both texts are embedded in one request;
+- the catalogue lookup keeps the question's own text and vector;
+- the literature is searched once per text, side by side;
+- the question's own `ASK_PASSAGES` (5) are always kept, so no passage that one search showed before is lost to
+  the other language; up to `ASK_PASSAGES_OTHER_LANGUAGE` (2) passages of the other text's list are added, its
+  best ones that are not already among them, by a passage's id in the store (`ask_service.join`);
+- the list, seven passages at most, is put in the order of reciprocal rank fusion (`ask_service.fuse`): a
+  passage scores 1 / (60 + its rank) in each list that holds it, and the scores are added, so a passage both
+  searches found goes first. Between equal scores the question's own list goes first;
+- when one of the two searches fails or is late, the other's list is used alone (five passages); with no
+  embedding both texts are searched by keyword.
+
+Joining the two lists and showing the first five of the result was built first and not served: a page that
+answered a question could leave the five ([EVALUATION.md](../EVALUATION.md#the-literature-in-both-languages)).
+
+The answer then carries `searches`, the two texts in order (`question`, `lang`, and `state`: `ok` or
+`unavailable`), and each passage carries `lang` (`es`, `en`, or null when its function words do not tell:
+`oxcart/language.py`) and `found` (`question`, `translation` or both). A passage's `score` is its similarity to
+the text that found it; the fusion uses ranks only and does not look at it. With `ASK_EXCERPT=nearest`, the
+stretch of a long passage that is shown is chosen with the text in the passage's own language.
 
 **Figures.** A figure on a scanned page was cropped to a file of its own, `<document>_page_N_figure_M.png`, and
 the stored text of a passage names the crops of its page (a Markdown image; the reference is dropped from the
@@ -104,8 +131,8 @@ the same evidence followed by a short answer whose sentences cite it. The steps 
 
 | Step | What it does | Model |
 |---|---|---|
-| `contextualize` | Only for a follow-up: rewrites it as a question that stands alone ("and its perforation?" becomes a question that names the issue). If that fails, the question is used as written | one call |
-| `retrieve` | The question path above, unchanged | none |
+| `contextualize` | Query rewriting, for every question: a follow-up is rewritten as a question that stands alone ("and its perforation?" becomes a question that names the issue; one that already stands alone is searched in the visitor's own words), and the question is given in the other of Spanish and English. If the call fails or is late (5 s), or cannot be made (no key, the day's calls spent), the question is searched as written, in its own language only | one call |
+| `retrieve` | The question path above, with the second text: the literature searched once per language, the question's own five passages kept, up to two of the other language added, the list ordered by reciprocal rank fusion | none |
 | `write` | A short answer from the shown evidence, with citations (`app/answer_model.py`) | one call |
 | `check` | Keeps the sentences that carry a citation that holds, drops the others, and names why there is no answer when there is none | none |
 
@@ -117,7 +144,14 @@ the same evidence followed by a short answer whose sentences cite it. The steps 
   follow-up (each answer clipped to 1,200 characters; a request is at most 8 kB). The server keeps no question's
   text and no conversation between two requests, so no visitor's text stays in its memory and nothing of a
   conversation is lost when the service sleeps. What it does keep in memory: the vectors of the last 256
-  questions, under a digest and with no text (the embedding cache, `app/ask_service.py`); no answer is cached.
+  texts it searched (a question and its other-language text are two), under a digest and with no text (the
+  embedding cache, `app/ask_service.py`); no answer is cached.
+- **The rewriting call.** Its reply is held to a shape (a JSON schema): whether the question stands alone, the
+  rewritten question when it does not, the question in the other language, and that language. Its instructions
+  hold a short glossary of the field's terms in both languages (`REWRITE_GLOSSARY`), tell it to keep names,
+  catalogue numbers, values and words quoted from a stamp as written, and to add nothing. What it returns is
+  used only as search text: the answer is asked for with the question in the visitor's language, and the model
+  that writes is told to answer in that language.
 - **Citations.** Each shown card and passage goes to the model as a document with citations on (Anthropic's
   citations feature), holding the text the page shows. A citation holds when it names one of them and its cited
   text is in it. A sentence with no citation that holds is not shown; a piece that is only the cited text,
@@ -139,7 +173,8 @@ the same evidence followed by a short answer whose sentences cite it. The steps 
 - **Not built.** No step grades the evidence, none retrieves a second time, and there is no scope router.
 
 The response is lines of JSON (`application/x-ndjson`): `{"type": "evidence", "rewritten": .., "evidence": {..}}`
-(what `/api/ask` returns, for the question that was searched), then `{"type": "answer", "answer": {..}, "calls": [..]}`.
+(what `/api/ask` returns, for the question that was searched, with `searches` when the literature was searched in
+both languages; `rewritten` says whether a follow-up was made to stand alone), then `{"type": "answer", "answer": {..}, "calls": [..]}`.
 `calls` has one entry per model call made for the question (what for, its state, its token counts, its seconds):
 a cost is measured from it.
 `answer.state` is `ok` (with `sentences`, each with the numbers of its `sources`, and for each source the text it
@@ -154,11 +189,12 @@ A web part's sentences carry the same field and counts.
 
 The route stands behind the same guard as `/api/ask`: the session token, both visitor counts (a question here
 counts as a question there), the service's daily limit, and the eval's way in. On top of that, the whole service
-makes at most `ANSWER_LIMIT_PER_DAY` model calls a day (200; the call that reads a later question against its
-conversation counts, so a question after the first takes two); the eval's way in does not skip it. Past it the
-route answers with the evidence only. When nobody waits for the answer any more (the route answered 504 or 503,
-or the visitor left before the answer line was sent), no call is taken from that allowance and the model is not
-called; a call already under way is not stopped. Once the evidence is sent, the answer is waited for at most the
+makes at most `ANSWER_LIMIT_PER_DAY` model calls a day (200; the rewriting call counts, so every question
+takes two, and three with a web part); the eval's way in does not skip it. Past it the route searches the
+question as written and answers with the evidence only. The rewriting call is made before the search, so it is
+taken whether or not a store answers or the visitor stays. When nobody waits for the answer any more (the route
+answered 504 or 503, or the visitor left before the answer line was sent), no call is taken for the answer and
+the model is not called for it; a call already under way is not stopped. Once the evidence is sent, the answer is waited for at most the
 write call's timeout and 5 s; past it, it says `failed`.
 
 **Every one of these counts lives in the process's memory and starts again when the process does**, and on a
@@ -167,7 +203,7 @@ model calls are a brake on a running service, not a budget. The one limit that c
 limit of the key's workspace at the provider; set it there.
 
 The model is `claude-haiku-5-5` at effort `low`, its lowest, with thinking on: at most 500 output tokens for an
-answer plus 1,500 of room for the thinking, 120 for a rewrite, 12 and 5 seconds, no retry.
+answer plus 1,500 of room for the thinking, 300 for the rewriting call, 12 and 5 seconds, no retry.
 `ANSWER_THINKING=disabled` turns thinking off; the evaluation compared the two ([EVALUATION.md](../EVALUATION.md)).
 The model's client is made as the process starts, in the background and without a request, so the first answer
 does not wait for it. Without `ANTHROPIC_API_KEY` the route works and answers with the evidence only (`no_key`).
@@ -338,6 +374,7 @@ unless set.
 | `OPENAI_API_KEY` | | The question's embedding. Without it the question path uses the full-text index and keyword search |
 | **The question path** | | |
 | `ASK_ISSUES`, `ASK_PASSAGES`, `ASK_TEXT_LIMIT` | `3`, `5`, `700` | Issues and passages returned, and the characters shown of a passage |
+| `ASK_PASSAGES_OTHER_LANGUAGE` | `2` | When a question is searched in both languages: how many passages of the other language's search are added to the question's own `ASK_PASSAGES` at most. `0`: the question alone is searched |
 | `ASK_EXCERPT` | `start` | `nearest`: show the stretch of a long passage that shares most words with the question |
 | `ASK_SHORT_VECTOR` | off | Also ask the short vector index of the issues (`scripts/issue_short_vectors.py` writes it) |
 | `ASK_MAX_QUESTION_CHARS`, `ASK_MAX_BODY_BYTES` | `300`, `2048` | A question's length and the body of `/api/ask` |
@@ -355,7 +392,7 @@ unless set.
 | **The written answer** | | |
 | `ANTHROPIC_API_KEY` | | The model's key. Without it `/api/chat` answers with the evidence only |
 | `ANSWER_EFFORT`, `ANSWER_THINKING` | `low`, on | The model's effort; `ANSWER_THINKING=disabled` turns thinking off |
-| `ANSWER_MAX_TOKENS`, `ANSWER_THINKING_ROOM_TOKENS`, `REWRITE_MAX_TOKENS` | `500`, `1500`, `120` | Output tokens of an answer, the thinking's room on top of it, and of a rewrite |
+| `ANSWER_MAX_TOKENS`, `ANSWER_THINKING_ROOM_TOKENS`, `REWRITE_MAX_TOKENS` | `500`, `1500`, `300` | Output tokens of an answer, the thinking's room on top of it, and of the rewriting call (the question that stands alone and its other-language text) |
 | `ANSWER_TIMEOUT_SECONDS`, `REWRITE_TIMEOUT_SECONDS` | `12`, `5` | The two calls' timeouts |
 | `ANSWER_LIMIT_PER_DAY` | `200` | Model calls a day for the whole service |
 | `CHAT_MAX_BODY_BYTES` | `8192` | The body of `/api/chat` |
