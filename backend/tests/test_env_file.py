@@ -48,5 +48,24 @@ def test_the_eval_reads_the_file_too(tmp_path):
     assert run("from eval import chat_arm; print(chat_arm.API)", path) == MADE_UP["OXCART_API"]
 
 
+TEMPLATE = REPO / ".env.example"
+
+
+def test_the_template_as_copied_leaves_the_backend_and_the_eval_on_the_local_weaviate():
+    # "cp .env.example .env" (README, Run it locally) must not name a Weaviate Cloud cluster: a non-empty
+    # WEAVIATE_URL sends the backend (ask_service) and the eval (eval/stores.py) to connect_to_weaviate_cloud
+    code ="import os, app.main; from app import settings; import eval.stores; print(repr((settings.WEAVIATE_URL, os.environ.get('WEAVIATE_URL', ''))))"
+    env = {k: v for k, v in os.environ.items() if k != "WEAVIATE_URL"}
+    env.update(OXCART_ENV_FILE=str(TEMPLATE), PYTHONPATH=os.pathsep.join([str(BACKEND), str(REPO)]))
+    done = subprocess.run([sys.executable, "-c", code], cwd=BACKEND, env=env, capture_output=True, text=True, timeout=120)
+    assert done.returncode == 0, done.stderr[-2000:]
+    assert done.stdout.strip().splitlines()[-1] == "('', '')"
+
+
+def test_the_template_names_the_model_key():
+    names = [line.split("=", 1)[0].lstrip("# ").strip() for line in TEMPLATE.read_text(encoding="utf-8").splitlines() if "=" in line]
+    assert "ANTHROPIC_API_KEY" in names
+
+
 def test_with_no_file_the_defaults_stand(tmp_path):
     assert run("from app import settings; print(settings.ASK_PASSAGES)", tmp_path / "no-such-file") == "5"
