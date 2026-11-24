@@ -87,7 +87,7 @@ export const LABELS = {
     evalLink: "How it works and how it was evaluated",
     answerBy: "Answer · written by AI",
     noteOnce:
-      "Everything here is written by an AI model (Claude) from the sources shown with it, and only from them. It can be wrong: check it against its sources.",
+      "Everything here is written by an AI model (Claude) from the sources shown with it, told to use only them. It can be wrong: check it against its sources.",
     askNow: "Ask it now",
     evBtn: "Evidence",
     evBtnFound: "What was found",
@@ -277,7 +277,7 @@ export const LABELS = {
     evalLink: "Cómo funciona y cómo se evaluó",
     answerBy: "Respuesta · redactada por IA",
     noteOnce:
-      "Todo lo que aparece aquí lo redacta un modelo de IA (Claude) a partir de las fuentes que se muestran, y solo de ellas. Puede equivocarse: compruébelo con sus fuentes.",
+      "Todo lo que aparece aquí lo redacta un modelo de IA (Claude) a partir de las fuentes que se muestran, con la instrucción de usar solo ellas. Puede equivocarse: compruébelo con sus fuentes.",
     askNow: "Preguntarla ahora",
     evBtn: "Evidencia",
     evBtnFound: "Lo que se encontró",

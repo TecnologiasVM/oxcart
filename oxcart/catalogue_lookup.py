@@ -5,7 +5,8 @@ The graph-first path in ``retrieve.py`` is tied to one issue (``config.ISSUE_ID`
 module is the general entry: it reads the question, finds the ``Issue`` nodes it most
 likely refers to, and returns each one's catalogue facts with the node they came from.
 
-No model call is made here. Three signals are always used, all deterministic:
+No model call is made here. The signals are deterministic; 1 and 3 are always used, and 2 by
+default only when no question embedding is passed (``use_text`` decides):
 
   1. a Mena or Scott catalogue number named in the question  -> the stamp's issue
   2. Neo4j's full-text index over issue titles and catalogue text (``issue_text_idx``)

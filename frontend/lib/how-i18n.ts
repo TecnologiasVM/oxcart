@@ -94,7 +94,7 @@ export type HowWords = {
   waitsWhere: { host: S; development: S };
   sleeps: S;
   safeH: S;
-  spend: Lead<(usd: S, month: S) => S>;
+  spend: Lead<S>;
   use: Lead<(minute: S, day: S, calls: S, low: S, chars: S) => S>;
   useWeb: (searches: S) => S;
   readOnly: Lead<S>;
@@ -134,7 +134,7 @@ export const HOW: Record<Lang, HowWords> = {
       cat: { name: "Catalogue", sub: ["as a graph", `${x.issues} issues`], tech: "Neo4j" },
       lit: { name: "Literature", sub: ["by vectors", `${x.passages} passages`], tech: "Weaviate" },
       ev: { name: "Evidence", sub: [`up to ${x.cards} cards and ${x.shown} passages, shown first`] },
-      s3: { name: "Written with citations", sub: ["a short answer, only from the evidence"], tech: `${x.writer}, citations on` },
+      s3: { name: "Written with citations", sub: ["a short answer from the evidence"], tech: `${x.writer}, citations on` },
       s4: { name: "Citations checked", sub: ["a sentence with none is removed"], tech: "no model" },
       ans: { name: "Answer", sub: ["only sentences whose citation holds"] },
       s5: { name: "Searched on the web", sub: ["only when our sources cover part", "of a question, or none of it"], tech: "Tavily, then the same writer" },
@@ -152,13 +152,13 @@ export const HOW: Record<Lang, HowWords> = {
       s2: { h: "Searched", text: ({ numbers, issues, passages, graphIndex, litIndex, litCompression, graphSimilarity, litSimilarity }) =>
         `One vector (${numbers} numbers) serves two searches at once. The catalogue, a graph in Neo4j, returns up to ${issues} issues with their cards, from two ${graphIndex} vector indexes by ${graphSimilarity} (one of an issue's whole text, quantized; one of its title, years and section, not quantized), or from its full-text index when no vector can be made. The literature, in Weaviate, returns the ${passages} nearest passages from an ${litIndex} vector index with ${litCompression} compression, by ${litSimilarity}. The page shows this evidence first.` },
       s3: { h: "Written with citations", text: ({ writer }) =>
-        `${writer} writes a short answer only from that evidence; each piece comes back with the exact text it cites.` },
+        `${writer} writes a short answer and is told to use that evidence and nothing else; each piece comes back with the exact text it cites.` },
       s4: { h: "Citations checked", text: () =>
-        "No model. A sentence stays only if its cited text is in a shown card or passage; one with no citation is removed." },
+        "No model. A sentence stays only if its cited text is in a shown card or passage; one with no citation is removed. The check shows where a sentence's text is from, not that the sentence follows from it." },
       s5: { h: "Searched on the web", text: ({ writer }) =>
-        `Only when our sources cover part of a question, or none of it: the question is searched on the web (Tavily), and ${writer} writes a short part from the pages found, with the same check of its citations. It stands in a block of its own under the answer: from the web, not from the catalogue or the literature. A question outside the scope gets no search.` },
+        `Only when our sources cover part of a question, or none of it: the question is searched on the web (Tavily), and ${writer} writes a short part from the pages found, with the same check of its citations. It stands in a block of its own under the answer: from the web, not from the catalogue or the literature. The writer is told to mark a question outside the scope, which then gets no search; that mark is the model's judgment.` },
     },
-    pipeNote: "The server keeps nothing between two requests: a conversation lives in the browser.",
+    pipeNote: "The server keeps no question's text and no conversation between two requests: a conversation lives in the browser. No answer is cached; the vectors of recent questions stay in memory (below).",
     // 3. why a graph and vectors together
     whyH: "Why a graph and vectors together",
     why: "Vectors find what a question is about, in either language. The graph holds each issue's facts as stored values: dates, printers, authorizing acts, stamps.",
@@ -173,22 +173,22 @@ export const HOW: Record<Lang, HowWords> = {
     // 4. results
     resH: "Results",
     resSet: (all: S, cat: S, lit: S, oos: S) => `${all} questions in Spanish and English: ${cat} on the catalogue, ${lit} on the literature, ${oos} out of scope.`,
-    issueFound: { lead: "Issue found.", text: (three: S) => `Held-out catalogue questions where the right issue comes first, as served. In the first three: ${three}.` },
+    issueFound: { lead: "Issue found.", text: (three: S) => `Held-out catalogue questions where the right issue comes first, as served. In the first three: ${three}. They were kept aside while the lookup was built, then reused when its short vector was chosen.` },
     pageFound: { lead: "Page found.", text: (k: S, drafts: S, withDrafts: S) =>
-      `Literature questions with a page that answers among the ${k} passages. Counting the ${drafts} drafts left out: ${withDrafts}.` },
+      `Literature questions where a page the judge graded as answering (the answer, or a clear, direct part of it) is among the ${k} passages. Counting the ${drafts} drafts left out: ${withDrafts}.` },
     catAnswers: { lead: "Catalogue answers", text: (supported: S) => `that state the value the catalogue holds. Every sentence stated by its sources: ${supported}.` },
     litAnswers: { lead: "Literature answers", text: (part: number, partS: S, not: number, notS: S, notWritten: number, notWrittenS: S) =>
-      `that agree with the reference answer in full. ${partS} ${part === 1 ? "agrees" : "agree"} in part${
+      `that agree with the reference answer on what the question asks (the judge's first pass). ${partS} ${part === 1 ? "agrees" : "agree"} in part${
         not ? `, ${notS} ${not === 1 ? "does" : "do"} not` : ""}${notWritten ? `, and ${notWrittenS} got no written answer` : ""}.` },
-    asks: (asks: S) => `${asks} give what the question asks: the thing asked, in agreement with the reference.`,
-    removed: { lead: "Sentences removed:", text: (notHold: S, of: S) => `the model wrote them with no citation. Of ${of} citations, ${notHold} did not hold.` },
+    asks: (asks: S) => `${asks} give what the question asks, by a second pass told that detail the question did not ask for does not count: the thing asked, in agreement with the reference.`,
+    removed: { lead: "Sentences removed:", text: (notHold: S, of: S) => `the model wrote them with no citation. Of ${of} citations, ${notHold} did not hold. Both counted over every question of the run, follow-ups and out of scope too.` },
     limitsLead: "Limits:",
     sealedNone: (n: S, of: S, a: S, b: S, ca: S, cb: S) =>
-      `on ${n} questions never used while the system was changed, no literature answer agreed with its reference in full (0 of ${of} in both runs), ${a} and ${b} of ${of} gave what was asked, and ${ca} and ${cb} of ${of} catalogue answers were correct.`,
+      `on ${n} questions never used while the system was changed, no literature answer agreed with its reference on what the question asks (0 of ${of} in both runs), ${a} and ${b} of ${of} gave what was asked, and ${ca} and ${cb} of ${of} catalogue answers were correct.`,
     sealedSome: (n: S, of: S, fa: S, fb: S, a: S, b: S, ca: S, cb: S) =>
-      `on ${n} questions never used while the system was changed, ${fa} and ${fb} of ${of} literature answers agreed with their reference in full, ${a} and ${b} of ${of} gave what was asked, and ${ca} and ${cb} of ${of} catalogue answers were correct.`,
+      `on ${n} questions never used while the system was changed, ${fa} and ${fb} of ${of} literature answers agreed with their reference on what the question asks, ${a} and ${b} of ${of} gave what was asked, and ${ca} and ${cb} of ${of} catalogue answers were correct.`,
     limitsRest: (low: S, high: S) =>
-      ` The grades are a model's and no person has checked them; the sets are small, so one question is ${low} to ${high} points.`,
+      ` The grades are a model's and no person has checked them; the sets are small, so one question is ${low} points of the catalogue questions, and ${high} of each part of those never used while the system was changed.`,
     limitsWeb: " A web part changes from one asking to the next and has no gold: no reference answer exists for a web sentence, and the judge only says whether the cited page states it.",
     limitsTickets: (n: number, nS: S, of: S) =>
       n === 0
@@ -208,11 +208,11 @@ export const HOW: Record<Lang, HowWords> = {
       `Hybrid search, keywords with vectors: ${same ? "the same count as vectors alone" : `against ${vector} for vectors alone`}, and its results did not repeat from run to run.`,
     triedOff: "The model's thinking turned off: literature answers cut at the output limit, with nothing shown.",
     triedStrong: (model: S, inFull: S, of: S, served: S, servedInFull: S, times: S, usd: S, servedUsd: S) =>
-      `${model} as the writer, on the same evidence: ${inFull} answers of ${of} agree with the reference in full, against ${servedInFull} for ${served}, at about ${times} times the cost of a question (${usd} USD against ${servedUsd}). Not kept.`,
+      `${model} as the writer, on the same evidence: ${inFull} answers of ${of} agree with the reference on what the question asks, against ${servedInFull} for ${served}, at about ${times} times the cost of a question (${usd} USD against ${servedUsd}). Not kept.`,
     range: (a: S, b: S) => `${a} to ${b}`,
     // 7. cost and wait
     costH: "Cost and wait of a question",
-    costMean: (max: S) => `a question, on average; ${max} at most.`,
+    costMean: (max: S) => `a question, on average, for the answer model only (embeddings and web search apart); ${max} at most.`,
     costAfter: (usd: S) => ` A question after a conversation's first: about ${usd}, with one more small call.`,
     waitEvidence: "until the evidence is on the page (median).",
     waitAnswer: (p95: S) => `until the checked answer (median; ${p95} s at the 95th percentile).`,
@@ -223,15 +223,15 @@ export const HOW: Record<Lang, HowWords> = {
     sleeps: "The service sleeps when unused and wakes in about half a minute.",
     // 8. safe in public
     safeH: "What keeps it safe to run in public",
-    spend: { lead: "A spend limit at the provider:", text: (usd: S, month: S) =>
-      `${usd} USD for ${month}, set at Anthropic. Once reached, the page shows the evidence without a written answer.` },
+    spend: { lead: "A spend limit at the provider:", text:
+      "a monthly limit, set at Anthropic and kept low. Once it is reached, the page shows the evidence without a written answer." },
     use: { lead: "Limits on use:", text: (minute: S, day: S, calls: S, low: S, chars: S) =>
-      `a human check (Cloudflare Turnstile) before the first question; ${minute} questions a minute and ${day} a day for a visitor; ${calls} model calls a day in all (${low} to ${calls} answers); ${chars} characters a question.` },
-    useWeb: (searches: S) => ` For the web part, at most ${searches} searches a month, spread over the month.`,
+      `a human check (Cloudflare Turnstile) before the first question; ${minute} questions a minute and ${day} a day for a visitor; ${calls} model calls a day in all, where a written answer takes one to three (reading a later question against the conversation, the answer, a web part); ${chars} characters a question. These are counters of one process, in memory: a restart sets them to zero.` },
+    useWeb: (searches: S) => ` For the web part, a pacing target of ${searches} searches a month, spread over the month; the ceiling is the search provider's own monthly limit.`,
     readOnly: { lead: "Read-only stores, and a model with no tools.", text:
       "The most a passage can change is the wording of one answer, and nothing the model writes is rendered as markup or as a link." },
     scope: { lead: "A scope:", text: (none: S) =>
-      `Costa Rican stamps, postal stationery and postal history. Otherwise no answer is written: ${none} out-of-scope questions.` },
+      `Costa Rican stamps, postal stationery and postal history. The writer is told to write no answer otherwise; in the run of the results, ${none} out-of-scope questions got none.` },
     disk: { lead: "Nothing of a question on disk.", text: (kept: S) =>
       `The logs hold counts and timings: no question, no answer, no passage, no address. In memory until a restart: the vectors of the last ${kept} questions, with no text.` },
     privH: "What is sent, and where",
@@ -269,7 +269,7 @@ export const HOW: Record<Lang, HowWords> = {
       cat: { name: "Catálogo", sub: ["como grafo", `${x.issues} emisiones`], tech: "Neo4j" },
       lit: { name: "Literatura", sub: ["por vectores", `${x.passages} pasajes`], tech: "Weaviate" },
       ev: { name: "Evidencia", sub: [`hasta ${x.cards} fichas y ${x.shown} pasajes; va primero`] },
-      s3: { name: "Redactada con citas", sub: ["respuesta breve, solo de la evidencia"], tech: `${x.writer}, citas activadas` },
+      s3: { name: "Redactada con citas", sub: ["respuesta breve, desde la evidencia"], tech: `${x.writer}, citas activadas` },
       s4: { name: "Citas comprobadas", sub: ["una frase sin cita se retira"], tech: "sin modelo" },
       ans: { name: "Respuesta", sub: ["solo frases cuya cita se sostiene"] },
       s5: { name: "Buscada en la web", sub: ["solo si nuestras fuentes cubren", "una parte de la pregunta, o nada"], tech: "Tavily, luego el mismo redactor" },
@@ -287,13 +287,13 @@ export const HOW: Record<Lang, HowWords> = {
       s2: { h: "Buscada", text: ({ numbers, issues, passages, graphIndex, litIndex, litCompression, graphSimilarity, litSimilarity }) =>
         `Un vector (${numbers} números) sirve para dos búsquedas a la vez. El catálogo, un grafo en Neo4j, devuelve hasta ${issues} emisiones con sus fichas, de dos índices vectoriales ${graphIndex} por ${es(graphSimilarity)} (uno del texto completo de cada emisión, cuantizado; otro de su título, sus años y su sección, sin cuantizar), o de su índice de texto completo cuando no se puede calcular el vector. La literatura, en Weaviate, devuelve los ${passages} pasajes más cercanos de un índice vectorial ${litIndex} con compresión ${litCompression}, por ${es(litSimilarity)}. La página muestra primero esta evidencia.` },
       s3: { h: "Redactada con citas", text: ({ writer }) =>
-        `${writer} redacta una respuesta breve solo a partir de esa evidencia; cada parte vuelve con el texto exacto que cita.` },
+        `${writer} redacta una respuesta breve, con la instrucción de usar esa evidencia y nada más; cada parte vuelve con el texto exacto que cita.` },
       s4: { h: "Citas comprobadas", text: () =>
-        "Sin modelo. Una frase se queda solo si su texto citado está en una ficha o un pasaje mostrados; la que no trae cita se retira." },
+        "Sin modelo. Una frase se queda solo si su texto citado está en una ficha o un pasaje mostrados; la que no trae cita se retira. La comprobación muestra de dónde viene el texto de una frase, no que la frase se desprenda de él." },
       s5: { h: "Buscada en la web", text: ({ writer }) =>
-        `Solo cuando nuestras fuentes cubren una parte de una pregunta, o nada: la pregunta se busca en la web (Tavily), y ${writer} redacta una parte breve a partir de las páginas encontradas, con la misma comprobación de sus citas. Va en un bloque propio bajo la respuesta: de la web, no del catálogo ni de la literatura. Una pregunta fuera del alcance no se busca.` },
+        `Solo cuando nuestras fuentes cubren una parte de una pregunta, o nada: la pregunta se busca en la web (Tavily), y ${writer} redacta una parte breve a partir de las páginas encontradas, con la misma comprobación de sus citas. Va en un bloque propio bajo la respuesta: de la web, no del catálogo ni de la literatura. El redactor tiene la instrucción de marcar una pregunta fuera del alcance, que entonces no se busca; esa marca es un juicio del modelo.` },
     },
-    pipeNote: "El servidor no guarda nada entre dos peticiones: la conversación vive en el navegador.",
+    pipeNote: "El servidor no guarda el texto de ninguna pregunta ni ninguna conversación entre dos peticiones: la conversación vive en el navegador. No guarda respuestas; los vectores de las preguntas recientes quedan en memoria (más abajo).",
     whyH: "Por qué un grafo y vectores a la vez",
     why: "Los vectores encuentran de qué trata una pregunta, en cualquiera de los dos idiomas. El grafo guarda los datos de cada emisión como valores: fechas, impresores, actos que la autorizan, sellos.",
     traceLabel: (date: S) => `Una pregunta real, ${date}`,
@@ -306,22 +306,22 @@ export const HOW: Record<Lang, HowWords> = {
       `Solo con el índice de texto completo del grafo, la emisión correcta queda primera en ${fullText} preguntas reservadas, frente a ${vector} con el índice vectorial. Las preguntas en español aciertan ${spanish}: los títulos del catálogo están en inglés.`,
     resH: "Resultados",
     resSet: (all: S, cat: S, lit: S, oos: S) => `${all} preguntas en español y en inglés: ${cat} sobre el catálogo, ${lit} sobre la literatura, ${oos} fuera de alcance.`,
-    issueFound: { lead: "Emisión encontrada.", text: (three: S) => `Preguntas reservadas del catálogo en las que la emisión correcta queda primera, tal como se sirve. Entre las tres primeras: ${three}.` },
+    issueFound: { lead: "Emisión encontrada.", text: (three: S) => `Preguntas reservadas del catálogo en las que la emisión correcta queda primera, tal como se sirve. Entre las tres primeras: ${three}. Se apartaron mientras se construía la búsqueda en el catálogo, y se volvieron a usar al elegir su vector corto.` },
     pageFound: { lead: "Página encontrada.", text: (k: S, drafts: S, withDrafts: S) =>
-      `Preguntas de la literatura con una página que responde entre los ${k} pasajes. Contando los ${drafts} borradores que quedaron fuera: ${withDrafts}.` },
+      `Preguntas de la literatura en las que una página que el juez calificó como respuesta (la respuesta, o una parte clara y directa de ella) está entre los ${k} pasajes. Contando los ${drafts} borradores que quedaron fuera: ${withDrafts}.` },
     catAnswers: { lead: "Respuestas del catálogo", text: (supported: S) => `que dan el valor que guarda el catálogo. Con todas sus frases respaldadas por sus fuentes: ${supported}.` },
     litAnswers: { lead: "Respuestas de la literatura", text: (part: number, partS: S, not: number, notS: S, notWritten: number, notWrittenS: S) =>
-      `que coinciden del todo con la respuesta de referencia. ${partS} ${part === 1 ? "coincide" : "coinciden"} en parte${
+      `que coinciden con la respuesta de referencia en lo que pide la pregunta (primera pasada del juez). ${partS} ${part === 1 ? "coincide" : "coinciden"} en parte${
         not ? ` y ${notS} no` : ""}${notWritten ? `; ${notWrittenS} ${notWritten === 1 ? "quedó" : "quedaron"} sin respuesta redactada` : ""}.` },
-    asks: (asks: S) => `${asks} dan lo que pide la pregunta: lo que se pregunta, de acuerdo con la referencia.`,
-    removed: { lead: "Frases retiradas:", text: (notHold: S, of: S) => `el modelo las redactó sin cita. De ${of} citas, ${notHold} no se sostuvieron.` },
+    asks: (asks: S) => `${asks} dan lo que pide la pregunta, según una segunda pasada a la que se indicó que el detalle que la pregunta no pide no cuenta: lo que se pregunta, de acuerdo con la referencia.`,
+    removed: { lead: "Frases retiradas:", text: (notHold: S, of: S) => `el modelo las redactó sin cita. De ${of} citas, ${notHold} no se sostuvieron. Las dos cuentas abarcan todas las preguntas de la corrida, también las de seguimiento y las fuera de alcance.` },
     limitsLead: "Límites:",
     sealedNone: (n: S, of: S, a: S, b: S, ca: S, cb: S) =>
-      `en ${n} preguntas que nunca se usaron mientras se cambiaba el sistema, ninguna respuesta de la literatura coincidió del todo con su referencia (0 de ${of} en las dos corridas), ${a} y ${b} de ${of} dieron lo que se pedía, y ${ca} y ${cb} de ${of} respuestas del catálogo fueron correctas.`,
+      `en ${n} preguntas que nunca se usaron mientras se cambiaba el sistema, ninguna respuesta de la literatura coincidió con su referencia en lo que pide la pregunta (0 de ${of} en las dos corridas), ${a} y ${b} de ${of} dieron lo que se pedía, y ${ca} y ${cb} de ${of} respuestas del catálogo fueron correctas.`,
     sealedSome: (n: S, of: S, fa: S, fb: S, a: S, b: S, ca: S, cb: S) =>
-      `en ${n} preguntas que nunca se usaron mientras se cambiaba el sistema, ${fa} y ${fb} de ${of} respuestas de la literatura coincidieron del todo con su referencia, ${a} y ${b} de ${of} dieron lo que se pedía, y ${ca} y ${cb} de ${of} respuestas del catálogo fueron correctas.`,
+      `en ${n} preguntas que nunca se usaron mientras se cambiaba el sistema, ${fa} y ${fb} de ${of} respuestas de la literatura coincidieron con su referencia en lo que pide la pregunta, ${a} y ${b} de ${of} dieron lo que se pedía, y ${ca} y ${cb} de ${of} respuestas del catálogo fueron correctas.`,
     limitsRest: (low: S, high: S) =>
-      ` Las notas las puso un modelo y ninguna persona las ha revisado; los conjuntos son pequeños, así que una pregunta vale de ${low} a ${high} puntos.`,
+      ` Las notas las puso un modelo y ninguna persona las ha revisado; los conjuntos son pequeños, así que una pregunta vale ${low} puntos entre las preguntas del catálogo, y ${high} en cada parte de las que nunca se usaron mientras se cambiaba el sistema.`,
     limitsWeb: " Una parte de la web cambia de una vez que se pregunta a la siguiente y no tiene referencia: no existe una respuesta de referencia para una frase de la web, y el juez solo dice si la página citada la afirma.",
     limitsTickets: (n: number, nS: S, of: S) =>
       n === 0
@@ -339,10 +339,10 @@ export const HOW: Record<Lang, HowWords> = {
       `Búsqueda híbrida, palabras clave con vectores: ${same ? "la misma cuenta que los vectores solos" : `frente a ${vector} con los vectores solos`}, y sus resultados no se repetían de una corrida a otra.`,
     triedOff: "El razonamiento del modelo apagado: respuestas de la literatura cortadas en el límite de salida, sin que se mostrara nada.",
     triedStrong: (model: S, inFull: S, of: S, served: S, servedInFull: S, times: S, usd: S, servedUsd: S) =>
-      `${model} como redactor, con la misma evidencia: ${inFull} respuestas de ${of} coinciden del todo con la referencia, frente a ${servedInFull} con ${served}, a unas ${times} veces el costo de una pregunta (${usd} USD frente a ${servedUsd}). No se conservó.`,
+      `${model} como redactor, con la misma evidencia: ${inFull} respuestas de ${of} coinciden con la referencia en lo que pide la pregunta, frente a ${servedInFull} con ${served}, a unas ${times} veces el costo de una pregunta (${usd} USD frente a ${servedUsd}). No se conservó.`,
     range: (a: S, b: S) => `${a} a ${b}`,
     costH: "Costo y espera de una pregunta",
-    costMean: (max: S) => `una pregunta, en promedio; ${max} como máximo.`,
+    costMean: (max: S) => `una pregunta, en promedio, solo del modelo que redacta (los embeddings y la búsqueda web van aparte); ${max} como máximo.`,
     costAfter: (usd: S) => ` Una pregunta después de la primera de una conversación: cerca de ${usd}, con una llamada pequeña más.`,
     waitEvidence: "hasta que la evidencia está en la página (mediana).",
     waitAnswer: (p95: S) => `hasta la respuesta comprobada (mediana; ${p95} s en el percentil 95).`,
@@ -352,15 +352,15 @@ export const HOW: Record<Lang, HowWords> = {
     },
     sleeps: "El servicio se duerme cuando nadie lo usa y despierta en cerca de medio minuto.",
     safeH: "Qué lo mantiene seguro abierto al público",
-    spend: { lead: "Un límite de gasto en el proveedor:", text: (usd: S, month: S) =>
-      `${usd} USD en ${month}, fijado en Anthropic. Al alcanzarlo, la página muestra la evidencia sin respuesta redactada.` },
+    spend: { lead: "Un límite de gasto en el proveedor:", text:
+      "un límite mensual, fijado en Anthropic y mantenido bajo. Al alcanzarlo, la página muestra la evidencia sin respuesta redactada." },
     use: { lead: "Límites de uso:", text: (minute: S, day: S, calls: S, low: S, chars: S) =>
-      `una comprobación humana (Cloudflare Turnstile) antes de la primera pregunta; ${minute} preguntas por minuto y ${day} por día para un visitante; ${calls} llamadas al modelo por día en total (de ${low} a ${calls} respuestas); ${chars} caracteres por pregunta.` },
-    useWeb: (searches: S) => ` Para la parte de la web, como máximo ${searches} búsquedas al mes, repartidas a lo largo del mes.`,
+      `una comprobación humana (Cloudflare Turnstile) antes de la primera pregunta; ${minute} preguntas por minuto y ${day} por día para un visitante; ${calls} llamadas al modelo por día en total, y una respuesta redactada usa de una a tres (leer una pregunta posterior con la conversación, la respuesta, una parte de la web); ${chars} caracteres por pregunta. Son contadores de un solo proceso, en memoria: un reinicio los pone en cero.` },
+    useWeb: (searches: S) => ` Para la parte de la web, las búsquedas se reparten a lo largo del mes con un objetivo de ${searches} al mes; el tope es el límite mensual propio del proveedor de búsqueda.`,
     readOnly: { lead: "Almacenes de solo lectura y un modelo sin herramientas.", text:
       "Lo más que puede cambiar un pasaje es la redacción de una respuesta, y nada de lo que escribe el modelo se muestra como marcado ni como enlace." },
     scope: { lead: "Un alcance:", text: (none: S) =>
-      `sellos, enteros postales e historia postal de Costa Rica. Para lo demás no se redacta respuesta: ${none} preguntas fuera de alcance.` },
+      `sellos, enteros postales e historia postal de Costa Rica. El redactor tiene la instrucción de no redactar respuesta para lo demás; en la corrida de los resultados, ${none} preguntas fuera de alcance no la recibieron.` },
     disk: { lead: "Nada de una pregunta en disco.", text: (kept: S) =>
       `Los registros guardan cuentas y tiempos: ni la pregunta, ni la respuesta, ni un pasaje, ni una dirección. En memoria hasta un reinicio: los vectores de las últimas ${kept} preguntas, sin texto.` },
     privH: "Qué se envía, y adónde",

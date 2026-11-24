@@ -50,25 +50,28 @@ limit are in [EVALUATION.md](EVALUATION.md).
 
 | Measure | Result |
 |---|---|
-| Issue found: top-1 / top-3 accuracy | 29 of 32 (91%) / 32 of 32 held-out catalogue questions (32 catalogue questions kept aside and run only once tuning was over), through the lookup as served |
-| Page found: recall@5 | A page that answers is among the five passages for 36 of 41 literature questions (88%); 36 of 49 counting the 8 draft questions left out of the set because the pooled search results held no page that answers them |
+| Issue found: top-1 / top-3 accuracy | 29 of 32 (91%) / 32 of 32 held-out catalogue questions, through the lookup as served. The 32 were kept aside while the lookup was built, then reused, with the other 48, when the short vector it serves was chosen |
+| Page found: hit@5 | A question counts when a page graded 2 (its passages hold the answer, or a clear, direct part of it) is among the five passages: 36 of 41 literature questions (88%); 36 of 49 counting the 8 draft questions left out of the set because the pooled search results held no page that answers them |
 | Catalogue answers: answer accuracy and faithfulness, graded by a model | 76 of 80 state the value the catalogue holds; in 63 of 80 every sentence is stated by its sources, the cards and pages it cites (a card is one issue's record in the Mena catalogue graph) |
-| Literature answers: agreement with a reference answer, graded by a model | 10 of 41 agree in full with the reference answer (an answer a model wrote from the pages it graded for that question) and 30 in part; 17 of 41 give what the question asks |
-| Citations that did not hold; sentences removed | 0 of 376 citations did not hold; 101 of 410 sentences were removed because the model wrote them with no citation |
-| Out of scope: refusal rate | 27 of 30 (90%) got no written answer |
-| Cost per question | median 0.00064 USD, p95 0.00117 USD (mean 0.0007, max 0.00137) |
+| Literature answers: agreement with a reference answer, graded by a model | Against a reference answer (an answer a model wrote from the pages it graded for that question), the judge's first pass: 10 of 41 agree with it on what the question asks, 30 in part (part of it, or only related facts). A second pass, told that detail the question did not ask for does not count: 17 of 41 give the thing asked |
+| Citations that did not hold; sentences removed | Every question of the run, out of scope and follow-ups too: 0 of 376 citations did not hold; 101 of 410 sentences were removed because the model wrote them with no citation |
+| Out of scope: no written answer | 27 of 30 (90%) got no written answer; the writer is told to answer nothing outside the scope. The other 3 got a part answer, and with it a ticket for a web search: `oos-013-en` (outside the scope), `una-001-en` and `una-008-es` (about Costa Rican stamps, with no answer in the sources) |
+| Cost per question (answer model only; embeddings and web search apart) | median 0.00064 USD, p95 0.00117 USD (mean 0.0007, max 0.00137) |
 | Latency | evidence on the page: median 1.04 s, p95 1.21 s; checked answer: median 2.94 s, p95 7.34 s |
 
-**Limits.** On 50 questions never used while the system was changed (the sealed set), asked once as served when the
-set was made and once as served now, no literature answer agreed with its reference in full (0 of 20 in both runs);
-2 of 20 as served then and 4 of 20 as served now gave what was asked; 17 then and 18 now of 20 catalogue answers
-were correct. The grades, and the literature gold (the pages that answer each question), are a model's and no
-person has checked them; a second model gave the same grade to 39 of 45 pages of a blind sample. The catalogue
-questions were generated from the same graph the answers read, so they test finding the issue, not the catalogue.
-The sets are small, so one question is 2 to 7 points. A citation shows where a sentence's text is from: it does not
-prove the sentence follows from it. A web part changes from one asking to the next and has no reference answer to
-be graded against; the run of the table asks for none, and in a trial of 26 real searches 28 of 35 shown web
-sentences were supported by the page they cite.
+**Limits.** On 50 questions never used while the system was changed (the sealed set, made on 21 November 2026),
+asked on 22 November 2026 once with the code of 21 November (commit `d27e269`) and once with the code of 22
+November (commit `5dae0c1`, the short vector on), no literature answer agreed with its reference on what the
+question asks (0 of 20 in both runs); 2 of 20 with `d27e269` and 4 of 20 with `5dae0c1` gave the thing asked; 17
+and 18 of 20 catalogue answers were correct. Both runs are of code older than what is served today. The grades,
+and the literature gold (the pages that answer each question), are a model's and no person has checked them; a
+second model gave the same grade to 39 of 45 pages of a blind sample. The catalogue questions were generated from
+the same graph the answers read, so they test finding the issue, not the catalogue. The sets are small: one
+question is 1.25 points of 80, about 2.4 of 41, about 3.1 of 32, about 3.3 of 30 and 5 of 20. The writer is told
+to use only the evidence; the check tests that a citation names a card or passage that was shown and that its
+cited text is in it, on sentences cut by a rule, and not that the sentence follows from that text. A web part
+changes from one asking to the next and has no reference answer to be graded against; the run of the table asks
+for none, and in a trial of 26 real searches 28 of 35 shown web sentences were supported by the page they cite.
 
 ## A question, step by step
 
@@ -88,7 +91,7 @@ flowchart TD
     C["Catalogue<br/>a graph, 819 issues<br/><i>Neo4j</i>"] --> E
     L["Literature<br/>41,126 passages, by vectors<br/><i>Weaviate</i>"] --> E
     E(["Evidence<br/>up to 3 cards and 5 passages, shown first"]) --> W
-    W["3 · Written with citations<br/>a short answer, only from the evidence<br/><i>Claude Haiku 5.5</i>"] --> K
+    W["3 · Written with citations<br/>a short answer, told to use only the evidence<br/><i>Claude Haiku 5.5</i>"] --> K
     K["4 · Citations checked<br/>a sentence with none is removed<br/><i>no model</i>"] --> A
     A(["Answer<br/>only sentences whose citation holds"]) -.-> X
     X["5 · Searched on the web<br/>only when the sources cover part of a question, or none of it<br/><i>Tavily, then the same writer</i>"] -.-> B
@@ -98,9 +101,11 @@ flowchart TD
 ```
 
 Rounded: what is on the page. Square: a step in the backend. Dashed: a step for some questions only. The server
-keeps nothing between two requests: a conversation lives in the browser. A language model writes the answer from
-the evidence that is shown and from nothing else; when the evidence does not cover the question the page says so
-and shows the evidence.
+keeps no question's text and no conversation between two requests: a conversation lives in the browser. It holds
+in memory the vectors of the last 256 questions, with no text, and keeps no answer. A language model writes the
+answer and is told to use the evidence that is shown and nothing else; the check tests that each citation names
+that evidence and holds its cited text, not that the sentence follows from it. When the model says the evidence
+does not cover the question, the page says so and shows the evidence.
 
 ## Run it locally
 
@@ -179,8 +184,9 @@ no answer.
     the step that writes the answer gets the question that stands alone and the evidence. Each step's result is
     sent as it ends, so the evidence arrives as fast as before and the answer follows.
   - *Why no checkpointer:* a conversation lives in the visitor's browser, which sends its last three turns with a
-    follow-up. The server keeps nothing between two requests, so no visitor's text stays in its memory and
-    nothing is lost when the service sleeps.
+    follow-up. The server keeps no question's text and no conversation between two requests (in memory it holds
+    the vectors of the last 256 questions, with no text, and no answer), so no visitor's text stays in its memory
+    and nothing of a conversation is lost when the service sleeps.
   - *What it does not do:* no step grades the evidence, none retrieves a second time, and there is no scope
     router; a rule in the model's instructions stands in for the last. What was measured for them is under
     [Future work](#future-work).
@@ -190,10 +196,14 @@ no answer.
   answer, with the pages it cites.
   - *How it is asked:* the write call says which of three things happened (outside the scope, not covered,
     part only). The answer from our sources comes first; the page then asks for the web part in a request of
-    its own, with a ticket the backend signed, so the answer waits no longer than before.
-  - *What it never does:* a question outside the scope gets no answer and no search. The search query is the
-    question as it was searched (for a follow-up, as the rewrite step wrote it) and fixed words: nothing of an
-    answer a model wrote is in it, and nothing a model writes becomes a link.
+    its own, with a ticket the backend signed. Making that ticket can hold the answer back by one read of the
+    search service's usage (its timeout is 4 s), at most once in five minutes, and only for an answer that
+    asks for the web.
+  - *Scope, and what a search holds:* the writer is told to mark a question outside the scope, which then gets
+    no answer and no ticket. The mark is the model's judgment: in the published run one question outside the
+    scope got a part answer, and with it a ticket ([EVALUATION.md](EVALUATION.md#as-served-two-runs-of-the-whole-set-with-the-web-setting-on)).
+    The search query is the question as it was searched (for a follow-up, as the rewrite step wrote it) and
+    fixed words: nothing of an answer a model wrote is in it, and nothing a model writes becomes a link.
   - *Two settings turn it on:* `ASK_WEB` on the backend (with a search key) and `NEXT_PUBLIC_WEB` in the page's
     build. A page built without the second ignores the ticket and makes no request, so a search can only start
     from a page whose privacy details name the search service.
@@ -243,6 +253,17 @@ Not built. No order and no date.
   the passage it cites, and a few catalogue acts keep an English body's name inside their number.
 - **The explorer beyond the First Issue.** The question page takes any Costa Rican stamp question; the explorer's
   graph views cover the 1863 First Issue only.
+- **Timeouts inside the store clients, and a bound on concurrent chats.** A question's deadline stops waiting for
+  a store, not a call already under way: the vector store's client has its own timeouts, the graph's driver has
+  none set, and each store has four threads.
+- **The web usage read off the answer's path.** Today it can hold back the answer that makes it (above).
+- **Judging the exact evidence the writer received, and the excerpts shown.** The answer judge reads a card's
+  whole record, where the writer reads selected lines; a page's grade counts for any passage of that page, where
+  the page shows 700 characters of it.
+- **A run manifest, with retries, for every published run:** the commit, the settings, the collection, and each
+  question's attempts and failures.
+- **A small redistributable fixture** to run the whole path end to end from this repository.
+- **A set of questions written by collectors.**
 
 ## Stack
 

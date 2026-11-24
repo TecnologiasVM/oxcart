@@ -1,5 +1,5 @@
 {
- "what": "Literature part of the development questions (41). Marks by the judge model gpt-6.1-sol; no person checked them. supported: every shown sentence is stated by the sources it cites. in_full: agrees with the reference in full. asked_yes: gives what the question asks (a second pass of the judge).",
+ "what": "Literature part of the development questions (41). Marks by the judge model gpt-6.1-sol; no person checked them. supported: every shown sentence is stated by the sources it cites. in_full: the first pass's yes, agrees with the reference on what the question asks. asked_yes: gives what the question asks (a second pass of the judge).",
  "groups": [
   {
    "setting": "served",

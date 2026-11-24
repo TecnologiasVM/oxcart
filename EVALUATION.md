@@ -6,8 +6,9 @@ does the right passage, or the right catalogue issue, come back. [Written answer
 [What was tried to raise the literature answers](#what-was-tried-to-raise-the-literature-answers) (with the
 sealed set's two runs at its end) are about the short answer the question page writes from that evidence.
 [A web part](#a-web-part-three-markers-and-a-trial-with-real-searches) is about the part written from a web
-search, and holds the two runs of the whole set as served now. The file ends with other limits, notes on the
-data, and the commands that run it.
+search, and holds the two runs of the whole set with the web setting on, the runs "How it works" reads. The file
+ends with other limits, the numbers that have no published record, notes on the data, and the commands that run
+it.
 
 The earlier audit of the First Issue evidence graph (coverage and precision of the rule-based linker) is a
 separate document: [pipeline/first_issue_graph/EVALUATION.md](pipeline/first_issue_graph/EVALUATION.md).
@@ -23,12 +24,17 @@ separate document: [pipeline/first_issue_graph/EVALUATION.md](pipeline/first_iss
 - **Every literature result has two denominators.** A draft question entered the set only when the pooled search
   results already held a page that answers it, so the 8 drafts left out are the ones retrieval may have failed on.
   Each result is given over the 41 questions in the set and over all 49 drafts with those 8 counted as misses.
-  The true figure lies between the two.
-- The sets are small. One question is 2 to 7 points, depending on the table.
+  These are two ways of counting, not bounds on a true figure: how a method would do on the 8 is not known.
+- The sets are small. One question is 1.25 points of the 80 catalogue questions, about 2.0 of the 49 drafts,
+  about 2.4 of the 41 literature questions, about 3.1 of the 32 held-out catalogue questions, about 3.3 of the 30
+  out of scope, about 3.8 of the 26 development literature questions, 5 of a sealed part's 20, about 6.7 of the
+  15 held-out literature questions, and 10 of the 10 follow-ups.
 
 ## Result
 
-"Answered" means: a page that answers the question is among the first five passages returned.
+"Answered" (hit@5) means: a page graded 2 ([below](#how-the-literature-gold-was-made)) is among the first five
+passages returned. A question counts once, however many of its gold pages are found; this is not recall, the
+share of a question's gold pages that are found.
 
 Literature questions, on the hosted collection (41,126 passages on a Weaviate Cloud free cluster):
 
@@ -38,7 +44,9 @@ Literature questions, on the hosted collection (41,126 passages on a Weaviate Cl
 | Vector search | 36 (88%; 95% interval 78 to 98) | 36 (73%) |
 | Keyword search, the fallback when no embedding is available | 34 (83%) | 34 (69%) |
 
-Catalogue questions (which issue is the question about), held-out half, 32 questions:
+Catalogue questions (which issue is the question about), held-out half, 32 questions. They were kept aside while
+the lookup was built, then reused, with the other 48, when the short vector of the served lookup was chosen
+([below](#the-catalogue-lookup-a-second-short-vector-for-each-issue)):
 
 | | Right issue first | Right issue in the first three |
 |---|---|---|
@@ -57,7 +65,7 @@ only for the First Issue's questions.
 | Part | Questions | Where the gold comes from |
 |---|---|---|
 | Catalogue | 80: 40 facts, each asked in English and in Spanish | Generated from the catalogue graph with a fixed seed. Seven kinds of fact: date placed on sale, colour, quantity printed, printer, authorizing act, varieties, Scott equivalent. The gold value is read from the graph. |
-| Literature | 41 (22 English, 19 Spanish), from 49 drafts | Document and page, graded by the model judge: 2 = the page answers the question, 1 = it supports the answer. |
+| Literature | 41 (22 English, 19 Spanish), from 49 drafts | Document and page, graded by the model judge: 2 = the page answers the question, or a clear, direct part of it; 1 = it supports the answer. |
 | Out of scope | 30: 12 not about stamps, 8 about other countries' stamps, 10 about Costa Rican stamps but meant to be absent from the sources | Expected behaviour: decline. Used here only to look at scores; see below. |
 
 - **Catalogue questions test finding the issue, not the catalogue.** The fact comes from the same graph that
@@ -74,9 +82,13 @@ only for the First Issue's questions.
 1. 49 draft questions.
 2. Pool: the first five results of keyword, vector and hybrid search, on the full collection and on the collection
    with duplicates collapsed. 594 pages.
-3. The judge graded every pooled page from the passages returned for it, with this rubric: 2 = the passages
-   contain the specific answer; 1 = they are about what is asked and support the answer without stating it; 0 =
-   anything else. It was told to judge only from the passages shown and to ignore instructions inside them.
+3. The judge graded every pooled page from the passages returned for it, with this rubric
+   (`eval/model_judge.py`): 2 = the passages contain the specific answer to the question (or a clear, direct
+   part of it); 1 = they are about what the question asks and support or narrow the answer, but do not state
+   it; 0 = anything else, a different subject or the question's words without help to answer it (an index line,
+   a list of titles, a price list, a header). It was told to be strict with 2 (a passage about the same issue or
+   stamp that does not answer this question is a 1 at most), to judge only from the passages shown, and to
+   ignore instructions inside them. A grade 2 can therefore rest on part of an answer.
 4. A draft entered the set when at least one page got a 2: 41 of 49. Six had supporting pages only, two nothing.
 5. After every new set of runs, each page that reached the first five of any search without a grade went to the
    same judge. In the end 1,078 pages were judged for the 49 drafts, and no ungraded page is left in the first
@@ -166,7 +178,8 @@ vector index ([below](#the-catalogue-lookup-a-second-short-vector-for-each-issue
 row above was measured on 2026-11-23, on code `33df63b`: the question's vector on both indexes, no full-text
 index, the first three issues; the lookup only, no language model. The right issue is first for 29 of 32 and in
 the first three for 32 of 32, against 30 of 32 and 32 of 32 with the vector index alone. The lookup took 0.99 s
-at the median and 1.56 s at the 95th percentile. Outcome: `eval/outcomes/catalogue_heldout_served.json`.
+at the median and 1.56 s at the 95th percentile. Outcome: `eval/outcomes/catalogue_heldout_served.json`. These 32
+are not untouched: they are among the 80 catalogue questions measured when the short vector was chosen.
 
 With the vector index alone, the two held-out misses are one question in both languages (`cat-001-en`,
 `cat-001-es`): an issue of the same president two years earlier ranks first and the right one third. As served,
@@ -190,13 +203,16 @@ How often an in-scope question's best score beats an out-of-scope one's (0.5 = c
 15 of 15 does not mean 100%: with 15 questions that result is compatible with a true rate near 80%. The whole-set
 figure above is the better guide.
 
-Two things to know about "held out":
+Three things to know about "held out":
 
 - The literature held-out questions were scored on **three runs of one configuration** on the hosted collection:
   the first load, an identical repeat to see whether runs repeat, and a run after the collection was rebuilt from
   its export. No setting changed between them.
 - The vector-size rule was applied on the held-out questions, as planned beforehand. Its outcome was the default
   (keep 3,072).
+- The catalogue held-out half was reused later: the short vector the served lookup has was chosen on all 80
+  catalogue questions, that half included
+  ([below](#the-catalogue-lookup-a-second-short-vector-for-each-issue)).
 
 Catalogue held-out questions were run once per mode. The hosted graph instance refused new connections during the
 runs; an unreachable graph is recorded as "not scored", never as a miss (`eval/graph_conn.py` logs every
@@ -221,11 +237,13 @@ development machine, against the hosted stores.
 - **The served setting's columns are not a held-out result.** After the first two runs the model's instructions
   were revised once (a rule on scope, and one on writing in the question's language), having read answers to
   these same questions. The third run is the setting that is served; the fourth and fifth repeat it.
-- **"Correct" for a literature question means agreeing with a reference answer** that the retrieval judge wrote
-  from the pages it graded for that question in its first pass (12 pages a question on average, each with up to
-  two full passages). The answer is written from
-  five passages of at most 700 characters. "In part" is the usual grade: the answer gives a true part of the
-  reference and leaves out the rest. That measures the evidence the model is given as much as the model.
+- **"Correct" for a literature question is the judge's mark against a reference answer** that the retrieval
+  judge wrote from the pages it graded for that question in its first pass (12 pages a question on average, each
+  with up to two full passages). The rubric (`eval/answer_judge.py`, `PROMPT`): "yes" when the answer agrees
+  with the reference on what the question asks; "partly" when it gives part of it, or only related facts; "no"
+  when it contradicts the reference or does not answer the question. The tables call "yes" "correct" or "in
+  full", and "partly" "in part". The answer is written from five passages of at most 700 characters. "In part"
+  is the usual grade. That measures the evidence the model is given as much as the model.
 - **"Correct" for a catalogue question** means stating the value the graph holds for the fact asked; the judge
   reads the answer against that value.
 - The literature gold behind those references is itself model-judged (see the top of this file).
@@ -276,17 +294,21 @@ by seven in one (catalogue supported: 62, 59, 66); that is what one run of this 
 | Not covered | 1 | 0 | 0 | 0 | 0 |
 | Cut at the output limit | 21 | 0 | 0 | 0 | 0 |
 | Supported | 14 | 28 | 27 | 24 | 29 |
-| Correct (agrees with the reference in full) | 5 | 8 | 10 | 9 | 10 |
+| Correct ("yes": agrees with the reference on what the question asks) | 5 | 8 | 10 | 9 | 10 |
 | Correct in part / not correct | 13 / 1 | 32 / 1 | 29 / 2 | 32 / 0 | 30 / 1 |
 | Supported and correct | 4 | 7 | 9 | 5 | 9 |
 | Correct, of all 49 drafts | 5 | 8 | 10 | 9 | 10 |
 | Supported and correct, of all 49 drafts | 4 | 7 | 9 | 5 | 9 |
 | **Out of scope, 30 questions** | | | | | |
 | No written answer (the wanted outcome) | 27 | 21 | 29 | 28 | 28 |
-| **Sentences** | | | | | |
-| Written with no citation, and removed | 79 of 266 (30%) | 113 of 439 (26%) | 100 of 419 (24%) | 98 of 433 (23%) | 118 of 452 (26%) |
-| Citations that did not hold | 0 of 197 | 0 of 355 | 0 of 357 | 0 of 373 | 0 of 376 |
-| Shown sentences the judge marked supported / partly / not | 179 / 15 / 0 | 314 / 28 / 2 | 292 / 28 / 1 | 281 / 35 / 0 | 290 / 24 / 1 |
+| **Sentences, the 121 catalogue and literature questions** | | | | | |
+| Written with no citation, and removed | 79 of 266 (30%) | 113 of 439 (26%) | 100 of 419 (24%) | 88 of 401 (22%) | 108 of 418 (26%) |
+| Citations that did not hold | 0 of 197 | 0 of 355 | 0 of 357 | 0 of 348 | 0 of 350 |
+| Shown sentences the judge marked supported / partly / not | 172 / 15 / 0 | 299 / 25 / 2 | 291 / 27 / 1 | 279 / 34 / 0 | 286 / 23 / 1 |
+| **Sentences, every question: out of scope and follow-ups too** | | | | | |
+| Written with no citation, and removed | 86 of 297 (29%) | 137 of 501 (27%) | 113 of 451 (25%) | 98 of 433 (23%) | 118 of 452 (26%) |
+| Citations that did not hold | 0 of 225 | 0 of 398 | 0 of 377 | 0 of 373 | 0 of 376 |
+| Shown sentences the judge marked supported / partly / not (follow-ups are not graded) | 179 / 15 / 0 | 314 / 28 / 2 | 292 / 28 / 1 | 281 / 35 / 0 | 290 / 24 / 1 |
 | **Follow-ups, 10 conversations** | | | | | |
 | With the conversation: the issue first / in the first three | 8 / 10 | 9 / 10 | 9 / 10 | 8 / 10 | 8 / 10 |
 | The follow-up asked alone: first / in the first three | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 | 1 / 1 |
@@ -306,9 +328,10 @@ By language, as served:
   the catalogue column moved by a few questions with it. With one run per setting those few cannot be told from
   run-to-run change.
 - **About a quarter of what the model writes carries no citation** and is removed; most answers lose at least one
-  sentence. What is shown is mostly supported by its sources (292 of 321 sentences in full), and one sentence in
-  eleven says more than its sources do.
-- **Literature answers are rarely complete.** 10 of 41 agree with the reference in full and 29 in part; 2 do not.
+  sentence. What is shown is mostly supported by its sources (as served, 292 of the 321 shown sentences of every
+  graded answer), and one sentence in eleven says more than its sources do.
+- **Literature answers rarely get a "yes".** As served, 10 of 41 agree with the reference on what the question
+  asks, 29 in part; 2 do not.
 - **Retrieval did not move.** Through this route the counts are the question path's: a page that answers in the
   first five for 36 of 41 literature questions (36 of 49 drafts); the issue first with the fact in its card for 78
   of 80 catalogue questions, in the first three for 80 of 80. A first question is searched as it is typed; only a
@@ -339,8 +362,10 @@ starts again when the service restarts, so the limit that holds is the spend lim
 **Since the page has one question box** (not in the runs above), every question after a conversation's first is
 sent with the earlier turns and takes two model calls: one that says whether it needs those turns, and rewrites
 it only then, and one that writes. The first costs about 0.0001 USD (about 740 tokens in and 12 to 44 out) and
-0.9 s on average before the search starts, measured on 85 questions on the development machine. So 200 calls a
-day are between 100 and 200 written answers, and a question after the first costs about 0.0008 USD on average.
+0.9 s on average before the search starts, measured on 85 questions on the development machine. So a written
+answer takes one to three of the 200 calls a day (one more for a question after a conversation's first, one more
+for a web part), a call can be spent with no answer shown (a timeout, a failed call), and a question after the
+first costs about 0.0008 USD on average.
 Asked to repeat a standalone question unchanged, the earlier instructions still added the country to 12 of 20
 development questions and an earlier turn's subject to one; a page that answers was then among the five
 passages for 6 of 10 literature questions against 8 when asked alone. With the reply held to a flag and a
@@ -354,8 +379,8 @@ token counts, the judge's marks; no answer and no passage).
 
 ## What was tried to raise the literature answers
 
-After the answers above were served, the literature part was the weak one: about 10 of 41 answers agree with
-the reference in full. This part reports everything that was tried on it, with what did not help.
+After the answers above were served, the literature part was the weak one: about 10 of 41 answers get the
+judge's "yes" against the reference. This part reports everything that was tried on it, with what did not help.
 
 ### Read this first
 
@@ -368,10 +393,15 @@ the reference in full. This part reports everything that was tried on it, with w
   first row shows by how much: five runs of one setting (a sixth run of it, the repeat through the public
   host on 2026-11-22, was not given the second mark and is not in the row). A difference inside that spread
   is not a finding.
-- **Two marks of an answer.** "In full" is the mark used above: the answer agrees with the reference in full. A
-  second mark was added, in a separate pass of the judge with its own instructions: **does the answer give what
-  the question asks** (the date, the name, the reason, the list it requests), and does that agree with the
-  reference? Leaving out further detail the question did not ask for does not lower it. The first pass was not
+- **Two marks of an answer, from two prompts** (`eval/answer_judge.py`). "In full" is the first pass's "yes",
+  used above: the answer agrees with the reference on what the question asks ("partly": part of it, or only
+  related facts). **"Gives what is asked"** is a separate pass with its own instructions (`ASKED_PROMPT`): "yes"
+  when the answer states the thing the question asks for (the date, the name, the reason, the list it requests)
+  and it agrees with the reference, where leaving out further detail the reference has and the question did not
+  ask for does not lower the mark; "partly" when it gives some of several things asked, or the thing asked with
+  one detail that disagrees; "no" otherwise. Both prompts speak of what the question asks; the second says
+  outright that detail beyond it does not count, and it sees no source text. They are two judgments under two
+  prompts, not a clean split between a complete answer and an answer to the question. The first pass was not
   changed; a test pins its instructions.
 - **Rows marked "not a system"** give the writer passages from pages already known to answer the question. No
   search can know that. They measure what the writer does with the right evidence.
@@ -397,8 +427,11 @@ The writer is Claude Haiku 5.5 at effort `low`, as served, in every row but one.
 | Not a system: five passages of pages known to answer, 700 characters | 28, 30, 31 | 13, 14, 14 | 20, 19, 22 | 0.00091 |
 | Not a system: the same passages, up to 4,000 characters | 30, 26, 30 | 17, 14, 13 | 27, 21, 25 | 0.00125 |
 
-- **No setting that could be served moves the answers out of the spread of the first row.** The grading step
-  comes nearest (about three more answers in full) for 60% more cost and a later first line on the page.
+- **No reliable improvement was shown by a setting that could be served.** With three runs a setting, some
+  counts stand outside the first row's spread (the grading step with the nearest excerpt: 12 to 15 in full and
+  19 to 23 that give what is asked, against 8 to 12 and 14 to 19), and no test of a difference was made. The
+  grading step comes nearest (about three more answers in full) for 60% more cost and a later first line on the
+  page.
 - **The search is not the limit by itself.** Five passages of pages known to answer, each cut to the 700
   characters nearest the question, against the second row (the found passages, cut the same way): about three
   more answers in full (13, 14, 14 against 10, 12, 10) and about as many that give what is asked (20, 19, 22
@@ -457,7 +490,7 @@ not-yes. Two models agreeing is not a person checking; it says the mark does not
 ### What was kept
 
 - **The nearest excerpt**, behind a setting (`ASK_EXCERPT=nearest`): it costs nothing and nothing falls. It is
-  not a measured gain: its rows are inside the spread.
+  not a measured gain: no reliable improvement was shown.
 - **A catalogue card's lines as phrases, in the language of the question, with dates in words.** The model sets
   a cited line into its own sentence, so answers held "placed on sale: 1999-11-05" and, in Spanish answers, the
   line in English. Three runs of all 151 questions with the change: catalogue answers holding a date in that
@@ -483,7 +516,7 @@ vector, at the same weight as the first (`scripts/issue_short_vectors.py` writes
 | Lookup | Catalogue questions (80): issue first | among the three shown | Ranking cases (15): a wanted issue first | among the three shown |
 |---|---|---|---|---|
 | Without the short vector (served before it) | 78 | 80 | 9 | 12 |
-| With the short vector (as served now) | 75 | 80 | 11 | 13 |
+| With the short vector (served since 22 November 2026) | 75 | 80 | 11 | 13 |
 | With the short vector, through the public host | 75 | 80 | 11 | 13 |
 
 - The ranking cases are 15 questions a collector would type (`eval/data/ranking_cases.jsonl`); their wanted
@@ -513,17 +546,20 @@ The 50 questions of `eval/data/sealed/` (20 catalogue, 20 literature, 10 out of 
 before any of the changes of this part, and were not asked until 2026-11-22, when everything above was decided.
 They were asked twice, once each:
 
-- **As served when the set was made:** the backend's code at commit `d27e269`.
-- **As served now:** the code at commit `5dae0c1` with the short vector on (`ASK_SHORT_VECTOR=on`): the card's
-  lines as phrases, the excerpt from the start of a passage.
+- **The code of 21 November 2026, as served when the set was made:** the backend at commit `d27e269`.
+- **The code of 22 November 2026:** the backend at commit `5dae0c1` with the short vector on
+  (`ASK_SHORT_VECTOR=on`): the card's lines as phrases, the excerpt from the start of a passage.
 
-Both on a development machine against the hosted stores, the same day. The marks are the same judge's, from the
+Both on 22 November 2026, on a development machine against the hosted stores. Neither is the code served since
+the web setting was turned on (23 November 2026;
+[below](#as-served-two-runs-of-the-whole-set-with-the-web-setting-on)); no run of that code on the sealed
+questions is published. The marks are the same judge's, from the
 same instructions as above; no person has checked them. Nobody read the answers, and nothing was changed after
 these numbers were seen. Every page the two runs showed for a literature question already had a grade (100
 passages a run, and the 15 shown for the three out-of-scope questions whose pages were graded when the set was
 made), so no page had to be graded before scoring.
 
-| | As served when the set was made | As served now |
+| | 21 November 2026, `d27e269` | 22 November 2026, `5dae0c1` |
 |---|---|---|
 | **Catalogue, 20 questions** | | |
 | The issue first, with the fact in its card / among the three shown | 17 / 18 | 17 / 18 |
@@ -548,23 +584,23 @@ made), so no page had to be graded before scoring.
 | Gives what is asked: yes / partly / no (a question with no written answer is a no) | 2 / 7 / 7 | 4 / 7 / 5 |
 | **Out of scope, 10 questions** | | |
 | No written answer (the wanted outcome) | 9 | 9 |
-| **Sentences** | | |
+| **Sentences, all 50 questions** | | |
 | Written with no citation, and removed | 43 of 141 (30%) | 40 of 158 (25%) |
 | Citations that did not hold | 0 of 123 | 0 of 139 |
 | Shown sentences the judge marked supported / partly / not | 90 / 8 / 0 | 106 / 12 / 0 |
 | Cost of a question, USD: mean / maximum | 0.00071 / 0.00141 | 0.00076 / 0.00145 |
 
-- **The literature answers are weaker on these questions than on the development ones.** No answer agrees with
-  its reference in full, in either run (0 of 20; about 10 of 41 on the development questions), and 2 and 4 of 20
-  give what is asked (14 to 19 of 41 there). Every written answer agrees in part. A page that answers is among
-  the five passages for 16 of 20 (36 of 41 there). The development numbers of this document were read while the
-  instructions were revised; these were not.
+- **The literature answers are weaker on these questions than on the development ones.** No answer gets the
+  judge's "yes" against its reference, in either run (0 of 20; about 10 of 41 on the development questions),
+  and 2 and 4 of 20 give what is asked (14 to 19 of 41 there). Every written answer agrees in part. A page that
+  answers is among the five passages for 16 of 20 (36 of 41 there). The development numbers of this document
+  were read while the instructions were revised; these were not.
 - **The catalogue part holds:** 17 and 18 of 20 correct (69 to 74 of 80 on the development questions).
 - **The two runs differ by one or two questions in every row.** With one run each, that is not a finding in
   either direction. The short vector moved no sealed catalogue question: the same 17 first and 18 shown.
 - The references of the sealed literature questions are somewhat longer than the development ones (a median of
   288 characters against 240), from more judged pages a question (19 against 12). That may be part of why none
-  is matched in full; it was not tested.
+  gets a "yes"; it was not tested.
 - 50 questions, one run each, questions written by a model and a model's marks: small counts.
 
 Per-question outcomes: `eval/outcomes/answers_sealed-served.json`, `answers_sealed-chosen.json` (ids, how each
@@ -586,7 +622,7 @@ machine against the hosted stores, on the development questions only. The sealed
 - **The marks are a model's;** no person has checked them. One run of each thing, except the markers (three).
 - The 30 "out of scope" questions of the set are two kinds by their own field: 20 outside the scope (not about
   stamps, or another country's) and 10 about Costa Rican stamps whose answer is not in the sources. Only the
-  20 must never reach the web.
+  20 are meant to be kept from the web; the writer's marker is what keeps them, and it is the model's judgment.
 
 ### The three markers of the write call
 
@@ -598,7 +634,7 @@ ten follow-ups; the first was graded.
 | | Run A | Run B | Run C |
 |---|---|---|---|
 | **The 20 questions outside the scope** | | | |
-| `OUT_OF_SCOPE` (no answer, never the web) | 19 | 20 | 20 |
+| `OUT_OF_SCOPE` (no answer, no ticket for the web) | 19 | 20 | 20 |
 | An answer was written | 1 | 0 | 0 |
 | **The 10 not in the sources** | | | |
 | `NOT_COVERED` (no answer; the web is asked) | 9 | 10 | 9 |
@@ -709,14 +745,14 @@ the literature and never for the web part.
 | Catalogue: gives what the question asks | 76 | 78 |
 | Literature (41): a page that answers among the five | 36 | 36 |
 | Literature: written / supported | 40 / 25 | 40 / 26 |
-| Literature: agrees in full / in part | 10 / 30 | 10 / 28 |
-| Literature: supported and in full | 7 | 6 |
+| Literature: correct ("yes") / in part | 10 / 30 | 10 / 28 |
+| Literature: supported and correct | 7 | 6 |
 | Literature: gives what the question asks | 17 | 18 |
 | Out of scope (30): no written answer | 27 | 28 |
 | Sentences with no citation, removed (catalogue and literature) | 94 of 380 | 95 of 395 |
 | The same over every row, follow-ups and out of scope too | 101 of 410 | 104 of 427 |
 | Citations that did not hold (every row) | 0 of 376 | 0 of 386 |
-| Shown sentences the judge marked supported / partly / not | 259 / 33 / 1 | 273 / 32 / 0 |
+| Shown sentences the judge marked supported / partly / not (every graded answer, out of scope too) | 259 / 33 / 1 | 273 / 32 / 0 |
 | Follow-ups: the first question's issue first / in the first three | 9 / 10 | 9 / 10 |
 | Cost of a first question, mean / most, USD | 0.00070 / 0.00137 | 0.00071 / 0.00141 |
 | Wait for the evidence / the answer, median, s | 1.04 / 2.94 | 1.53 / 3.76 |
@@ -726,15 +762,20 @@ the literature and never for the web part.
 - **Against the served setting before the web setting** (the columns of "Written answers" and of the short
   vector): every catalogue question now gets a written answer (73 to 75 before) and 76 and 78 are correct (69 to
   74 before), as in the catalogue run above; the literature counts are inside their earlier ranges.
-- **Where a sentence ends.** Since `hosted-y` a sentence does not end at an abbreviation's full stop ("No.",
-  "pp."), nor before a number or a lower-case letter; before, a piece cut off at "No. 5" needed a citation of
-  its own to be shown. In `hosted-y`, 13 of 309 shown sentences hold a place the earlier rule would have cut:
-  11 places at an abbreviation, 6 before a lower-case letter, none before a number. The rule on numbers can take
-  two sentences for one; in this run it did not.
-- **The markers in `hosted-y`:** of the 20 questions outside the scope, 19 ended "out of scope" and 1 got an
-  answer marked as part, which would ask for the web; in `web-final` that one got an answer marked as full. Of
-  the 10 whose answer is not in the sources, 8 ended "not covered" and 2 got an answer marked as part. The part
-  marker fired on no catalogue answer and on 18 of 40 literature answers.
+- **Where a sentence ends.** `hosted-y` ran with the rule of commit `83c9ad7` (22 November 2026): a sentence did
+  not end at an abbreviation's full stop ("No.", "pp."), nor before a number or any lower-case letter; before
+  it, as in `web-final`, a piece cut off at "No. 5" needed a citation of its own to be shown. In `hosted-y`, 13
+  of 309 shown sentences hold a place the earlier rule would have cut: 11 places at an abbreviation, 6 before a
+  lower-case letter, none before a number. The rule on numbers can take two sentences for one; in this run it
+  did not. The rule changed again at commit `f5b784a` (23 November 2026), after both runs, and no published run
+  has it: a full stop before a lower-case letter now ends a sentence unless what stands before it reads as an
+  abbreviation (a single letter, letters with full stops between them, "etc.", "cts."), and a single capital
+  letter before a full stop is an initial ([backend/README.md](backend/README.md#the-written-answer-post-apichat)).
+- **The markers in `hosted-y`:** of the 20 questions outside the scope, 19 ended "out of scope" and 1,
+  `oos-013-en`, got an answer marked as part, and with it a ticket for a web search; in `web-final` that
+  question ended "out of scope", and another, `oos-009-en`, got an answer marked as full. Of the 10 whose answer
+  is not in the sources, 8 ended "not covered" and 2 (`una-001-en`, `una-008-es`) got an answer marked as part,
+  with a ticket. The part marker fired on no catalogue answer and on 18 of 40 literature answers.
 - The waits of `hosted-y` are through the public service with the service awake; those of `web-final` are on
   the development machine.
 
@@ -749,9 +790,41 @@ file, each with where it is stated, are in `eval/outcomes/how_it_works.json`.
   towards a future method.
 - Hybrid search on the hosted collection does not repeat from run to run.
 - Latency from a home connection to the hosted cluster, warm, per search, without the embedding call: keyword
-  77–80 ms median, vector 86–87 ms, hybrid 120–123 ms. The hosted backend's latency has not been measured.
+  77–80 ms median, vector 86–87 ms, hybrid 120–123 ms. These are the searches alone; the waits through the
+  hosted backend are in [Cost and waits](#cost-and-waits) and in the two runs with the web setting on.
 - The Spanish names of issues used in the catalogue questions were written for this test set and have not been
   reviewed by a philatelist.
+
+## Numbers with no published record
+
+These were measured during development, and their per-question records are not in this repository. They are
+reported as measured; nothing here lets a reader recount them.
+
+- The gold: 594 pooled pages and 1,078 judged pages ([How the literature gold was made](#how-the-literature-gold-was-made)).
+- The second model on every fifth question, 117 pages (the same section).
+- Distinct pages in the first five, 2.7 against 5.0, and 98.7% of the text kept after the collapse
+  ([How small can the literature collection be](#how-small-can-the-literature-collection-be)).
+- Shortened vectors against the API's own, cosine 0.9999 on 20 passages ([Vector size](#vector-size)).
+- Two identical vector runs with the same first five, and hybrid's 79% to 97% ([Search arm](#search-arm)).
+- The stopword comparison ([Stopwords](#stopwords)).
+- The scores that tell out-of-scope questions apart
+  ([Can a score cut-off tell out-of-scope questions apart](#can-a-score-cut-off-tell-out-of-scope-questions-apart)).
+- The follow-up's rewrite call on 85 questions (its tokens, cost and 0.9 s) and the comparison of its
+  instructions on 20 questions ([Cost and waits](#cost-and-waits)).
+- The waits of the first three columns of [Cost and waits](#cost-and-waits), and of the runs `hosted` and
+  `hosted-2`; the waits of `hosted-y` and `web-final` are in their files.
+- The three runs of a card's lines as phrases: their catalogue counts, and the dates and languages counted in
+  them ([What was kept](#what-was-kept); their literature counts are in `answers_literature_settings.json`).
+- The vector indexes against exact cosine: 37 and 36.8 of the exact 40, the same first issue and first three, the
+  96 questions, about 9 ms ([The catalogue lookup: a second, short vector](#the-catalogue-lookup-a-second-short-vector-for-each-issue)).
+- In the web trial, the distinct sites (29 and 42), the web call's seconds, and how far the usage route ran
+  behind ([A trial with real searches](#a-trial-with-real-searches); the tokens are in `web_trial.json`).
+- The 13 places of 309 sentences counted for the rule on where a sentence ends
+  ([As served](#as-served-two-runs-of-the-whole-set-with-the-web-setting-on)).
+- The search latencies from a home connection ([Other limits](#other-limits)).
+- The cost of all question embeddings, under 0.01 USD ([Data notes](#data-notes)).
+- In the README: the corpus counts (1,424 documents, their years; 653 passages from 296 documents for the First
+  Issue), the store-dependent tests that passed on 2026-11-18, and the half minute the demo takes to wake.
 
 ## Data notes
 

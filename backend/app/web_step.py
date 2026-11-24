@@ -9,8 +9,9 @@ and a short part written from the pages it returned.
                           web call -> the same check as an answer's
                           -> {"state", "sentences", "results", "counts", "calls"}
 
-It is its own request, made by the page once the answer is on screen, so the answer waits no longer
-than it did before this step existed.
+It is its own request, made by the page once the answer is on screen, so the search and the web part's model
+call never hold up the answer. The ticket the answer carries can wait on one read of the search service's usage
+route (WEB_USAGE_TIMEOUT_SECONDS, at most once in WEB_USAGE_EVERY_SECONDS).
 
 **The ticket** is the backend's signature (HMAC-SHA256) over a random id, a digest of the question as it
 was searched, a digest of the answer's text, the state and an expiry. It holds no text. Its key is made when

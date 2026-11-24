@@ -66,7 +66,8 @@ export type HowFigures = {
   };
   points_a_question: [number, number];
   after_first_usd: number | null;
-  spend_limit: { usd: number; month: string } | null;
+  /** that a monthly spend limit is set at the provider; its amount is not published */
+  spend_limit: { set: true } | null;
   trace: {
     date: string;
     lang: Lang;
