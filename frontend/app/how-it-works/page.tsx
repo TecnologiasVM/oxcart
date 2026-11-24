@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import HowItWorks from "../components/how/HowItWorks";
 import { linkPicture } from "../link-picture";
+import StructuredData from "../structured-data";
 
 /*
  * "How it works": what the demo is, the path of a question, and how it was measured. A static page: it
@@ -14,9 +15,15 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
+  alternates: { canonical: "/how-it-works" },
   ...linkPicture(TITLE, DESCRIPTION, "/how-it-works"),
 };
 
 export default function Page() {
-  return <HowItWorks />;
+  return (
+    <>
+      <StructuredData />
+      <HowItWorks />
+    </>
+  );
 }

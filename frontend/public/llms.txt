@@ -1,0 +1,14 @@
+# Oxcart
+
+> Oxcart answers questions about Costa Rican stamps, in Spanish or English. Each answer is short, and every sentence of it cites a card of the Mena catalogue, held as a graph, or a passage of scanned philatelic literature; the evidence is shown with it. It is an open-source research demo.
+
+A question is searched in both sources at once, a model writes a short answer only from what was found, and a sentence is shown only if its citation holds. How often the answers are right was measured on a test set; the grades are a model's.
+
+## Docs
+
+- [How it works](https://oxcart.chat/how-it-works): the path of a question, one traced question, results and limits
+- [Evaluation](https://github.com/TecnologiasVM/oxcart/blob/main/EVALUATION.md): what was measured, on which questions, and how far the numbers can be trusted
+
+## Source
+
+- [Repository](https://github.com/TecnologiasVM/oxcart): the code of the site, its backend and its evaluation, MIT licence

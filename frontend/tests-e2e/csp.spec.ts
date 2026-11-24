@@ -79,6 +79,8 @@ test("both pages work under the hosted policy, enforced: nothing is blocked alon
 
   // the question page: the first screen with its pictures, the box, the human check's script
   await page.goto("/");
+  // the schema.org data block is in the page, and the policy, made without a hash for it, blocks nothing
+  await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(1);
   expect(made[0]).toMatch(/^default-src 'none'; script-src 'self' 'sha256-/);
   await expect(page.getByTestId("plate").locator("img").first()).toBeVisible();
   await box(page).focus();
@@ -94,6 +96,7 @@ test("both pages work under the hosted policy, enforced: nothing is blocked alon
 
   // "How it works", and its fold
   await page.goto("/how-it-works");
+  await expect(page.locator('script[type="application/ld+json"]')).toHaveCount(1);
   await expect(page.locator("h1")).toBeVisible();
   await page.getByTestId("versions").locator("summary").click();
   await expect(page.getByTestId("versions")).toHaveAttribute("open");

@@ -1,0 +1,9 @@
+# Oxcart: every path may be crawled.
+# Content signals (https://contentsignals.org): search=yes, an index and its results may use these pages;
+# ai-input=yes, they may be given to an AI model as input to answer a question; ai-train=no, they are not for
+# training or fine-tuning a model.
+User-agent: *
+Content-Signal: search=yes, ai-input=yes, ai-train=no
+Allow: /
+
+Sitemap: https://oxcart.chat/sitemap.xml
