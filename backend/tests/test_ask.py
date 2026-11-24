@@ -886,6 +886,39 @@ def test_reciprocal_rank_fusion_adds_the_ranks_and_keeps_a_passage_once():
     assert ask_service.RRF_K == 60
 
 
+def test_the_questions_own_passages_are_all_kept_and_up_to_two_of_the_other_list_are_added():
+    own = [lit(f"own{n}", 0.9 - n / 100) for n in range(1, 7)]                # six: the sixth was never shown
+    other = [lit("x1", 0.95), lit("own1", 0.9), lit("x2", 0.94), lit("x3", 0.93), lit("x4", 0.92), lit("x5", 0.91), lit("x6"), lit("x7")]
+    shown = ask_service.join(own, other, 5, 2)
+    ids = [p["id"] for p in shown]
+    # every one of the question's own five, however well the other list's passages rank; two of the other's; no more
+    assert set(ids) == {"own1", "own2", "own3", "own4", "own5", "x1", "x2"} and len(ids) == 7
+    # in the fusion's order: the passage both searches found first, then by rank, the question's own before a tie
+    assert ids == ["own1", "x1", "own2", "own3", "x2", "own4", "own5"]
+    assert [p["found"] for p in shown][:2] == [["question", "translation"], ["translation"]]
+    # the other list's first passages are the question's own five: the two added are its sixth and seventh
+    same = [lit(f"own{n}") for n in range(1, 6)] + [lit("x6"), lit("x7"), lit("x8")]
+    assert {p["id"] for p in ask_service.join(own, same, 5, 2)} == {"own1", "own2", "own3", "own4", "own5", "x6", "x7"}
+    # a short list of the other language adds what it has; none to add leaves the question's own five
+    assert [p["id"] for p in ask_service.join(own, [lit("x1")], 5, 2)] == ["own1", "x1", "own2", "own3", "own4", "own5"]
+    assert [p["id"] for p in ask_service.join(own, [], 5, 2)] == ["own1", "own2", "own3", "own4", "own5"]
+    assert len(ask_service.join(own, other, 5, 1)) == 6
+
+
+def test_a_question_shows_at_most_its_own_five_and_the_two_added(fakes, monkeypatch):
+    own = [lit(f"own{n}") for n in range(1, 6)]
+    other = [lit(f"x{n}") for n in range(1, 8)]
+    result = ask_service.answer("a question", two_lists(fakes, own, other), ALSO)
+    assert len(result["passages"]) == settings.ASK_PASSAGES + settings.ASK_PASSAGES_OTHER_LANGUAGE == 7
+    assert sum(p["found"] == ["question"] for p in result["passages"]) == 5
+    assert sum(p["found"] == ["translation"] for p in result["passages"]) == 2
+    # the setting at 0: the question alone is searched, as before
+    monkeypatch.setattr(settings, "ASK_PASSAGES_OTHER_LANGUAGE", 0)
+    fakes.seen.clear()
+    result = ask_service.answer("a question", fakes.deps(), ALSO)
+    assert "searches" not in result and fakes.seen["searches"] == [("a question", fakes.vector, None)]
+
+
 def two_lists(fakes, own, other, fail=()):
     def search(text, vector, limit=None):
         fakes.seen.setdefault("searches", []).append((text, vector, limit))
@@ -909,7 +942,8 @@ def test_both_texts_are_searched_and_the_passages_say_their_language_and_which_s
         ("DOC a", "en", ["question", "translation"]), ("DOC x", "es", ["translation"])]
     assert all("id" not in p for p in result["passages"])                  # the store's id is not given out
     assert result["mode"]["literature"] == "vector" and fakes.seen["lookup"] == ("a question", [0.1])
-    assert {limit for _, _, limit in fakes.seen["searches"]} == {settings.ASK_FUSION_DEPTH}
+    assert sorted(limit for _, _, limit in fakes.seen["searches"]) == [
+        settings.ASK_PASSAGES, settings.ASK_PASSAGES + settings.ASK_PASSAGES_OTHER_LANGUAGE]
 
 
 def test_when_one_of_the_two_searches_fails_the_other_list_is_used_alone(fakes):

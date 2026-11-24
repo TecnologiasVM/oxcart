@@ -94,12 +94,12 @@ SESSION_MAX_BODY_BYTES: int = SESSION_TOKEN_CHARS + 64
 # 2,000 characters, each of which JSON can write as six bytes (\u00e9), and the other fields.
 QUERY_MAX_BODY_BYTES: int = 16384
 ASK_PASSAGES: int = _int("ASK_PASSAGES", 5)
-# When the literature is searched in both languages, how many passages each of the two searches returns
-# for the fusion (ask_service.fuse); never fewer than ASK_PASSAGES. Five: each search returns what the one
-# search returned before. Deeper lists were measured (EVALUATION.md): they answer as many questions, and
-# they fill the five shown with passages both searches found, which left one question in five with a
-# single language.
-ASK_FUSION_DEPTH: int = _int("ASK_FUSION_DEPTH", 5)
+# When the literature is searched in both languages (ask_service.py): the question's own ASK_PASSAGES are
+# always kept, and up to this many passages of the other language's search are added, the best ones that
+# are not already among them. So a question shows at most ASK_PASSAGES + this many. 0: the question alone
+# is searched. Why the question's own passages are kept, and not the first five of the two lists joined, is
+# in EVALUATION.md: joined at five, a page that answered a question could leave the five.
+ASK_PASSAGES_OTHER_LANGUAGE: int = _int("ASK_PASSAGES_OTHER_LANGUAGE", 2)
 ASK_ISSUES: int = _int("ASK_ISSUES", 3)
 ASK_TEXT_LIMIT: int = _int("ASK_TEXT_LIMIT", 700)
 # Which part of a passage longer than the limit is shown: "start" (its first characters) or "nearest"

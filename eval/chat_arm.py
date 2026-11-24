@@ -14,7 +14,7 @@ so the retrieval counts of the two routes can be compared with the same scorer.
 
 `table` prints, from that file and the judge's grades when they are given:
 
-- retrieval through this route (a page that answers among the first five: the same five whatever number is shown);
+- retrieval through this route (a page that answers among the passages shown for the question);
 - the languages of the shown passages: how many are in the other language than the question, and how many
   questions get passages in both (the passage's language is told by its words, oxcart/language.py);
 - how each question ended (answered, not covered, or the reason nothing was written), by
@@ -154,10 +154,15 @@ def _load(label: str) -> list:
 
 
 def retrieval_counts(rows: list, literature: list, catalogue: list, drafts_left_out: int = 0) -> dict:
-    """The question path's own scoring, on the evidence this route returned: counts only."""
+    """The question path's own scoring, on the evidence this route returned: counts only.
+
+    A literature question counts when a page graded 2 is among the passages shown for it: five when one text is
+    searched, up to seven when the question's own five are kept and passages of the other language are added.
+    ``k`` is the most passages any question of the run was shown (five at least)."""
     by_id = {r["id"]: r for r in rows if "evidence" in r}
+    k = max([5] + [len(by_id[q["id"]]["evidence"]["passages"]) for q in literature if q["id"] in by_id])
     answered = sum(1 for q in literature if q["id"] in by_id and measures.answer_at(
-        [{"doc_id": p["doc_id"], "page": p["page"]} for p in by_id[q["id"]]["evidence"]["passages"]], q["gold"]["sources"], 5))
+        [{"doc_id": p["doc_id"], "page": p["page"]} for p in by_id[q["id"]]["evidence"]["passages"]], q["gold"]["sources"], k))
     first = three = n = 0
     for q in catalogue:
         if q["id"] not in by_id:
@@ -169,7 +174,7 @@ def retrieval_counts(rows: list, literature: list, catalogue: list, drafts_left_
         found = bool(rank and catalogue_arm.fact_in_card(q, issues[rank - 1]["card"]))
         first += bool(rank == 1 and found)
         three += found
-    return {"literature": {"k": 5, "answered_in_first_k": answered, "questions": len(literature),
+    return {"literature": {"k": k, "answered_in_first_k": answered, "questions": len(literature),
                            "asked": sum(1 for q in literature if q["id"] in by_id), "drafts": len(literature) + drafts_left_out},
             "catalogue": {"issue_first_with_fact": first, "issue_in_first_three_with_fact": three, "asked": n}}
 
@@ -230,7 +235,7 @@ def _retrieval(label: str, rows: list) -> None:
     counts = retrieval_counts(rows, ask_arm.load("questions_literature.jsonl"), ask_arm.load("questions_catalogue.jsonl"),
                               DRAFTS_LEFT_OUT)
     lit, cat = counts["literature"], counts["catalogue"]
-    print(f"literature: a page that answers in the first five: {lit['answered_in_first_k']} of {lit['questions']} "
+    print(f"literature: a page that answers among the passages shown (at most {lit['k']}): {lit['answered_in_first_k']} of {lit['questions']} "
           f"({lit['answered_in_first_k']} of {lit['drafts']} drafts); asked {lit['asked']}")
     print(f"catalogue: the issue first with the fact in its card: {cat['issue_first_with_fact']} of {cat['asked']}; "
           f"in the first three: {cat['issue_in_first_three_with_fact']} of {cat['asked']}")

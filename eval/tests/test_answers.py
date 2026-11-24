@@ -139,6 +139,15 @@ def test_retrieval_counts_a_page_graded_2_in_the_first_five_and_the_issue_with_i
     assert counts["catalogue"] == {"issue_first_with_fact": 1, "issue_in_first_three_with_fact": 2, "asked": 2}
 
 
+def test_a_page_counts_among_all_the_passages_shown_five_or_seven():
+    seven = [("DOC X", n) for n in range(1, 7)] + [("DOC A", 3)]            # the page graded 2 is the seventh shown
+    rows = [_row("lit-1", "literature", seven), _row("lit-2", "literature", [("DOC B", 8)])]
+    counts = chat_arm.retrieval_counts(rows, LIT_Q[:2], [], drafts_left_out=0)
+    assert counts["literature"]["k"] == 7 and counts["literature"]["answered_in_first_k"] == 1
+    assert chat_arm.retrieval_counts([_row("lit-1", "literature", seven[:5])], LIT_Q[:1], [])["literature"] == {
+        "k": 5, "answered_in_first_k": 0, "questions": 1, "asked": 1, "drafts": 1}
+
+
 def test_the_waits_are_of_the_questions_asked_once_and_leave_out_the_threads():
     waits = chat_arm.wait_summary(RUN)
     assert waits["evidence"] == {"n": 5, "median": 3.0, "p95": 4.8}

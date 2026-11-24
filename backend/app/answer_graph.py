@@ -8,7 +8,8 @@
                     the visitor's own words), and the question is given in the other of the two
                     languages, Spanish and English.
     retrieve        the question path: embedding, catalogue lookup, and the literature searched    no model
-                    once per language, the two lists joined by reciprocal rank fusion.
+                    once per language: the question's own passages kept, a few of the other
+                    language added, the list ordered by reciprocal rank fusion.
     write           a short answer from the shown evidence, with citations.                        one model call
     check           keeps what is cited, drops what is not, names why there is no answer.          no model
 

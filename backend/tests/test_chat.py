@@ -996,7 +996,7 @@ def test_in_a_spanish_card_an_acts_kind_is_said_in_spanish_and_once():
 SPANISH = {"question": "¿Cuál es el dentado de la emisión inventada?", "lang": "es"}
 
 
-def test_every_question_is_searched_in_both_languages_and_the_two_lists_are_fused(chat_client, model, fakes):
+def test_every_question_is_searched_in_both_languages_and_the_two_lists_are_joined(chat_client, model, fakes):
     client = chat_client()
     model.also = SPANISH
     together = []
@@ -1009,12 +1009,14 @@ def test_every_question_is_searched_in_both_languages_and_the_two_lists_are_fuse
     client.app.state.ask = deps
     evidence, answer = lines_of(ask(client, "What is its perforation?"))
     assert together == [["What is its perforation?", SPANISH["question"]]]          # both texts in one embedding request
-    assert sorted(fakes.seen["searches"]) == sorted([("What is its perforation?", [0.1], settings.ASK_FUSION_DEPTH),
-                                                     (SPANISH["question"], [0.2], settings.ASK_FUSION_DEPTH)])
+    both = settings.ASK_PASSAGES + settings.ASK_PASSAGES_OTHER_LANGUAGE     # the other list: as many, and the few that can be added
+    assert sorted(fakes.seen["searches"]) == sorted([("What is its perforation?", [0.1], settings.ASK_PASSAGES),
+                                                     (SPANISH["question"], [0.2], both)])
     assert fakes.seen["lookup"] == ("What is its perforation?", [0.1])              # the catalogue: the question's own vector
     found = evidence["evidence"]
     assert found["searches"] == [{"question": "What is its perforation?", "lang": "en", "state": "ok"},
                                  {"question": SPANISH["question"], "lang": "es", "state": "ok"}]
+    # the question's own passages are all there, two of the other list are added, and the order is the fusion's:
     # the passage both lists hold comes first and once; then the two lists by rank, the question's own first
     assert [(p["doc_id"], p["found"]) for p in found["passages"]] == [
         ("b", ["question", "translation"]), ("a", ["question"]), ("x", ["translation"]), ("c", ["question"]), ("y", ["translation"])]
