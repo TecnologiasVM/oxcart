@@ -1,14 +1,19 @@
 """The written answer, as a graph (LangGraph).
 
-    START ──(a thread came with the question)──> contextualize ──┐
-      └────────────(a first question)────────────────────────────┴─> retrieve ──> write ──> check ──> END
-                                                                         └──(no store answered)──> END
+    START ──> contextualize ──> retrieve ──> write ──> check ──> END
+                                    └──(no store answered)──> END
 
-    contextualize   a follow-up ("and its perforation?") -> a question that stands alone;    one model call
-                    a question that already does is searched in the visitor's own words.
-    retrieve        the question path as it was: embedding, catalogue lookup, literature.     no model
-    write           a short answer from the shown evidence, with citations.                   one model call
-    check           keeps what is cited, drops what is not, names why there is no answer.     no model
+    contextualize   query rewriting, for every question: a follow-up ("and its perforation?")      one model call
+                    becomes a question that stands alone (one that already does is searched in
+                    the visitor's own words), and the question is given in the other of the two
+                    languages, Spanish and English.
+    retrieve        the question path: embedding, catalogue lookup, and the literature searched    no model
+                    once per language, the two lists joined by reciprocal rank fusion.
+    write           a short answer from the shown evidence, with citations.                        one model call
+    check           keeps what is cited, drops what is not, names why there is no answer.          no model
+
+When the first step cannot run (no key, the day's allowance spent) or its call fails or is late, the
+question is searched as it was typed, in its own language only, as before that step ran for every question.
 
 **Why a graph.** Each step is a node that is given only the part of the state it declares.
 The earlier turns of a conversation come from the browser, so they are a visitor's text:
@@ -66,6 +71,7 @@ class ChatState(TypedDict, total=False):
     thread: list                # the earlier turns, from the browser: [{"question": .., "answer": ..}]
     search_question: str        # the question that stands alone: what is searched and what is answered
     rewritten: bool
+    also: dict                  # the searched question in the other language: {"question": .., "lang": "es" | "en"}
     evidence: dict              # what POST /api/ask returns for search_question
     error: str                  # set when no store answered
     draft: dict                 # the model's reply, before the check
@@ -73,8 +79,8 @@ class ChatState(TypedDict, total=False):
     calls: Annotated[list, operator.add]     # one entry per model call: what for, its state, tokens, seconds
 
 
-class FollowUp(TypedDict):
-    """All that ``contextualize`` is given."""
+class FollowUp(TypedDict, total=False):
+    """All that ``contextualize`` is given. ``thread`` is empty, or absent, for a conversation's first question."""
     question: str
     thread: list
 
@@ -83,6 +89,7 @@ class Asked(TypedDict, total=False):
     """All that ``retrieve`` is given."""
     question: str
     search_question: str
+    also: dict
 
 
 class Found(TypedDict):
@@ -100,7 +107,7 @@ class Written(TypedDict):
 @dataclass
 class Deps:
     """What a run needs from the process. Tests pass fakes."""
-    retrieve: Callable[[str], dict]     # ask_service.answer for this process's stores
+    retrieve: Callable[..., dict]       # (question, also) -> ask_service.answer for this process's stores
     model: Any                          # answer_model.ClaudeModel, or a fake with the same three members
     take: Callable[[], bool]            # one model call from the day's allowance; False when it is spent
     # Set by the route when nobody waits for the answer any more (it gave up, refused, or the visitor left):
@@ -373,25 +380,50 @@ def sentence_spans(text: str) -> list:
 
 # --------------------------------------------------------------------------- nodes
 def contextualize(state: FollowUp, runtime: Runtime[Deps]) -> dict:
+    """Query rewriting, for every question: one model call that makes a follow-up stand alone and gives the
+    question in the other language. Whatever goes wrong, the question is searched as it was typed."""
     deps = runtime.context
     question = state["question"]
     if deps.gone.is_set() or not deps.model.configured or not deps.take():
         return {"search_question": question, "rewritten": False}
-    reply = deps.model.rewrite(question, state["thread"])
+    reply = deps.model.rewrite(question, state.get("thread") or [])
+    calls = [_call("rewrite", reply)]
+    if reply.state != "ok":
+        return {"search_question": question, "rewritten": False, "calls": calls}
     rewritten = " ".join(reply.text.split())
     # The model's word for "it stands alone": the visitor's own words are searched. The word counts
     # wherever it stands in the reply: seen once with a sentence of reasons before it, and a reply
     # that holds it is never a question to search.
     stands_alone = UNCHANGED in rewritten or rewritten.strip(" .\"'`").upper() == UNCHANGED
-    if reply.state != "ok" or stands_alone or not 0 < len(rewritten) <= settings.ASK_MAX_QUESTION_CHARS:
-        return {"search_question": question, "rewritten": False, "calls": [_call("rewrite", reply)]}
-    return {"search_question": rewritten, "rewritten": rewritten != question, "calls": [_call("rewrite", reply)]}
+    if not state.get("thread") or stands_alone:
+        searched = question                      # a first question has nothing to point back to
+    elif not 0 < len(rewritten) <= settings.ASK_MAX_QUESTION_CHARS:
+        # a rewrite that cannot be used: the question as typed, and no second text (it was made for the rewrite)
+        return {"search_question": question, "rewritten": False, "calls": calls}
+    else:
+        searched = rewritten
+    out = {"search_question": searched, "rewritten": searched != question, "calls": calls}
+    also = _second_text(getattr(reply, "also", None), searched)
+    if also:
+        out["also"] = also
+    return out
+
+
+def _second_text(also: Any, searched: str) -> Optional[dict]:
+    """The reply's other-language text, when it can be searched: a text of a question's length in one of the two
+    languages that is not the searched question itself."""
+    if not isinstance(also, dict) or also.get("lang") not in ("es", "en"):
+        return None
+    text = " ".join(str(also.get("question") or "").split())
+    if not 0 < len(text) <= settings.ASK_MAX_QUESTION_CHARS or text.casefold() == searched.casefold():
+        return None
+    return {"question": text, "lang": also["lang"]}
 
 
 def retrieve(state: Asked, runtime: Runtime[Deps]) -> dict:
     question = state.get("search_question") or state["question"]
     try:
-        return {"search_question": question, "evidence": runtime.context.retrieve(question)}
+        return {"search_question": question, "evidence": runtime.context.retrieve(question, state.get("also"))}
     except Unavailable:
         return {"search_question": question, "error": "stores_unavailable"}
 
@@ -505,10 +537,6 @@ def cited_sentences(blocks: list, sources: list, markers: tuple = ()) -> tuple[l
 
 
 # --------------------------------------------------------------------------- the graph
-def _first(state: ChatState) -> Literal["contextualize", "retrieve"]:
-    return "contextualize" if state.get("thread") else "retrieve"
-
-
 def _after_retrieve(state: ChatState) -> Literal["write", "__end__"]:
     return END if state.get("error") else "write"
 
@@ -519,7 +547,7 @@ def build():
     graph.add_node("retrieve", retrieve)
     graph.add_node("write", write)
     graph.add_node("check", check)
-    graph.add_conditional_edges(START, _first)
+    graph.add_edge(START, "contextualize")              # every question, a conversation's first one too
     graph.add_edge("contextualize", "retrieve")
     graph.add_conditional_edges("retrieve", _after_retrieve)
     graph.add_edge("write", "check")

@@ -759,7 +759,7 @@ def test_the_app_holds_the_web_step_only_with_the_setting_on(make_client, monkey
 @pytest.mark.parametrize("outcome", [("timeout", []), ("failed", []), ("used_up", []), ("ok", [])])
 def test_the_model_call_taken_for_a_web_part_is_given_back_when_the_search_leaves_nothing_to_write_from(
         web_client, model, tavily, monkeypatch, outcome):
-    monkeypatch.setattr(settings, "ANSWER_LIMIT_PER_DAY", 3)
+    monkeypatch.setattr(settings, "ANSWER_LIMIT_PER_DAY", 4)
     client = web_client()
     headers = session_of(client)
     question, text, ticket = ticketed(client, model, headers)                 # calls 1 and 2: rewrite, write
@@ -767,7 +767,7 @@ def test_the_model_call_taken_for_a_web_part_is_given_back_when_the_search_leave
     part = web(client, headers, question, text, ticket).json()
     assert part["state"] in ("unavailable", "nothing") and model.webs == [] and part["calls"] == []
     model.reply = None
-    assert chat(client, headers)[1]["state"] == "ok"                          # the third call of the day is still there
+    assert chat(client, headers)[1]["state"] == "ok"                          # calls 3 and 4 of the day are still there
 
 
 def test_no_ticket_when_a_store_did_not_answer(web_client, model, tavily, fakes):

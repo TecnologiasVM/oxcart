@@ -94,6 +94,12 @@ SESSION_MAX_BODY_BYTES: int = SESSION_TOKEN_CHARS + 64
 # 2,000 characters, each of which JSON can write as six bytes (\u00e9), and the other fields.
 QUERY_MAX_BODY_BYTES: int = 16384
 ASK_PASSAGES: int = _int("ASK_PASSAGES", 5)
+# When the literature is searched in both languages, how many passages each of the two searches returns
+# for the fusion (ask_service.fuse); never fewer than ASK_PASSAGES. Five: each search returns what the one
+# search returned before. Deeper lists were measured (EVALUATION.md): they answer as many questions, and
+# they fill the five shown with passages both searches found, which left one question in five with a
+# single language.
+ASK_FUSION_DEPTH: int = _int("ASK_FUSION_DEPTH", 5)
 ASK_ISSUES: int = _int("ASK_ISSUES", 3)
 ASK_TEXT_LIMIT: int = _int("ASK_TEXT_LIMIT", 700)
 # Which part of a passage longer than the limit is shown: "start" (its first characters) or "nearest"
@@ -188,7 +194,9 @@ ANSWER_EFFORT: str = os.getenv("ANSWER_EFFORT", "low").strip().lower() or "low"
 ANSWER_THINKING: str = "disabled" if os.getenv("ANSWER_THINKING", "").strip().lower() == "disabled" else "adaptive"
 ANSWER_MAX_TOKENS: int = _int("ANSWER_MAX_TOKENS", 500)
 ANSWER_THINKING_ROOM_TOKENS: int = _int("ANSWER_THINKING_ROOM_TOKENS", 1500)
-REWRITE_MAX_TOKENS: int = _int("REWRITE_MAX_TOKENS", 120)
+# The rewrite call's reply holds at most two questions (ASK_MAX_QUESTION_CHARS each): the one that stands
+# alone and its other-language text.
+REWRITE_MAX_TOKENS: int = _int("REWRITE_MAX_TOKENS", 300)
 ANSWER_TIMEOUT_SECONDS: int = _int("ANSWER_TIMEOUT_SECONDS", 12)
 REWRITE_TIMEOUT_SECONDS: int = _int("REWRITE_TIMEOUT_SECONDS", 5)
 # Model calls a day for the whole service (kept in this process's memory). Every call counts,

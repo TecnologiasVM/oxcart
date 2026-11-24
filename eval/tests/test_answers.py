@@ -185,3 +185,43 @@ def test_each_published_row_says_whether_its_answer_carried_a_web_ticket_and_nev
     published = json.loads(text)["rows"]
     assert [r["web_ticket"] for r in published] == [True, False, False]
     assert "a-made-up-ticket-value" not in text and "expires_in" not in text
+
+
+# --------------------------------------------------------------------------- the languages of the shown passages
+SPANISH_TEXT = "El resello de la emisión se hizo en la imprenta para los sellos que se usaron en la provincia."
+ENGLISH_TEXT = "The overprint of the issue was made at the printing office for the stamps that were used there."
+
+
+def _shown(qid, lang, texts, searches=0):
+    row = _row(qid, "literature")
+    row["lang"] = lang
+    row["evidence"]["passages"] = [{"doc_id": "D", "page": n, "text": t} for n, t in enumerate(texts)]
+    if searches:
+        row["evidence"]["searches"] = [{"question": "q", "lang": lang, "state": "ok"}] * searches
+    return row
+
+
+def test_the_languages_of_the_shown_passages_are_counted_by_the_questions_language():
+    rows = [_shown("lit-1", "en", [ENGLISH_TEXT, SPANISH_TEXT, "1863 1864", ENGLISH_TEXT, ENGLISH_TEXT, SPANISH_TEXT], searches=2),
+            _shown("lit-2", "en", [ENGLISH_TEXT]),
+            _shown("lit-3", "es", [SPANISH_TEXT, SPANISH_TEXT]),
+            {"id": "lit-4", "part": "literature", "lang": "en", "error": "HTTP 500"},          # no reply: not counted
+            dict(_shown("thr-1", "en", [SPANISH_TEXT]), part="threads")]                       # nor a thread
+    counts = chat_arm.language_counts(rows)["literature"]
+    assert counts["en"] == {"questions": 2, "passages": 7, "same": 4, "other": 2, "untold": 1, "other_in_first_five": 1,
+                            "with_other": 1, "both": 1, "two_texts": 1}
+    assert counts["es"] == {"questions": 1, "passages": 2, "same": 2, "other": 0, "untold": 0, "other_in_first_five": 0,
+                            "with_other": 0, "both": 0, "two_texts": 0}
+
+
+def test_each_kind_of_model_call_is_summed_up_apart():
+    rows = [dict(_row("lit-1", "literature"), calls=[
+                {"purpose": "rewrite", "state": "ok", "input_tokens": 1000, "output_tokens": 100, "seconds": 1.0},
+                {"purpose": "write", "state": "ok", "input_tokens": 4000, "output_tokens": 400, "seconds": 3.0}]),
+            dict(_row("lit-2", "literature"), calls=[
+                {"purpose": "rewrite", "state": "timeout", "input_tokens": 0, "output_tokens": 0, "seconds": 5.0},
+                {"purpose": "write", "state": "ok", "input_tokens": 2000, "output_tokens": 200, "seconds": 2.0}])]
+    rewrite = chat_arm.call_summary(rows, "rewrite")
+    assert (rewrite["n"], rewrite["ok"], rewrite["median_seconds"], rewrite["input_tokens_mean"]) == (2, 1, 3.0, 500)
+    assert rewrite["usd_mean"] == round((1000 * 0.10 + 100 * 0.50) / 1e6 / 2, 6)
+    assert chat_arm.call_summary(rows, "write")["n"] == 2 and chat_arm.call_summary(rows, "web") == {}
