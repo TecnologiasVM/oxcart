@@ -43,7 +43,7 @@ for (const { path, canonical } of PAGES) {
     expect(typeof data.description).toBe("string");
     // the pipeline's techniques, in their usual names
     const features = (data.featureList as string[]).join(" ");
-    for (const term of ["Query rewriting", "Multi-query retrieval", "Reciprocal rank fusion (RRF)"]) expect(features).toContain(term);
+    for (const term of ["Query rewriting", "Multi-query retrieval", "reciprocal rank fusion (RRF)"]) expect(features).toContain(term);
     // the page as served holds the block, and the hashes the site's policy is made from do not include it
     const html = await (await request.get(path)).text();
     expect(html).toContain('<script type="application/ld+json">');
@@ -83,7 +83,7 @@ test("llms.txt: a title, a summary, and links to how it works, the evaluation an
   expect(lines.find((l) => l.trim()) === "# Oxcart" && lines.some((l) => l.startsWith("> "))).toBe(true);
   expect(text).toMatch(/^## /m);
   // the pipeline's techniques, in their usual names
-  for (const term of ["Query rewriting", "Multi-query retrieval", "Reciprocal rank fusion (RRF)"]) expect(text).toContain(term);
+  for (const term of ["Query rewriting", "Multi-query retrieval", "reciprocal rank fusion (RRF)"]) expect(text).toContain(term);
   const links = [...text.matchAll(/^- \[[^\]]+\]\((https:\/\/[^)]+)\)/gm)].map((m) => m[1]);
   expect(links).toEqual([
     "https://oxcart.chat/how-it-works",

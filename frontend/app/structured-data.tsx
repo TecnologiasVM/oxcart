@@ -22,7 +22,7 @@ export const STRUCTURED_DATA = {
   featureList: [
     "Query rewriting: a follow-up question is made to stand alone, and every question is translated into the other of Spanish and English",
     "Multi-query retrieval: the philatelic literature is searched by vectors once per language; a catalogue graph is searched with the question's own vector",
-    "Reciprocal rank fusion (RRF) of the two lists of passages",
+    "The question's own passages are kept, a few of the other language are added, and the list is ordered by reciprocal rank fusion (RRF)",
     "A short answer written only from the evidence found, in the language of the question, each sentence with a citation that is checked",
   ],
   isBasedOn: {

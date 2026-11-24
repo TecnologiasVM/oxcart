@@ -27,7 +27,7 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // The run the page's results are read from: one published file of `python -m eval.chat_arm table --publish`.
-const RUN = "answers_v11-after-1.json";
+const RUN = "answers_v11-keep5-1.json";
 // The same questions asked the same day with the code as it was before the literature was searched in both
 // languages (main at 1dc9c10): one text, one search.
 const BEFORE = "answers_v11-before.json";
@@ -260,6 +260,8 @@ function limits() {
     question_chars: setting(s, "ASK_MAX_QUESTION_CHARS"),
     issues: setting(s, "ASK_ISSUES"),
     passages: setting(s, "ASK_PASSAGES"),
+    // added from the other language's search at most, when a question is searched in both
+    passages_other_language: setting(s, "ASK_PASSAGES_OTHER_LANGUAGE"),
     web_searches_a_month: setting(s, "WEB_SEARCHES_AT_MONTH_START") + setting(s, "WEB_SEARCHES_OVER_THE_MONTH"),
     vectors_in_memory: Number(cache[1]),
     models: { writer: setting(s, "ANSWER_MODEL"), embedding: setting(s, "EMBEDDING_MODEL") },

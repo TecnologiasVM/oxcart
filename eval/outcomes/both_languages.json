@@ -3877,6 +3877,381 @@
    "of": 30
   }
  },
+ "question_five_kept": {
+  "what": "the design that is served: the question's own first five always kept, up to two passages of the translation's list added (its best ones not already among them), the list ordered by reciprocal rank fusion. found = a page graded 2 among the passages shown (seven at most); found_before = among the question's own five",
+  "added_at_most": 2,
+  "rows": [
+   {
+    "id": "lit-001-en",
+    "lang": "en",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-002-en",
+    "lang": "en",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-002-es",
+    "lang": "es",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-003-en",
+    "lang": "en",
+    "side": "heldout",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-003-es",
+    "lang": "es",
+    "side": "heldout",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-004-en",
+    "lang": "en",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-004-es",
+    "lang": "es",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-005-en",
+    "lang": "en",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-005-es",
+    "lang": "es",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-006-en",
+    "lang": "en",
+    "side": "heldout",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-006-es",
+    "lang": "es",
+    "side": "heldout",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-007-en",
+    "lang": "en",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-007-es",
+    "lang": "es",
+    "side": "dev",
+    "shown": 7,
+    "found_before": false,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-008-en",
+    "lang": "en",
+    "side": "heldout",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-008-es",
+    "lang": "es",
+    "side": "heldout",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-009-en",
+    "lang": "en",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-009-es",
+    "lang": "es",
+    "side": "dev",
+    "shown": 7,
+    "found_before": false,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-010-en",
+    "lang": "en",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-010-es",
+    "lang": "es",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-011-en",
+    "lang": "en",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-011-es",
+    "lang": "es",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-012-en",
+    "lang": "en",
+    "side": "heldout",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-014-en",
+    "lang": "en",
+    "side": "heldout",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-015-en",
+    "lang": "en",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-016-en",
+    "lang": "en",
+    "side": "heldout",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-017-en",
+    "lang": "en",
+    "side": "dev",
+    "shown": 7,
+    "found_before": false,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-019-en",
+    "lang": "en",
+    "side": "heldout",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-020-en",
+    "lang": "en",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-021-en",
+    "lang": "en",
+    "side": "heldout",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-022-en",
+    "lang": "en",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-023-en",
+    "lang": "en",
+    "side": "dev",
+    "shown": 7,
+    "found_before": false,
+    "found": false,
+    "both_languages": true
+   },
+   {
+    "id": "lit-024-en",
+    "lang": "en",
+    "side": "heldout",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-026-es",
+    "lang": "es",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-027-es",
+    "lang": "es",
+    "side": "heldout",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-029-es",
+    "lang": "es",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-030-es",
+    "lang": "es",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-031-es",
+    "lang": "es",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-033-es",
+    "lang": "es",
+    "side": "dev",
+    "shown": 7,
+    "found_before": false,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-034-es",
+    "lang": "es",
+    "side": "dev",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-037-es",
+    "lang": "es",
+    "side": "heldout",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   },
+   {
+    "id": "lit-038-es",
+    "lang": "es",
+    "side": "heldout",
+    "shown": 7,
+    "found_before": true,
+    "found": true,
+    "both_languages": true
+   }
+  ]
+ },
  "pages_graded_for_this": {
   "grade_0": 115,
   "grade_1": 55,

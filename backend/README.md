@@ -76,8 +76,8 @@ One question in, the evidence out, for any issue. No written answer.
    lookup runs without it and the log says so.
 3. The literature store is searched: `near_vector` with the embedding, `bm25` without it.
 
-Steps 2 and 3 run side by side. The answer carries `issues` (three), `passages` (five, text clipped to 700
-characters), `timings`, and a `mode` block that says what produced each part: `embedding` (`ok`, `failed`,
+Steps 2 and 3 run side by side. The answer carries `issues` (three), `passages` (five, or up to seven when the
+literature was searched in both languages, below; text clipped to 700 characters), `timings`, and a `mode` block that says what produced each part: `embedding` (`ok`, `failed`,
 `not configured`), `catalogue` (`vector index`, `full-text index`, `unavailable`), `literature` (`vector`,
 `keyword`, `unavailable`). A store that cannot be reached costs its own block only; the question fails (503) when
 neither answers. A store that has not answered within `ASK_STORE_SECONDS` (12 s) counts as unavailable for that
@@ -93,12 +93,18 @@ this route has no model and gives none, so `POST /api/ask` searches one text. Wi
 
 - both texts are embedded in one request;
 - the catalogue lookup keeps the question's own text and vector;
-- the literature is searched once per text, side by side, each search returning `ASK_FUSION_DEPTH` passages (5);
-- the two lists are joined by reciprocal rank fusion (`ask_service.fuse`): a passage scores 1 / (60 + its rank)
-  in each list that holds it, the scores are added, and a passage both lists hold is kept once, by its id in the
-  store. Between equal scores the question's own list goes first. `ASK_PASSAGES` (5) are shown;
-- when one of the two searches fails or is late, the other's list is used alone; with no embedding both texts
-  are searched by keyword.
+- the literature is searched once per text, side by side;
+- the question's own `ASK_PASSAGES` (5) are always kept, so no passage that one search showed before is lost to
+  the other language; up to `ASK_PASSAGES_OTHER_LANGUAGE` (2) passages of the other text's list are added, its
+  best ones that are not already among them, by a passage's id in the store (`ask_service.join`);
+- the list, seven passages at most, is put in the order of reciprocal rank fusion (`ask_service.fuse`): a
+  passage scores 1 / (60 + its rank) in each list that holds it, and the scores are added, so a passage both
+  searches found goes first. Between equal scores the question's own list goes first;
+- when one of the two searches fails or is late, the other's list is used alone (five passages); with no
+  embedding both texts are searched by keyword.
+
+Joining the two lists and showing the first five of the result was built first and not served: a page that
+answered a question could leave the five ([EVALUATION.md](../EVALUATION.md#the-literature-in-both-languages)).
 
 The answer then carries `searches`, the two texts in order (`question`, `lang`, and `state`: `ok` or
 `unavailable`), and each passage carries `lang` (`es`, `en`, or null when its function words do not tell:
@@ -126,7 +132,7 @@ the same evidence followed by a short answer whose sentences cite it. The steps 
 | Step | What it does | Model |
 |---|---|---|
 | `contextualize` | Query rewriting, for every question: a follow-up is rewritten as a question that stands alone ("and its perforation?" becomes a question that names the issue; one that already stands alone is searched in the visitor's own words), and the question is given in the other of Spanish and English. If the call fails or is late (5 s), or cannot be made (no key, the day's calls spent), the question is searched as written, in its own language only | one call |
-| `retrieve` | The question path above, with the second text: the literature searched once per language, the lists joined by reciprocal rank fusion | none |
+| `retrieve` | The question path above, with the second text: the literature searched once per language, the question's own five passages kept, up to two of the other language added, the list ordered by reciprocal rank fusion | none |
 | `write` | A short answer from the shown evidence, with citations (`app/answer_model.py`) | one call |
 | `check` | Keeps the sentences that carry a citation that holds, drops the others, and names why there is no answer when there is none | none |
 
@@ -368,7 +374,7 @@ unless set.
 | `OPENAI_API_KEY` | | The question's embedding. Without it the question path uses the full-text index and keyword search |
 | **The question path** | | |
 | `ASK_ISSUES`, `ASK_PASSAGES`, `ASK_TEXT_LIMIT` | `3`, `5`, `700` | Issues and passages returned, and the characters shown of a passage |
-| `ASK_FUSION_DEPTH` | `5` | Passages each of the two literature searches returns for the fusion, when a question is searched in both languages (never fewer than `ASK_PASSAGES`) |
+| `ASK_PASSAGES_OTHER_LANGUAGE` | `2` | When a question is searched in both languages: how many passages of the other language's search are added to the question's own `ASK_PASSAGES` at most. `0`: the question alone is searched |
 | `ASK_EXCERPT` | `start` | `nearest`: show the stretch of a long passage that shares most words with the question |
 | `ASK_SHORT_VECTOR` | off | Also ask the short vector index of the issues (`scripts/issue_short_vectors.py` writes it) |
 | `ASK_MAX_QUESTION_CHARS`, `ASK_MAX_BODY_BYTES` | `300`, `2048` | A question's length and the body of `/api/ask` |

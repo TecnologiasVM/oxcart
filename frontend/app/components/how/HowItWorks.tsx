@@ -67,7 +67,7 @@ export default function HowItWorks() {
     issues: f.n(F.stores.graph.issues),
     passages: f.n(F.stores.literature.objects),
     cards: f.n(F.limits.issues),
-    shown: f.n(F.limits.passages),
+    shown: f.n(F.limits.passages + F.limits.passages_other_language),
   });
   const S = F.stores;
   const stepArgs = {
@@ -75,6 +75,7 @@ export default function HowItWorks() {
     numbers: f.n(S.literature.dimensions),
     issues: f.n(F.limits.issues),
     passages: f.n(F.limits.passages),
+    added: f.n(F.limits.passages_other_language),
     graphIndex: S.graph.index.type,
     litIndex: S.literature.index.type,
     litCompression: S.literature.index.compression,

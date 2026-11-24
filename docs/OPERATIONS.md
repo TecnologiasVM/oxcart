@@ -19,7 +19,7 @@ cannot be reached the page shows what the other returned and says which one is m
 ## What the limits are, and what they are not
 
 A visitor may ask 10 questions a minute and 100 a day; the service takes 2,000 questions a day and makes at most
-200 model calls a day (under 3 USD a month at the measured averages). A written answer takes two or three of
+200 model calls a day (about 3 USD a month at the measured averages). A written answer takes two or three of
 those calls: the query rewriting before the search, for every question; the call that writes the answer; and
 one for a web part. So 200 calls are about 100 answered questions a day. A call can also be spent on an answer
 that is not shown (a timeout, a failed call, a visitor who left), and the rewriting call is made before it is
@@ -57,8 +57,9 @@ its ticket, so it can hold that answer back by up to its timeout, 4 s, at most o
 - The explorer's query path calls no language model. The written answer of the question page does, twice for
   every question: one small call before the search (query rewriting: it makes a follow-up stand alone and gives
   the question in the other of Spanish and English), measured at 0.00018 USD and 1.0 s (median), and one call to
-  write the answer, 0.0007 USD on average; together 0.0009 USD a question on average and 0.0015 USD at most
-  ([EVALUATION.md](../EVALUATION.md#the-literature-in-both-languages)). A web part takes one more. These costs are the answer
+  write the answer from up to seven passages, 0.0008 USD on average; together 0.001 USD a question on average
+  and 0.0016 USD at most ([EVALUATION.md](../EVALUATION.md#the-literature-in-both-languages)). A web part takes
+  one more. These costs are the answer
   model's only; the question's embedding and a web search are paid apart. Without a key the page works and
   shows the evidence only.
 - Both stores are used read-only.

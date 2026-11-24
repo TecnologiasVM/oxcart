@@ -44,6 +44,7 @@ export type HowFigures = {
     question_chars: number;
     issues: number;
     passages: number;
+    passages_other_language: number;
     web_searches_a_month: number;
     vectors_in_memory: number;
     models: { writer: string; embedding: string };

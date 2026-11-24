@@ -128,6 +128,11 @@ test("the diagram says what the list says, and has a text alternative", async ({
   await expect(steps.nth(1)).toContainText("Both texts are embedded in one request");
   await expect(steps.nth(1)).toContainText("searched once with each text (multi-query retrieval)");
   await expect(steps.nth(1)).toContainText("reciprocal rank fusion (RRF)");
+  // the design as it is: the question's own passages always kept, a few of the other language added, from the settings
+  const L = FIGURES.limits;
+  await expect(steps.nth(1)).toContainText(`The question's own ${L.passages} passages are always kept`);
+  await expect(steps.nth(1)).toContainText(`up to ${L.passages_other_language} passages of the other language's search are added`);
+  await expect(svg.locator('g[data-node="ev"]')).toContainText(`up to ${L.issues} cards and ${L.passages + L.passages_other_language} passages`);
   await expect(steps.nth(1)).toContainText("A passage is shown in its own language; nothing is translated.");
   await expect(page.locator(".how__lead")).toContainText("query rewriting");
   await expect(page.locator(".how__lead")).toContainText("multi-query retrieval");
@@ -235,8 +240,8 @@ test("page found, the two waits and \"gives what the question asks\" read right 
       const p = run.page_found;
       await expect(results.locator('[data-result="page"] .ledger__n')).toHaveText(`${p.found} ${of} ${p.of}`);
       await expect(results.locator('[data-result="page"]')).toContainText(
-        lang === "es" ? `entre los ${p.k} pasajes. Contando los ${p.drafts - p.of} borradores que quedaron fuera: ${p.found} de ${p.drafts}.`
-          : `among the ${p.k} passages. Counting the ${p.drafts - p.of} drafts left out: ${p.found} of ${p.drafts}.`);
+        lang === "es" ? `entre los pasajes mostrados, ${p.k} como máximo. Contando los ${p.drafts - p.of} borradores que quedaron fuera: ${p.found} de ${p.drafts}.`
+          : `among the passages shown, ${p.k} at most. Counting the ${p.drafts - p.of} drafts left out: ${p.found} of ${p.drafts}.`);
     }
     if (run.literature.asks != null) {
       await expect(results.locator('[data-result="literature"]')).toContainText(
