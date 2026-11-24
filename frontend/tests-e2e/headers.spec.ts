@@ -32,6 +32,8 @@ test("each inline script gives the sha256 of its text; an external script and a 
   expect(inlineScriptHashes("<script>alert(1)</script>")).toEqual([ALERT]);
   expect(inlineScriptHashes('<script src="/x.js"></script>')).toEqual([]);
   expect(inlineScriptHashes('<script type="application/json">{"a":1}</script>')).toEqual([]);
+  // a schema.org data block (JSON-LD) is not run either: no hash
+  expect(inlineScriptHashes('<script type="application/ld+json">{"@type":"Thing"}</script>')).toEqual([]);
   expect(inlineScriptHashes('<script type="module">alert(1)</script>')).toEqual([ALERT]);
 });
 

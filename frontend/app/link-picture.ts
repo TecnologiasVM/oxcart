@@ -10,6 +10,10 @@ import type { Metadata } from "next";
  * but the files would be two copies of the picture with one alt text for every page.
  */
 export const SITE = "https://oxcart.chat";
+/** The site's title and description (the question page's, and the site's in its structured data). */
+export const SITE_TITLE = "Oxcart · Costa Rica philately knowledge graph";
+export const SITE_DESCRIPTION =
+  "Research demo: ask about any Costa Rican stamp issue and read a short answer with its sources, written from the evidence of the catalogue graph and the philatelic literature.";
 export const CARD = { url: "/oxcart-card-c-stamp.png", width: 1280, height: 640, type: "image/png" };
 
 export function linkPicture(title: string, description: string, path: string): Pick<Metadata, "openGraph" | "twitter"> {
