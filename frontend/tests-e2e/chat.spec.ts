@@ -1298,6 +1298,10 @@ test("the page shows the second text the search used, and each passage in its ow
   await expect(step).toContainText("rewrite");
   await expect(panel(page).getByTestId("fused-line")).toContainText("reciprocal rank fusion (RRF)");
   await expect(panel(page).getByTestId("search-down")).toHaveCount(0);
+  // a picture of the turn and its Evidence, to be looked at (kept under test-results, not committed)
+  await page.getByTestId("tab-found").click();
+  await page.screenshot({ path: "test-results/both-languages.png", fullPage: true });
+  await page.getByTestId("tab-made").click();
   // in Spanish the same lines
   await page.getByTestId("lang-toggle").click();
   await expect(also).toContainText("También se buscó en español:");

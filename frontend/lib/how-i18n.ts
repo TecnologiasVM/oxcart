@@ -41,7 +41,8 @@ export function modelName(id: string): string {
 type Node = { name: S; sub: S[]; tech?: S };
 type NodeArgs = { writer: S; embedding: S; issues: S; passages: S; cards: S; shown: S };
 type Step = { h: S; text: (x: StepArgs) => S };
-type StepArgs = { writer: S; numbers: S; issues: S; passages: S; graphIndex: S; litIndex: S; litCompression: S; graphSimilarity: S; litSimilarity: S };
+// `langs`: the sentence on passages in both languages (`bothLangs`), or "" when the figures are not there
+type StepArgs = { writer: S; numbers: S; issues: S; passages: S; graphIndex: S; litIndex: S; litCompression: S; graphSimilarity: S; litSimilarity: S; langs: S };
 type Lead<F> = { lead: S; text: F };
 
 export type HowWords = {
@@ -53,6 +54,7 @@ export type HowWords = {
   node: (x: NodeArgs) => Record<"q" | "s1" | "s2" | "cat" | "lit" | "ev" | "s3" | "s4" | "ans" | "s5" | "web", Node>;
   legend: (web: boolean) => S;
   steps: Record<"s1" | "s2" | "s3" | "s4" | "s5", Step>;
+  bothLangs: (before: S, after: S, of: S) => S;
   pipeNote: S;
   whyH: S;
   why: S;
@@ -88,7 +90,7 @@ export type HowWords = {
   range: (a: S, b: S) => S;
   costH: S;
   costMean: (max: S) => S;
-  costAfter: (usd: S) => S;
+  costRewrite: (usd: S, seconds: S) => S;
   waitEvidence: S;
   waitAnswer: (p95: S) => S;
   waitsWhere: { host: S; development: S };
@@ -122,17 +124,17 @@ export const HOW: Record<Lang, HowWords> = {
   en: {
     title: "How it works, and how it was measured",
     lead: ({ issues, stamps, passages, embedding, writer }) =>
-      `Oxcart answers questions about Costa Rican stamps, in Spanish or English, from two sources: the Mena catalogue, held as a graph in Neo4j (${issues} issues, ${stamps} stamps), and ${passages} passages of scanned philatelic literature, held with their vectors in Weaviate. A question becomes one vector (OpenAI ${embedding}) and is searched in both at once. ${writer} writes a short answer with citations, and a sentence is shown only if its citation holds. The steps are a LangGraph graph in a FastAPI backend in Python; the page is Next.js and React in TypeScript.`,
+      `Oxcart answers questions about Costa Rican stamps, in Spanish or English, from two sources: the Mena catalogue, held as a graph in Neo4j (${issues} issues, ${stamps} stamps), and ${passages} passages of scanned philatelic literature, held with their vectors in Weaviate. The literature is in both languages, so every question is searched in both: ${writer} first gives the question in the other language (query rewriting), the question's vector (OpenAI ${embedding}) finds the issue in the catalogue, and the literature is searched once with each text (multi-query retrieval), the two lists joined by reciprocal rank fusion (RRF). ${writer} then writes a short answer with citations, in the language of the question, and a sentence is shown only if its citation holds. The steps are a LangGraph graph in a FastAPI backend in Python; the page is Next.js and React in TypeScript.`,
     // 2. the path of a question
     pipeH: (steps: number) => `A question, in ${steps === 5 ? "five" : "four"} steps`,
     pipeTitle: "Diagram: the path of a question, from the question to the answer shown.",
     pipeDesc: "The numbered list after it says the same.",
     node: (x: NodeArgs) => ({
       q: { name: "Question", sub: ["in Spanish or English"] },
-      s1: { name: "Rewritten", sub: ["every question after the first:", "read against the conversation,", "rewritten only if it points back"], tech: x.writer },
-      s2: { name: "Searched", sub: ["one vector, two searches at once"], tech: `OpenAI ${x.embedding}` },
+      s1: { name: "Query rewriting", sub: ["every question: a follow-up is made", "to stand alone, and the question", "is given in the other language too"], tech: x.writer },
+      s2: { name: "Searched", sub: ["both texts embedded in one request;", "two literature lists, fused (RRF)"], tech: `OpenAI ${x.embedding}` },
       cat: { name: "Catalogue", sub: ["as a graph", `${x.issues} issues`], tech: "Neo4j" },
-      lit: { name: "Literature", sub: ["by vectors", `${x.passages} passages`], tech: "Weaviate" },
+      lit: { name: "Literature", sub: ["once per language", `${x.passages} passages`], tech: "Weaviate" },
       ev: { name: "Evidence", sub: [`up to ${x.cards} cards and ${x.shown} passages, shown first`] },
       s3: { name: "Written with citations", sub: ["a short answer from the evidence"], tech: `${x.writer}, citations on` },
       s4: { name: "Citations checked", sub: ["a sentence with none is removed"], tech: "no model" },
@@ -143,14 +145,14 @@ export const HOW: Record<Lang, HowWords> = {
     legend: (web: boolean) =>
       `Tinted: what is on the page. Outlined: a step in the backend. ${
         web
-          ? "Dashed: a step for some questions only: step 1 for every question after the first, which is rewritten only when it points back; step 5 when our sources cover part of a question, or none of it."
-          : "Dashed: for every question after the first, which is rewritten only when it points back."
+          ? "Dashed: a step for some questions only: step 5, when our sources cover part of a question, or none of it."
+          : "Every step runs for every question."
       }`,
     steps: {
-      s1: { h: "Rewritten", text: ({ writer }) =>
-        `Every question after the first is read against the conversation and rewritten only when it points back: ${writer} rewrites “And who printed it?” so that it stands alone. A first question is searched as it is typed.` },
-      s2: { h: "Searched", text: ({ numbers, issues, passages, graphIndex, litIndex, litCompression, graphSimilarity, litSimilarity }) =>
-        `One vector (${numbers} numbers) serves two searches at once. The catalogue, a graph in Neo4j, returns up to ${issues} issues with their cards, from two ${graphIndex} vector indexes by ${graphSimilarity} (one of an issue's whole text, quantized; one of its title, years and section, not quantized), or from its full-text index when no vector can be made. The literature, in Weaviate, returns the ${passages} nearest passages from an ${litIndex} vector index with ${litCompression} compression, by ${litSimilarity}. The page shows this evidence first.` },
+      s1: { h: "Query rewriting", text: ({ writer }) =>
+        `For every question, one call to ${writer} does two things. A follow-up that points back is rewritten so that it stands alone (“And who printed it?” becomes a question that names the issue); a question that already stands alone is searched in the visitor's own words. And the question is given in the other of the two languages, Spanish and English, with a short glossary of the field's terms: the literature is in both, and a question's vector brings back passages of its own language almost only. If the call fails or is late, the question is searched as it was typed.` },
+      s2: { h: "Searched", text: ({ numbers, issues, passages, graphIndex, litIndex, litCompression, graphSimilarity, litSimilarity, langs }) =>
+        `Both texts are embedded in one request (${numbers} numbers each). The catalogue, a graph in Neo4j, is searched with the question's own vector and returns up to ${issues} issues with their cards, from two ${graphIndex} vector indexes by ${graphSimilarity} (one of an issue's whole text, quantized; one of its title, years and section, not quantized), or from its full-text index when no vector can be made. The literature, in Weaviate, is searched once with each text (multi-query retrieval): each search returns its ${passages} nearest passages from an ${litIndex} vector index with ${litCompression} compression, by ${litSimilarity}. The two lists are joined by reciprocal rank fusion (RRF): a passage scores by its rank in each list, a passage both lists hold is kept once, and the first ${passages} are shown. A passage is shown in its own language; nothing is translated. If one of the two searches fails, the other's list is used alone.${langs ? ` ${langs}` : ""} The page shows this evidence first.` },
       s3: { h: "Written with citations", text: ({ writer }) =>
         `${writer} writes a short answer and is told to use that evidence and nothing else; each piece comes back with the exact text it cites.` },
       s4: { h: "Citations checked", text: () =>
@@ -158,7 +160,9 @@ export const HOW: Record<Lang, HowWords> = {
       s5: { h: "Searched on the web", text: ({ writer }) =>
         `Only when our sources cover part of a question, or none of it: the question is searched on the web (Tavily), and ${writer} writes a short part from the pages found, with the same check of its citations. It stands in a block of its own under the answer: from the web, not from the catalogue or the literature. The writer is told to mark a question outside the scope, which then gets no search; that mark is the model's judgment.` },
     },
-    pipeNote: "The server keeps no question's text and no conversation between two requests: a conversation lives in the browser. No answer is cached; the vectors of recent questions stay in memory (below).",
+    bothLangs: (before: S, after: S, of: S) =>
+      `Searched with the question alone, ${before} of ${of} catalogue and literature questions of the test set got passages in both languages among those shown; searched with both texts, ${after}.`,
+    pipeNote: "The server keeps no question's text and no conversation between two requests: a conversation lives in the browser. No answer is cached; the vectors of the texts searched lately stay in memory (below).",
     // 3. why a graph and vectors together
     whyH: "Why a graph and vectors together",
     why: "Vectors find what a question is about, in either language. The graph holds each issue's facts as stored values: dates, printers, authorizing acts, stamps.",
@@ -213,7 +217,7 @@ export const HOW: Record<Lang, HowWords> = {
     // 7. cost and wait
     costH: "Cost and wait of a question",
     costMean: (max: S) => `a question, on average, for the answer model only (embeddings and web search apart); ${max} at most.`,
-    costAfter: (usd: S) => ` A question after a conversation's first: about ${usd}, with one more small call.`,
+    costRewrite: (usd: S, seconds: S) => ` Two model calls a question: of that cost, the query rewriting is ${usd}, and it takes ${seconds} s before the search (median).`,
     waitEvidence: "until the evidence is on the page (median).",
     waitAnswer: (p95: S) => `until the checked answer (median; ${p95} s at the 95th percentile).`,
     waitsWhere: {
@@ -226,14 +230,14 @@ export const HOW: Record<Lang, HowWords> = {
     spend: { lead: "A spend limit at the provider:", text:
       "a monthly limit, set at Anthropic and kept low. Once it is reached, the page shows the evidence without a written answer." },
     use: { lead: "Limits on use:", text: (minute: S, day: S, calls: S, low: S, chars: S) =>
-      `a human check (Cloudflare Turnstile) before the first question; ${minute} questions a minute and ${day} a day for a visitor; ${calls} model calls a day in all, where a written answer takes one to three (reading a later question against the conversation, the answer, a web part); ${chars} characters a question. These are counters of one process, in memory: a restart sets them to zero.` },
+      `a human check (Cloudflare Turnstile) before the first question; ${minute} questions a minute and ${day} a day for a visitor; ${calls} model calls a day in all, where a written answer takes two or three (the query rewriting, the answer, a web part); ${chars} characters a question. These are counters of one process, in memory: a restart sets them to zero.` },
     useWeb: (searches: S) => ` For the web part, a pacing target of ${searches} searches a month, spread over the month; the ceiling is the search provider's own monthly limit.`,
     readOnly: { lead: "Read-only stores, and a model with no tools.", text:
       "The most a passage can change is the wording of one answer, and nothing the model writes is rendered as markup or as a link." },
     scope: { lead: "A scope:", text: (none: S) =>
       `Costa Rican stamps, postal stationery and postal history. The writer is told to write no answer otherwise; in the run of the results, ${none} out-of-scope questions got none.` },
     disk: { lead: "Nothing of a question on disk.", text: (kept: S) =>
-      `The logs hold counts and timings: no question, no answer, no passage, no address. In memory until a restart: the vectors of the last ${kept} questions, with no text.` },
+      `The logs hold counts and timings: no question, no answer, no passage, no address. In memory until a restart: the vectors of the last ${kept} texts searched (a question and its translation are two), with no text.` },
     privH: "What is sent, and where",
     // the versions, folded
     stackH: "Versions and tests",
@@ -258,16 +262,16 @@ export const HOW: Record<Lang, HowWords> = {
   es: {
     title: "Cómo funciona y cómo se midió",
     lead: ({ issues, stamps, passages, embedding, writer }) =>
-      `Oxcart responde preguntas sobre los sellos de Costa Rica, en español o en inglés, a partir de dos fuentes: el catálogo Mena, guardado como grafo en Neo4j (${issues} emisiones, ${stamps} sellos), y ${passages} pasajes de literatura filatélica escaneada, guardados con sus vectores en Weaviate. La pregunta se convierte en un vector (${embedding} de OpenAI) y se busca en las dos a la vez. ${writer} redacta una respuesta breve con citas, y una frase solo se muestra si su cita se sostiene. Los pasos son un grafo de LangGraph en un backend de FastAPI en Python; la página es Next.js y React en TypeScript.`,
+      `Oxcart responde preguntas sobre los sellos de Costa Rica, en español o en inglés, a partir de dos fuentes: el catálogo Mena, guardado como grafo en Neo4j (${issues} emisiones, ${stamps} sellos), y ${passages} pasajes de literatura filatélica escaneada, guardados con sus vectores en Weaviate. La literatura está en los dos idiomas, así que cada pregunta se busca en los dos: primero ${writer} da la pregunta en el otro idioma (reescritura de la consulta, query rewriting), el vector de la pregunta (${embedding} de OpenAI) encuentra la emisión en el catálogo, y la literatura se busca una vez con cada texto (recuperación con varias consultas, multi-query retrieval); las dos listas se unen por fusión de rangos recíprocos (reciprocal rank fusion, RRF). Después ${writer} redacta una respuesta breve con citas, en el idioma de la pregunta, y una frase solo se muestra si su cita se sostiene. Los pasos son un grafo de LangGraph en un backend de FastAPI en Python; la página es Next.js y React en TypeScript.`,
     pipeH: (steps: number) => `Una pregunta, en ${steps === 5 ? "cinco" : "cuatro"} pasos`,
     pipeTitle: "Diagrama: el camino de una pregunta, desde la pregunta hasta la respuesta mostrada.",
     pipeDesc: "La lista numerada que le sigue dice lo mismo.",
     node: (x: NodeArgs) => ({
       q: { name: "Pregunta", sub: ["en español o en inglés"] },
-      s1: { name: "Reescrita", sub: ["cada pregunta tras la primera:", "se lee con la conversación y se", "reescribe solo si remite a ella"], tech: x.writer },
-      s2: { name: "Buscada", sub: ["un vector, dos búsquedas a la vez"], tech: `OpenAI ${x.embedding}` },
+      s1: { name: "Reescritura de la consulta", sub: ["cada pregunta: la de seguimiento se", "reescribe para entenderse sola, y", "se da también en el otro idioma"], tech: x.writer },
+      s2: { name: "Buscada", sub: ["ambos textos en una sola petición;", "dos listas de literatura, fusión RRF"], tech: `OpenAI ${x.embedding}` },
       cat: { name: "Catálogo", sub: ["como grafo", `${x.issues} emisiones`], tech: "Neo4j" },
-      lit: { name: "Literatura", sub: ["por vectores", `${x.passages} pasajes`], tech: "Weaviate" },
+      lit: { name: "Literatura", sub: ["una vez por idioma", `${x.passages} pasajes`], tech: "Weaviate" },
       ev: { name: "Evidencia", sub: [`hasta ${x.cards} fichas y ${x.shown} pasajes; va primero`] },
       s3: { name: "Redactada con citas", sub: ["respuesta breve, desde la evidencia"], tech: `${x.writer}, citas activadas` },
       s4: { name: "Citas comprobadas", sub: ["una frase sin cita se retira"], tech: "sin modelo" },
@@ -278,14 +282,14 @@ export const HOW: Record<Lang, HowWords> = {
     legend: (web: boolean) =>
       `Con fondo: lo que está en la página. Con contorno: un paso en el backend. ${
         web
-          ? "Con línea discontinua: un paso solo para algunas preguntas: el paso 1 para cada pregunta después de la primera, que se reescribe solo cuando remite a la conversación; el paso 5 cuando nuestras fuentes cubren solo una parte de la pregunta, o nada."
-          : "Con línea discontinua: para cada pregunta después de la primera, que se reescribe solo cuando remite a la conversación."
+          ? "Con línea discontinua: un paso solo para algunas preguntas: el paso 5, cuando nuestras fuentes cubren solo una parte de la pregunta, o nada."
+          : "Todos los pasos se dan en cada pregunta."
       }`,
     steps: {
-      s1: { h: "Reescrita", text: ({ writer }) =>
-        `Cada pregunta después de la primera se lee con la conversación y se reescribe solo cuando remite a ella: ${writer} reescribe «¿Y quién la imprimió?» para que se entienda sola. Una primera pregunta se busca tal como se escribió.` },
-      s2: { h: "Buscada", text: ({ numbers, issues, passages, graphIndex, litIndex, litCompression, graphSimilarity, litSimilarity }) =>
-        `Un vector (${numbers} números) sirve para dos búsquedas a la vez. El catálogo, un grafo en Neo4j, devuelve hasta ${issues} emisiones con sus fichas, de dos índices vectoriales ${graphIndex} por ${es(graphSimilarity)} (uno del texto completo de cada emisión, cuantizado; otro de su título, sus años y su sección, sin cuantizar), o de su índice de texto completo cuando no se puede calcular el vector. La literatura, en Weaviate, devuelve los ${passages} pasajes más cercanos de un índice vectorial ${litIndex} con compresión ${litCompression}, por ${es(litSimilarity)}. La página muestra primero esta evidencia.` },
+      s1: { h: "Reescritura de la consulta", text: ({ writer }) =>
+        `En cada pregunta, una llamada a ${writer} hace dos cosas. Una pregunta de seguimiento que remite a la conversación se reescribe para que se entienda sola («¿Y quién la imprimió?» pasa a nombrar la emisión); una que ya se entiende sola se busca con las palabras del visitante. Y la pregunta se da en el otro de los dos idiomas, español e inglés, con un glosario breve de términos filatélicos: la literatura está en los dos, y el vector de una pregunta trae casi solo pasajes de su mismo idioma. Si la llamada falla o tarda, la pregunta se busca tal como se escribió.` },
+      s2: { h: "Buscada", text: ({ numbers, issues, passages, graphIndex, litIndex, litCompression, graphSimilarity, litSimilarity, langs }) =>
+        `Los dos textos se convierten en vectores en una sola petición (${numbers} números cada uno). El catálogo, un grafo en Neo4j, se busca con el vector de la propia pregunta y devuelve hasta ${issues} emisiones con sus fichas, de dos índices vectoriales ${graphIndex} por ${es(graphSimilarity)} (uno del texto completo de cada emisión, cuantizado; otro de su título, sus años y su sección, sin cuantizar), o de su índice de texto completo cuando no se puede calcular el vector. La literatura, en Weaviate, se busca una vez con cada texto (recuperación con varias consultas, multi-query retrieval): cada búsqueda devuelve sus ${passages} pasajes más cercanos de un índice vectorial ${litIndex} con compresión ${litCompression}, por ${es(litSimilarity)}. Las dos listas se unen por fusión de rangos recíprocos (reciprocal rank fusion, RRF): un pasaje puntúa por su puesto en cada lista, el que está en las dos se queda una sola vez, y se muestran los ${passages} primeros. Cada pasaje se muestra en su propio idioma; nada se traduce. Si una de las dos búsquedas falla, se usa sola la lista de la otra.${langs ? ` ${langs}` : ""} La página muestra primero esta evidencia.` },
       s3: { h: "Redactada con citas", text: ({ writer }) =>
         `${writer} redacta una respuesta breve, con la instrucción de usar esa evidencia y nada más; cada parte vuelve con el texto exacto que cita.` },
       s4: { h: "Citas comprobadas", text: () =>
@@ -293,7 +297,9 @@ export const HOW: Record<Lang, HowWords> = {
       s5: { h: "Buscada en la web", text: ({ writer }) =>
         `Solo cuando nuestras fuentes cubren una parte de una pregunta, o nada: la pregunta se busca en la web (Tavily), y ${writer} redacta una parte breve a partir de las páginas encontradas, con la misma comprobación de sus citas. Va en un bloque propio bajo la respuesta: de la web, no del catálogo ni de la literatura. El redactor tiene la instrucción de marcar una pregunta fuera del alcance, que entonces no se busca; esa marca es un juicio del modelo.` },
     },
-    pipeNote: "El servidor no guarda el texto de ninguna pregunta ni ninguna conversación entre dos peticiones: la conversación vive en el navegador. No guarda respuestas; los vectores de las preguntas recientes quedan en memoria (más abajo).",
+    bothLangs: (before: S, after: S, of: S) =>
+      `Buscando solo con la pregunta, ${before} de ${of} preguntas de catálogo y de literatura del conjunto de prueba recibían pasajes en los dos idiomas entre los mostrados; buscando con los dos textos, ${after}.`,
+    pipeNote: "El servidor no guarda el texto de ninguna pregunta ni ninguna conversación entre dos peticiones: la conversación vive en el navegador. No guarda respuestas; los vectores de los últimos textos buscados quedan en memoria (más abajo).",
     whyH: "Por qué un grafo y vectores a la vez",
     why: "Los vectores encuentran de qué trata una pregunta, en cualquiera de los dos idiomas. El grafo guarda los datos de cada emisión como valores: fechas, impresores, actos que la autorizan, sellos.",
     traceLabel: (date: S) => `Una pregunta real, ${date}`,
@@ -343,7 +349,7 @@ export const HOW: Record<Lang, HowWords> = {
     range: (a: S, b: S) => `${a} a ${b}`,
     costH: "Costo y espera de una pregunta",
     costMean: (max: S) => `una pregunta, en promedio, solo del modelo que redacta (los embeddings y la búsqueda web van aparte); ${max} como máximo.`,
-    costAfter: (usd: S) => ` Una pregunta después de la primera de una conversación: cerca de ${usd}, con una llamada pequeña más.`,
+    costRewrite: (usd: S, seconds: S) => ` Dos llamadas al modelo por pregunta: de ese costo, la reescritura de la consulta es ${usd}, y tarda ${seconds} s antes de la búsqueda (mediana).`,
     waitEvidence: "hasta que la evidencia está en la página (mediana).",
     waitAnswer: (p95: S) => `hasta la respuesta comprobada (mediana; ${p95} s en el percentil 95).`,
     waitsWhere: {
@@ -355,14 +361,14 @@ export const HOW: Record<Lang, HowWords> = {
     spend: { lead: "Un límite de gasto en el proveedor:", text:
       "un límite mensual, fijado en Anthropic y mantenido bajo. Al alcanzarlo, la página muestra la evidencia sin respuesta redactada." },
     use: { lead: "Límites de uso:", text: (minute: S, day: S, calls: S, low: S, chars: S) =>
-      `una comprobación humana (Cloudflare Turnstile) antes de la primera pregunta; ${minute} preguntas por minuto y ${day} por día para un visitante; ${calls} llamadas al modelo por día en total, y una respuesta redactada usa de una a tres (leer una pregunta posterior con la conversación, la respuesta, una parte de la web); ${chars} caracteres por pregunta. Son contadores de un solo proceso, en memoria: un reinicio los pone en cero.` },
+      `una comprobación humana (Cloudflare Turnstile) antes de la primera pregunta; ${minute} preguntas por minuto y ${day} por día para un visitante; ${calls} llamadas al modelo por día en total, y una respuesta redactada usa dos o tres (la reescritura de la consulta, la respuesta, una parte de la web); ${chars} caracteres por pregunta. Son contadores de un solo proceso, en memoria: un reinicio los pone en cero.` },
     useWeb: (searches: S) => ` Para la parte de la web, las búsquedas se reparten a lo largo del mes con un objetivo de ${searches} al mes; el tope es el límite mensual propio del proveedor de búsqueda.`,
     readOnly: { lead: "Almacenes de solo lectura y un modelo sin herramientas.", text:
       "Lo más que puede cambiar un pasaje es la redacción de una respuesta, y nada de lo que escribe el modelo se muestra como marcado ni como enlace." },
     scope: { lead: "Un alcance:", text: (none: S) =>
       `sellos, enteros postales e historia postal de Costa Rica. El redactor tiene la instrucción de no redactar respuesta para lo demás; en la corrida de los resultados, ${none} preguntas fuera de alcance no la recibieron.` },
     disk: { lead: "Nada de una pregunta en disco.", text: (kept: S) =>
-      `Los registros guardan cuentas y tiempos: ni la pregunta, ni la respuesta, ni un pasaje, ni una dirección. En memoria hasta un reinicio: los vectores de las últimas ${kept} preguntas, sin texto.` },
+      `Los registros guardan cuentas y tiempos: ni la pregunta, ni la respuesta, ni un pasaje, ni una dirección. En memoria hasta un reinicio: los vectores de los últimos ${kept} textos buscados (una pregunta y su traducción son dos), sin texto.` },
     privH: "Qué se envía, y adónde",
     stackH: "Versiones y pruebas",
     stack: {

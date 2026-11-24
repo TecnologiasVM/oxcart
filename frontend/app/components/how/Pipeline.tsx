@@ -72,10 +72,10 @@ export default function Pipeline({ nodes, web, title, desc }: { nodes: PipelineN
   const right = W - 1 - STORE_W / 2;
   let y = onPage(0, nodes.q, "q");
   arrow(y, y + GAP);
-  y = step(y + GAP, nodes.s1, 1, "s1", true);
+  y = step(y + GAP, nodes.s1, 1, "s1"); // for every question
   arrow(y, y + GAP);
   y = step(y + GAP, nodes.s2, 2, "s2");
-  // one vector, two searches at the same time
+  // the catalogue and the literature are searched at the same time
   out.push(<path key={k()} className="p-edge" d={`M${W / 2} ${y}V${y + 11}H${left}V${y + 19}M${W / 2} ${y + 11}H${right}V${y + 19}`} />);
   head(left, y + GAP + 2);
   head(right, y + GAP + 2);

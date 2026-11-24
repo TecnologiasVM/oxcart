@@ -21,9 +21,11 @@ export type HowFigures = {
     sentences: { removed: number; written: number };
     citations: { not_hold: number } & Of;
     cost: { mean: number; max: number } | null;
+    rewrite: { usd: number; median_s: number } | null;
     page_found: { found: number; k: number; drafts: number } & Of | null;
     waits: { evidence: number; answer: number; answer_p95: number } | null;
   };
+  languages: { before: ({ file: string; both: number; page_found: number | null } & Of) | null; after: ({ file: string; both: number; page_found: number | null } & Of) | null };
   issue_found: { first: number; three: number; es_first: number; es_of: number; median_s: number; p95_s: number } & Of;
   vector_only: { first: number; three: number; es_first: number; es_of: number } & Of;
   full_text: { first: number; three: number; es_first: number; es_of: number } & Of;
@@ -65,7 +67,6 @@ export type HowFigures = {
     literature: { weaviate: string; objects: number; dimensions: number; index: { type: string; similarity: string; compression: string } };
   };
   points_a_question: [number, number];
-  after_first_usd: number | null;
   /** that a monthly spend limit is set at the provider; its amount is not published */
   spend_limit: { set: true } | null;
   trace: {
