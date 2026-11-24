@@ -2,7 +2,7 @@ import { test, expect, Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { FIGURES } from "../lib/how-figures";
-import { modelName } from "../lib/how-i18n";
+import { HOW, modelName } from "../lib/how-i18n";
 import { webOn } from "../lib/web";
 import { mock, noOverflow } from "./helpers";
 
@@ -261,7 +261,7 @@ test("the web step and Tavily are on the page only in a build that asks for the 
     await expect(page.getByTestId("limits")).toContainText(t.ticketed === 0
       ? `In this run, none of the ${t.of} questions outside the scope was given a ticket for a web search.`
       : `In this run, ${t.ticketed} of the ${t.of} questions outside the scope got a part answer, and with it a ticket for a web search.`);
-    await expect(how).toContainText(`at most ${FIGURES.limits.web_searches_a_month} searches a month`);
+    await expect(how).toContainText(`a pacing target of ${FIGURES.limits.web_searches_a_month} searches a month`);
     await expect(page.locator("h2#h-pipe")).toHaveText("A question, in five steps");
     await page.getByTestId("lang-toggle").click();
     await expect(page.getByTestId("limits")).toContainText(t.ticketed === 0
@@ -276,6 +276,23 @@ test("the web step and Tavily are on the page only in a build that asks for the 
     await page.getByTestId("lang-toggle").click();
     await expect(page.getByTestId("limits")).not.toContainText("En esta corrida");
   }
+});
+
+test("the spend limit is named without its amount or its month, in both languages", async ({ page }) => {
+  for (const lang of ["en", "es"] as const) {
+    await open(page, lang);
+    const line = page.locator("ul.safe li").filter({ hasText: HOW[lang].spend.lead });
+    await expect(line, lang).toHaveCount(FIGURES.spend_limit ? 1 : 0);
+    if (!FIGURES.spend_limit) continue;
+    await expect(line, lang).toContainText(HOW[lang].spend.text);
+    const text = await line.innerText();
+    expect(text, lang).not.toMatch(/\d/);
+    expect(text, lang).not.toMatch(/USD/i);
+    expect(text, lang).not.toMatch(/November|noviembre/i);
+  }
+  // the generated file holds no amount and no month either
+  expect(Object.keys(FIGURES.spend_limit ?? {})).not.toContain("usd");
+  expect(Object.keys(FIGURES.spend_limit ?? {})).not.toContain("month");
 });
 
 test("the three links: the evaluation, the source, and back to the question page; and the ways in", async ({ page }) => {

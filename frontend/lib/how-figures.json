@@ -203,13 +203,12 @@
   }
  },
  "points_a_question": [
-  2,
-  7
+  1.25,
+  5
  ],
  "after_first_usd": 0.0008,
  "spend_limit": {
-  "usd": 9,
-  "month": "2026-11"
+  "set": true
  },
  "trace": {
   "date": "2026-11-23",

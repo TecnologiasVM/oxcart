@@ -1,5 +1,9 @@
 # Philatelic Literature Summary: OXCART RAG Corpus
 
+> Historical notes of the 2025 pipeline, not a description of what is served. Their figures were not measured
+> in this repository's evaluation; what is served, and what was measured, is in the [README](../README.md) and
+> [EVALUATION.md](../EVALUATION.md).
+
 > **Comprehensive documentation of the Costa Rica philatelic literature collection powering the OXCART RAG system**
 
 ---

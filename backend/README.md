@@ -114,8 +114,10 @@ the same evidence followed by a short answer whose sentences cite it. The steps 
   receives the question that stands alone and the evidence. The route sends each step's result as it ends, so the
   evidence arrives as fast as on `/api/ask` and the answer follows.
 - **No checkpointer.** A conversation is kept in the visitor's browser, which sends its last three turns with a
-  follow-up (each answer clipped to 1,200 characters; a request is at most 8 kB). The server keeps nothing between
-  two requests, so nothing of a visitor stays in its memory and nothing is lost when the service sleeps.
+  follow-up (each answer clipped to 1,200 characters; a request is at most 8 kB). The server keeps no question's
+  text and no conversation between two requests, so no visitor's text stays in its memory and nothing of a
+  conversation is lost when the service sleeps. What it does keep in memory: the vectors of the last 256
+  questions, under a digest and with no text (the embedding cache, `app/ask_service.py`); no answer is cached.
 - **Citations.** Each shown card and passage goes to the model as a document with citations on (Anthropic's
   citations feature), holding the text the page shows. A citation holds when it names one of them and its cited
   text is in it. A sentence with no citation that holds is not shown; a piece that is only the cited text,
@@ -180,9 +182,11 @@ With `ASK_WEB` on, the write call tells apart three ways of not answering in ful
 are counted and is never sent to the page. The model is also told that a card is from the Mena catalogue.
 
 For `not_covered`, and for `ok` with `covers: "part"`, when `TAVILY_API_KEY` is set and a search is allowed
-(below), the chat reply's answer carries `web: {"ticket": .., "expires_in": 120}`. `out_of_scope` never does,
-and no ticket is made when the catalogue or the literature did not answer: that our sources do not cover the
-question is not known then.
+(below), the chat reply's answer carries `web: {"ticket": .., "expires_in": 120}`. An answer in state
+`out_of_scope` gets none, and no ticket is made when the catalogue or the literature did not answer: that our
+sources do not cover the question is not known then. The state is the model's judgment: a question outside the
+scope that the model answers in part gets a ticket, as one did in a published run (`oos-013-en` in
+`eval/outcomes/answers_hosted-y.json`).
 The ticket is an HMAC-SHA256, with a key made when the process starts and held in memory only (no secret to
 set), over a random id, a digest of the question as it was searched (`evidence.question`), a digest of the
 answer's text (its shown sentences joined with a space; empty for `not_covered`), the state and an expiry

@@ -1,5 +1,9 @@
 # OXCART RAG - Advanced Philatelic Pattern System v3.0
 
+> Historical notes of the 2025 pipeline, not a description of what is served. Their figures were not measured
+> in this repository's evaluation; what is served, and what was measured, is in the [README](../README.md) and
+> [EVALUATION.md](../EVALUATION.md).
+
 ## 📖 Overview
 
 El sistema avanzado de patrones filatélicos v3.0 es un motor de enriquecimiento de metadatos especializado para investigación filatélica profesional. Diseñado específicamente para integrarse con Weaviate vector database, proporciona extracción automática y clasificación de metadatos filatélicos con precisión y exhaustividad sin precedentes.

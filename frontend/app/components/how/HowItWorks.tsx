@@ -136,7 +136,8 @@ export default function HowItWorks() {
   // ---------------------------------------------------------------- 8. safe in public
   const L = F.limits;
   const safe: { lead: string; text: string }[] = [];
-  if (F.spend_limit) safe.push({ lead: w.spend.lead, text: w.spend.text(f.n(F.spend_limit.usd), f.month(F.spend_limit.month)) });
+  // the limit is named, not its amount: the page says it is set and kept low, and what happens when it is reached
+  if (F.spend_limit) safe.push({ lead: w.spend.lead, text: w.spend.text });
   safe.push(
     {
       lead: w.use.lead,

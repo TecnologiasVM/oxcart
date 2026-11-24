@@ -317,7 +317,8 @@ function documented() {
     },
     points_a_question: [d.points_a_question.min, d.points_a_question.max],
     after_first_usd: d.after_first_question?.usd ?? null,
-    spend_limit: d.spend_limit ? { usd: d.spend_limit.usd, month: d.spend_limit.month } : null,
+    // that the limit is set, never its amount or month: the page does not publish them
+    spend_limit: d.spend_limit ? { set: true } : null,
     trace: {
       date: trace.date, lang: trace.lang, after: trace.after, asked: trace.asked, searched: trace.searched, caption: trace.caption,
       issues: trace.issues.map((i) => ({ title: i.title, score: i.score, printer: i.printer, source: i.source ?? null })),
