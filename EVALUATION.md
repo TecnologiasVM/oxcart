@@ -6,7 +6,10 @@ does the right passage, or the right catalogue issue, come back. [Written answer
 [What was tried to raise the literature answers](#what-was-tried-to-raise-the-literature-answers) (with the
 sealed set's two runs at its end) are about the short answer the question page writes from that evidence.
 [A web part](#a-web-part-three-markers-and-a-trial-with-real-searches) is about the part written from a web
-search, and holds the two runs of the whole set with the web setting on, the runs "How it works" reads. The file
+search, and holds the two runs of the whole set with the web setting on.
+[The literature in both languages](#the-literature-in-both-languages) is about version 1.1: the question
+searched in Spanish and in English, with the same questions asked before and after; "How it works" reads its
+figures from the first run after. The file
 ends with other limits, the numbers that have no published record, notes on the data, and the commands that run
 it.
 
@@ -42,6 +45,7 @@ Literature questions, on the hosted collection (41,126 passages on a Weaviate Cl
 |---|---|---|
 | The app as it was (its own retrieval path over the full 192,680-passage collection) | 12 (29%) | 12 (24%) |
 | Vector search | 36 (88%; 95% interval 78 to 98) | 36 (73%) |
+| Vector search with the question and with its translation, the two lists joined by reciprocal rank fusion (served since version 1.1; [below](#the-literature-in-both-languages)) | 38 (93%) | 38 (78%) |
 | Keyword search, the fallback when no embedding is available | 34 (83%) | 34 (69%) |
 
 Catalogue questions (which issue is the question about), held-out half, 32 questions. They were kept aside while
@@ -198,6 +202,7 @@ How often an in-scope question's best score beats an out-of-scope one's (0.5 = c
 |---|---|---|
 | The app as it was | 6 | 6 (33%) |
 | Vector search | 15 | 15 (83%) |
+| Vector search in both languages, joined (version 1.1; scored once, after its settings were chosen) | 14 | 14 (78%) |
 | Keyword search | 13 | 13 (72%) |
 
 15 of 15 does not mean 100%: with 15 questions that result is compatible with a true rate near 80%. The whole-set
@@ -783,11 +788,184 @@ Per-question outcomes: `eval/outcomes/answers_hosted-y.json` and `answers_web-fi
 of its run (retrieval counts and the two waits). The figures of "How it works" that are in no other outcome
 file, each with where it is stated, are in `eval/outcomes/how_it_works.json`.
 
+## The literature in both languages
+
+Since version 1.1 the literature is searched with the question and with the question in the other of the two
+languages, and the two lists are joined ([backend/README.md](backend/README.md#the-question-path-post-apiask) has
+the steps: query rewriting, multi-query retrieval, reciprocal rank fusion). This part says what was found before
+the change, how the number of passages and the depth of the lists were chosen, and what the same questions gave
+before and after. Measured on 24 November 2026.
+
+### Read this first
+
+- **The grades are a model's. No person has checked them.** The pages the new search brought up that no judge
+  had seen were graded by the judge of the literature gold (`gpt-6.1-sol`, high effort) with the same
+  instructions, before anything was scored: 250 pages (115 graded 0, 55 graded 1, 80 graded 2). The published
+  gold holds them, and with them the 425 pages graded on 21 November for the rebuilt collection, which the
+  published file did not hold yet: 1,657 judged pages in all (`eval/data/questions_literature.jsonl`). Every
+  page any run of this part showed for a literature question has a grade.
+- **The choices were made on the development questions** (26 literature questions). The held-out questions (15)
+  were scored once, after the choice. The sealed set was not run.
+- **The test set shared the gap it measures.** Its gold was pooled from searches made with the question alone,
+  so most of its graded pages are in the question's language. A page in the other language that answers a
+  question had no grade until this part's judging.
+- **A passage's language is told by a rule**, not by a model: its function words (`oxcart/language.py`). A
+  passage with fewer than five such words, or with both languages in comparable parts, counts as neither (about
+  one shown passage in eight).
+- **The second text is a model's translation.** The rewriting call's instructions were revised once after its
+  replies to all 151 questions were counted, held-out ones included: 5 replies had given an English question
+  that quotes Spanish words back unchanged, and a sentence was added for that case. No answer and no search
+  result was read for it.
+- One run of a setting is one sample: the writer's answers change from run to run
+  ([Written answers](#written-answers)).
+
+### What was found
+
+As served until then: one vector of the question, one search. For each test question, the first 5, 20 and 50
+passages of that search, by the passage's language against the question's (mean number of passages in the other
+language; questions with none):
+
+| Questions | n | Among the first 5 | Among the first 20 | Among the first 50 |
+|---|---|---|---|---|
+| Literature, in English | 22 | 0.59; 15 with none | 3.18; 7 with none | 8.05; 2 with none |
+| Literature, in Spanish | 19 | 0.79; 10 with none | 3.58; 3 with none | 8.63; none with none |
+| Catalogue, in English | 40 | 0.20; 33 with none | 2.17; 21 with none | 5.05; 15 with none |
+| Catalogue, in Spanish | 40 | 0.70; 25 with none | 2.27; 13 with none | 6.85; 4 with none |
+| Catalogue and literature, in English | 62 | 0.34; 48 with none | 2.53; 28 with none | 6.11; 17 with none |
+| Catalogue and literature, in Spanish | 59 | 0.73; 35 with none | 2.69; 16 with none | 7.42; 4 with none |
+
+Of the first five passages of an English question, 73% were in English, 11% in Spanish and 17% could not be
+told; of a Spanish question, 78% in Spanish, 13% in English and 9% not told. So 83 of the 121 questions of the
+catalogue and the literature got no passage in the other language among the five shown, whatever the other
+language's publications held.
+
+### Five passages, and lists of five
+
+The rewriting call was asked once for each of the 151 questions; both texts were searched to 50 passages; the
+two lists were joined off line by reciprocal rank fusion (constant 60), each list cut at a depth, and the first
+passages of the joined list were scored with the gold. Development literature questions, 26: questions with a
+page graded 2 among the first passages, and (in brackets) questions whose first five hold both languages.
+
+| | The first 5 | The first 6 | The first 8 |
+|---|---|---|---|
+| Before: the question's own list | 21 (10) | 22 | 25 |
+| Joined, each list cut at 5 | 24 (26) | 25 | 25 |
+| Joined, each list cut at 8 | 24 (26) | 25 | 25 |
+| Joined, each list cut at 10 | 22 (24) | 25 | 25 |
+| Joined, each list cut at 20 | 24 (21) | 24 | 25 |
+| Joined, each list cut at 50 | 24 (21) | 24 | 26 |
+
+- **Five passages are shown and given to the writer, as before.** At the same five the joined list answers 24 of
+  the 26 questions against 21 and loses none. Six or eight passages give one more question at most, and one
+  question is 3.8 points of 26; eight passages of the question's own list had been tried before and did not
+  raise the answers ([What was kept](#what-was-kept)). The same number also leaves the write call's cost as it
+  was and lets the answers be compared before and after. The choice was made on the search, before any answer
+  of the new search was read; eight passages were tried afterwards ([below](#the-same-questions-before-and-after)).
+- **Each search returns five.** Deeper lists answer as many questions (the row at 10 is two lower, at 20 and 50
+  the same as at 5), and they fill the five shown with passages that both searches found, which left 5 of the
+  26 questions with one language only. A search of 50 passages takes the same 0.09 s as one of 5, so the depth
+  was not chosen for time.
+- **The fusion looks at ranks, not at how good a passage is.** Among the five shown for the 26 questions, the 45
+  passages that only the translation's search found were graded 17 answers, 12 supports, 16 neither; the 45
+  passages that were among the question's own five and are not among the joined five, 14, 14 and 17. Their
+  similarity to the text that found them: median 0.67 for those that came in, 0.64 for those that left; 3 of the
+  45 are under 0.60. No minimum similarity was added.
+- **One document in both languages.** Some publications print a text in Spanish and in English. Among the five
+  shown, one document appears in both languages for none of the 41 literature questions, 2 of the 80 catalogue
+  questions and 2 of the 30 out of scope. Nothing was added against it.
+
+**Held out, once, after the choice** (15 literature questions): a page graded 2 among the five for 14, against
+15 with the question's own list; one question lost (`lit-014-en`), none won. Whole set, 41 questions: 38 against
+36 (three development questions won, that one lost); of all 49 drafts, 38 against 36. Questions whose five hold
+both languages: 41 of 41 against 16.
+
+Per-question ranks and counts of this off-line comparison: `eval/outcomes/both_languages.json`. Its script is
+not in this repository.
+
+### The same questions, before and after
+
+The 151 questions and the ten follow-ups, asked once a run through `POST /api/chat` of a backend on the
+development machine, in hosted mode, against the hosted stores, with the web setting and the short vector on (as
+served) and the excerpt from a passage's start; judged by the same judge with the same two prompts as every run
+above. Eight runs, all on 24 November 2026:
+
+- **Before:** the code as it was (`main` at `1dc9c10`), twice; and that code with the fix of the joined sentences
+  alone (below), once. One text, one literature search.
+- **After, five passages:** this version, three times.
+- **After, eight passages:** this version with `ASK_PASSAGES=8` (each search then returns eight), twice. Tried
+  after the first numbers were seen, to tell whether the passages that left the five explain them.
+
+| | Before | Before | Before, with the fix | After, 5 | After, 5 | After, 5 | After, 8 | After, 8 |
+|---|---|---|---|---|---|---|---|---|
+| Run (`eval/outcomes/answers_v11-…`) | `before` | `before-2` | `fix-1` | `after-1` | `after-2` | `after-3` | `p8-1` | `p8-2` |
+| Literature (41): a page graded 2 among the first five | 36 | 36 | 36 | 38 | 38 | 38 | 38 | 38 |
+| The same, development questions (26) | 21 | 21 | 21 | 24 | 24 | 24 | 24 | 24 |
+| Catalogue and literature (121): shown passages in both languages | 38 | 38 | 38 | 119 | 118 | 119 | 121 | 121 |
+| Catalogue (80): the issue first, with the fact in its card | 75 | 75 | 75 | 75 | 75 | 75 | 75 | 75 |
+| Catalogue: written / supported / correct | 80 / 63 / 77 | 80 / 60 / 76 | 80 / 63 / 78 | 80 / 62 / 74 | 80 / 65 / 75 | 80 / 59 / 77 | 80 / 66 / 75 | 80 / 58 / 72 |
+| Catalogue: gives what the question asks | 79 | 77 | 78 | 74 | 73 | 76 | 74 | 73 |
+| Catalogue, development questions (48): correct | 47 | 45 | 47 | 44 | 44 | 45 | 44 | 42 |
+| Literature (41): written / supported | 41 / 29 | 40 / 26 | 38 / 31 | 41 / 27 | 41 / 24 | 41 / 26 | 40 / 20 | 40 / 24 |
+| Literature: correct ("yes", in full) / in part | 10 / 30 | 10 / 30 | 10 / 27 | 8 / 32 | 8 / 33 | 7 / 33 | 10 / 30 | 12 / 27 |
+| Literature: gives what the question asks | 17 | 19 | 14 | 15 | 16 | 14 | 14 | 17 |
+| Literature, development questions (26): in full | 6 | 6 | 6 | 5 | 5 | 4 | 4 | 7 |
+| Answers in another language than the question: English / Spanish questions | 2 / 0 | 1 / 0 | 0 / 1 | 1 / 0 | 2 / 1 | 0 / 1 | 0 / 2 | 1 / 1 |
+| Citations that did not hold (every row) | 0 of 390 | 0 of 377 | 0 of 354 | 0 of 383 | 0 of 377 | 0 of 393 | 0 of 396 | 0 of 394 |
+| Sentences with no citation, removed (every row) | 90 of 405 | 108 of 414 | 108 of 413 | 103 of 436 | 104 of 445 | 101 of 458 | 103 of 457 | 93 of 437 |
+| Answers with two sentences shown joined | 7 | 14 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Out of scope (30): no written answer | 28 | 28 | 30 | 28 | 29 | 28 | 28 | 30 |
+| Follow-ups (10): the first question's issue first / in the first three | 9 / 10 | 9 / 10 | 9 / 10 | 9 / 10 | 9 / 10 | 9 / 10 | 9 / 10 | 9 / 10 |
+| Cost of a question, USD: median / mean | 0.00064 / 0.00071 | 0.00065 / 0.00071 | 0.00063 / 0.00068 | 0.00084 / 0.00090 | 0.00085 / 0.00089 | 0.00085 / 0.00090 | 0.00095 / 0.00100 | 0.00095 / 0.00101 |
+| Wait for the evidence / the answer, median, s | 2.94 / 5.24 | 2.99 / 5.31 | 2.07 / 4.83 | 4.27 / 6.79 | 4.31 / 6.88 | 2.69 / 5.29 | 2.65 / 5.59 | 2.74 / 5.55 |
+
+- **The search finds more.** A page that answers among the five for 38 of the 41 literature questions in every
+  run after, 36 in every run before (24 against 21 of the development questions); passages in both languages for
+  118 to 121 of the 121 questions of the catalogue and the literature, against 38. With five passages, a
+  literature question gets 2.1 to 2.2 of them in the other language (English and Spanish questions), against
+  0.6 to 0.8; a catalogue question 1.7 to 2.2, against 0.2 to 0.8.
+- **The written answers did not rise with it; by the judge's marks they are a little lower.** With five
+  passages, the literature answers that agree in full with the reference are 8, 8 and 7 of 41, against 10 in all
+  three runs before, and on the development questions 5, 5 and 4 of 26 against 6. The catalogue answers that
+  state the catalogue's value are 74, 75 and 77 of 80 against 77, 76 and 78; earlier runs of the served setting
+  gave 69 to 78. Two things were looked at:
+  - *Which answers moved.* Among the literature questions, `lit-006-es` was in full in all three runs before and
+    in none after, and `lit-002-es` in two before and none after: a page of the question's own language that
+    answered them left the five, in the first case for a page in the other language that is also graded 2. Over a run, more of the shown passages
+    stand on pages graded 2 (94 against 90) and more of the cited ones (64 against 59). Among the catalogue
+    questions, counting the runs with eight passages too, one is correct less often after and one more often;
+    every answer cites the right issue's card before and after. The catalogue's lower counts are spread over different questions from run to run.
+  - *The reference shares the gap.* "In full" compares an answer with a reference the judge wrote from the pages
+    of its first pass, which the question's own search had pooled. An answer written from a page in the other
+    language that the judge graded as answering can differ from that reference. The references were not written
+    again, so how much of the drop is the answers' and how much the measure's is not known.
+- **With eight passages** the literature answers in full are 10 and 12 of 41 (two runs), as before or more, and
+  their supported counts are the lowest of the table (20 and 24); the catalogue answers are no better (75 and
+  72 correct); a question costs 0.0010 USD. Five stayed the default: it was chosen on the search, before any
+  answer was read, and two runs do not settle the other.
+- **Answers in another language than the question:** 4 in the three runs before (1.3 a run), 5 in the three
+  runs after with five passages (1.7), 4 in the two with eight (2.0). On Spanish questions: 1 in three runs
+  before, 2 in three after, 3 in two with eight. Small counts; not lower.
+- **No citation failed to hold** in any run. The fix of the joined sentences is in every run after and in the
+  third run before: no answer shows two sentences joined, where 7 and 14 did.
+- **Cost and time.** A question now takes two model calls. The rewriting call: 1,525 tokens in and 62 out on
+  average, 0.00018 USD, 1.03 s at the median and 1.84 s at the 95th percentile (`after-1`; 0.97 to 1.04 s in the
+  five runs). A question costs 0.0009 USD on average against 0.0007, and 0.0015 at most. The evidence reaches
+  the page about a second later than before: the rewriting call stands in front of the search. The waits of the
+  table are from the development machine, which the runs shared with the judge or with another run in different
+  ways: they are not a comparison of two versions. Through the public service this version has not been
+  measured.
+
+**What this part does not show.** One day, one judge, questions whose gold and references were made with the
+old search. Whether a collector reads a better answer when the evidence comes in both languages was not asked
+of a person.
+
 ## Other limits
 
 - The pool that produced the gold was built from keyword, vector and hybrid search, so those arms are favoured
   over any method not in the pool. The top-ups in step 5 remove the bias between the runs reported here, not
-  towards a future method.
+  towards a future method. The search in both languages was such a method: its pages were graded before it was
+  scored, and the reference answers were left as they were
+  ([The same questions, before and after](#the-same-questions-before-and-after)).
 - Hybrid search on the hosted collection does not repeat from run to run.
 - Latency from a home connection to the hosted cluster, warm, per search, without the embedding call: keyword
   77–80 ms median, vector 86–87 ms, hybrid 120–123 ms. These are the searches alone; the waits through the
@@ -822,6 +1000,9 @@ reported as measured; nothing here lets a reader recount them.
 - The 13 places of 309 sentences counted for the rule on where a sentence ends
   ([As served](#as-served-two-runs-of-the-whole-set-with-the-web-setting-on)).
 - The search latencies from a home connection ([Other limits](#other-limits)).
+- For the literature in both languages: the 0.09 s of a search at 5 and at 50 passages, the five replies of the
+  rewriting call that came back unchanged, and which answers moved between the runs (the counts of shown and
+  cited passages on pages graded 2) ([The literature in both languages](#the-literature-in-both-languages)).
 - The cost of all question embeddings, under 0.01 USD ([Data notes](#data-notes)).
 - In the README: the corpus counts (1,424 documents, their years; 653 passages from 296 documents for the First
   Issue), the store-dependent tests that passed on 2026-11-18, and the half minute the demo takes to wake.
